@@ -1,0 +1,85 @@
+{
+  "patient": {
+    "id": "89186257",
+    "identifier": "739796a9-2632-4823-860e-374f0e3ff60c",
+    "name": "Christina P."
+  },
+  "practitioner": {
+    "id": "98298415",
+    "name": "Robert Smith",
+    "gender": "male",
+    "license": "MD",
+    "identifier": "23902678"
+  },
+  "service_request": {
+    "id": "131287581",
+    "status": "active",
+    "intent": "order",
+    "code_system": "LOINC",
+    "patient_id": "89186257",
+    "practitioner_id": "98298415"
+  },
+  "observations": [
+    {
+      "id": "131291234",
+      "type": "Gait Speed",
+      "loinc_code": "43150-2",
+      "date": "2025-12-20",
+      "value": 0.82,
+      "unit": "m/s",
+      "note": "Baseline: Patient independent with SPC."
+    },
+    {
+      "id": "131291529",
+      "type": "Gait Speed",
+      "loinc_code": "43150-2",
+      "date": "2026-01-25",
+      "value": 0.52,
+      "unit": "m/s",
+      "note": "Temporary decline after flu."
+    }
+  ],
+  "lab_results": [
+    {
+      "date": "2026-02-28",
+      "hemoglobin": 12,
+      "albumin": 3,
+      "sodium": 138,
+      "potassium": 6,
+      "calcium": 5,
+      "phosphorus": 9,
+      "pth": 200,
+      "phosphorus_calcium_product": 50
+    },
+    {
+      "date": "2026-02-04",
+      "hemoglobin": 11,
+      "albumin": 5,
+      "sodium": 143,
+      "potassium": 5,
+      "phosphorus": 5,
+      "pth": 121
+    }
+  ],
+  "dialysis_metrics": {
+    "date": "2026-03-11",
+    "ktv_hemodialysis": 1.5,
+    "fluid_removed_ml": 2000
+  },
+  "documents": [
+    {
+      "id": "131340692",
+      "type": "Practitioner Clinical Assessment",
+      "date": "2026-03-11",
+      "format": "pdf",
+      "binary_url": "Binary/131340690"
+    },
+    {
+      "id": "131340693",
+      "type": "Patient Questionnaire",
+      "date": "2026-03-11",
+      "format": "pdf",
+      "binary_url": "Binary/131340691"
+    }
+  ]
+}

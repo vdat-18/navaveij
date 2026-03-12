@@ -49,7 +49,6 @@ subgraph DATA_STORES["Data Stores"]
         LOG["Audit Logger<br>prompt · context · response · model ID · latency<br>(immutable · PDPA)"]
   end
  subgraph PLATFORM["AI Inference Platform  —  query time"]
-        SMART_AUTH["SMART on FHIR Auth<br>Scope-based access control"]
         MCP_ZONE
         PIIM["PII Masking<br>(de-identify)"]
         AI_ENGINE
@@ -80,7 +79,7 @@ subgraph DATA_STORES["Data Stores"]
     MODEL_CFG_DB L_MODEL_CFG_DB_AI_ENGINE_0@-. read .-> AI_ENGINE
     TPL_VAULT -. load .-> AI_ENGINE
     MCP_ZONE --> PIIM
-    PIIM --> GW
+    PIIM --> AI_ENGINE
     GW --> TPL
     TPL --> ORCH
     ORCH --> AI
@@ -91,7 +90,7 @@ subgraph DATA_STORES["Data Stores"]
     SRV -- All pass --> PIIR
     SRV -- Violation detected --> FALLBACK
     FALLBACK -. "rule-only output" .-> PIIR
-    GW -. AI unavailable .-> DEG
+    FALLBACK -. AI unavailable .-> DEG
     DEG -. "rule-only output" .-> PIIR
     PIIR --> DASH & PLAN
     DASH --> ADMIN
@@ -110,12 +109,10 @@ subgraph DATA_STORES["Data Stores"]
     style MCP4        fill:#E0F2F1,stroke:#00695C,color:#000
     style GW          fill:#E8F5E9,stroke:#2E7D32,color:#000
     style TPL         fill:#FFF8E1,stroke:#F9A825,color:#000
-    style AI_HARNESS  fill:#EDE7F6,stroke:#4527A0,color:#000
     style ORCH        fill:#D1C4E9,stroke:#4527A0,color:#000
     style AI          fill:#E3F2FD,stroke:#1565C0,color:#000
     style OSV         fill:#FFF8E1,stroke:#F9A825,color:#000
     style LOG         fill:#E8EAF6,stroke:#283593,color:#000
-    style SMART_AUTH   fill:#FFEBEE,stroke:#C62828,color:#000
     style PIIM        fill:#FFEBEE,stroke:#C62828,color:#000
     style SRV         fill:#FFEBEE,stroke:#C62828,color:#000
     style FALLBACK    fill:#FFEBEE,stroke:#C62828,color:#000
