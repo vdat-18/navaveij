@@ -1,0 +1,534 @@
+{
+  "_schema_note": "Simplified FHIR-derived input schema for the Clinical Signal Engine. Not raw FHIR — this is the normalized intermediate representation produced by the DE pipeline's FHIR Transform layer. Each lab/vital entry includes LOINC code, unit, and reference_range. Multiple historical entries enable trend and velocity computation.",
+  "_schema_version": "1.0",
+  "_generated": "2026-03-12",
+
+  "patient": {
+    "id": "pt-56291047",
+    "fhir_patient_id": "Patient/patient-56291047",
+    "mrn": "MRN-20190847",
+    "name": "Somchai W.",
+    "gender": "male",
+    "birth_date": "1971-08-14",
+    "age": 54,
+    "ethnicity": "asian"
+  },
+
+  "practitioner": {
+    "id": "dr-98102847",
+    "name": "Dr. Arisa Thanapon",
+    "license": "MD",
+    "specialty": "Internal Medicine"
+  },
+
+  "service_request": {
+    "id": "sr-20260311-56291047",
+    "status": "active",
+    "intent": "order",
+    "authored_on": "2026-03-11",
+    "patient_id": "pt-56291047",
+    "practitioner_id": "dr-98102847"
+  },
+
+  "observations": {
+
+    "vitals": [
+      {
+        "id": "obs-bmi-2026-02",
+        "type": "BMI",
+        "loinc_code": "39156-5",
+        "date": "2026-02-15",
+        "value": 26.7,
+        "unit": "kg/m2",
+        "reference_range": { "low": 18.5, "high": 22.9, "text": "Normal (Asian-adjusted: <23)" }
+      },
+      {
+        "id": "obs-bmi-2024-11",
+        "type": "BMI",
+        "loinc_code": "39156-5",
+        "date": "2024-11-20",
+        "value": 25.8,
+        "unit": "kg/m2",
+        "reference_range": { "low": 18.5, "high": 22.9, "text": "Normal (Asian-adjusted: <23)" }
+      },
+      {
+        "id": "obs-bmi-2023-08",
+        "type": "BMI",
+        "loinc_code": "39156-5",
+        "date": "2023-08-05",
+        "value": 24.9,
+        "unit": "kg/m2",
+        "reference_range": { "low": 18.5, "high": 22.9, "text": "Normal (Asian-adjusted: <23)" }
+      },
+      {
+        "id": "obs-bp-2026-02",
+        "type": "Blood Pressure Panel",
+        "loinc_code": "85354-9",
+        "date": "2026-02-15",
+        "components": [
+          {
+            "type": "Systolic BP",
+            "loinc_code": "8480-6",
+            "value": 138,
+            "unit": "mmHg",
+            "reference_range": { "high": 120, "text": "Normal <120 mmHg" }
+          },
+          {
+            "type": "Diastolic BP",
+            "loinc_code": "8462-4",
+            "value": 88,
+            "unit": "mmHg",
+            "reference_range": { "high": 80, "text": "Normal <80 mmHg" }
+          }
+        ]
+      },
+      {
+        "id": "obs-bp-2024-11",
+        "type": "Blood Pressure Panel",
+        "loinc_code": "85354-9",
+        "date": "2024-11-20",
+        "components": [
+          { "type": "Systolic BP", "loinc_code": "8480-6", "value": 134, "unit": "mmHg" },
+          { "type": "Diastolic BP", "loinc_code": "8462-4", "value": 85, "unit": "mmHg" }
+        ]
+      },
+      {
+        "id": "obs-bp-2023-08",
+        "type": "Blood Pressure Panel",
+        "loinc_code": "85354-9",
+        "date": "2023-08-05",
+        "components": [
+          { "type": "Systolic BP", "loinc_code": "8480-6", "value": 128, "unit": "mmHg" },
+          { "type": "Diastolic BP", "loinc_code": "8462-4", "value": 82, "unit": "mmHg" }
+        ]
+      },
+      {
+        "id": "obs-weight-2026-02",
+        "type": "Body Weight",
+        "loinc_code": "29463-7",
+        "date": "2026-02-15",
+        "value": 78,
+        "unit": "kg"
+      },
+      {
+        "id": "obs-height-2026-02",
+        "type": "Body Height",
+        "loinc_code": "8302-2",
+        "date": "2026-02-15",
+        "value": 170,
+        "unit": "cm"
+      },
+      {
+        "id": "obs-waist-2026-02",
+        "type": "Waist Circumference",
+        "loinc_code": "8280-0",
+        "date": "2026-02-15",
+        "value": 91,
+        "unit": "cm",
+        "reference_range": { "high": 90, "text": "Normal <90 cm (Asian male)" }
+      }
+    ],
+
+    "labs": [
+      {
+        "id": "obs-fbs-2026-02",
+        "type": "Fasting Blood Glucose",
+        "loinc_code": "1558-6",
+        "date": "2026-02-15",
+        "value": 108,
+        "unit": "mg/dL",
+        "interpretation": "H",
+        "reference_range": { "low": 70, "high": 99, "text": "Normal: 70–99 mg/dL" }
+      },
+      {
+        "id": "obs-fbs-2024-11",
+        "type": "Fasting Blood Glucose",
+        "loinc_code": "1558-6",
+        "date": "2024-11-20",
+        "value": 102,
+        "unit": "mg/dL",
+        "interpretation": "H",
+        "reference_range": { "low": 70, "high": 99, "text": "Normal: 70–99 mg/dL" }
+      },
+      {
+        "id": "obs-fbs-2023-08",
+        "type": "Fasting Blood Glucose",
+        "loinc_code": "1558-6",
+        "date": "2023-08-05",
+        "value": 96,
+        "unit": "mg/dL",
+        "interpretation": "N",
+        "reference_range": { "low": 70, "high": 99, "text": "Normal: 70–99 mg/dL" }
+      },
+      {
+        "id": "obs-hba1c-2026-02",
+        "type": "HbA1c",
+        "loinc_code": "4548-4",
+        "date": "2026-02-15",
+        "value": 6.1,
+        "unit": "%",
+        "interpretation": "H",
+        "reference_range": { "high": 5.7, "text": "Normal <5.7%; Pre-diabetic 5.7–6.4%; Diabetic ≥6.5%" }
+      },
+      {
+        "id": "obs-hba1c-2024-11",
+        "type": "HbA1c",
+        "loinc_code": "4548-4",
+        "date": "2024-11-20",
+        "value": 5.9,
+        "unit": "%",
+        "interpretation": "H"
+      },
+      {
+        "id": "obs-ldl-2026-02",
+        "type": "LDL Cholesterol",
+        "loinc_code": "13457-7",
+        "date": "2026-02-15",
+        "value": 148,
+        "unit": "mg/dL",
+        "interpretation": "H",
+        "reference_range": { "high": 100, "text": "Optimal <100; Borderline 130–159; High 160–189 (ACC/AHA 2018)" }
+      },
+      {
+        "id": "obs-ldl-2024-11",
+        "type": "LDL Cholesterol",
+        "loinc_code": "13457-7",
+        "date": "2024-11-20",
+        "value": 135,
+        "unit": "mg/dL",
+        "interpretation": "H"
+      },
+      {
+        "id": "obs-ldl-2023-08",
+        "type": "LDL Cholesterol",
+        "loinc_code": "13457-7",
+        "date": "2023-08-05",
+        "value": 122,
+        "unit": "mg/dL",
+        "interpretation": "N"
+      },
+      {
+        "id": "obs-hdl-2026-02",
+        "type": "HDL Cholesterol",
+        "loinc_code": "2085-9",
+        "date": "2026-02-15",
+        "value": 42,
+        "unit": "mg/dL",
+        "interpretation": "L",
+        "reference_range": { "low": 40, "text": "Low <40 mg/dL (men); High ≥60 mg/dL" }
+      },
+      {
+        "id": "obs-tg-2026-02",
+        "type": "Triglycerides",
+        "loinc_code": "2571-8",
+        "date": "2026-02-15",
+        "value": 182,
+        "unit": "mg/dL",
+        "interpretation": "H",
+        "reference_range": { "high": 150, "text": "Normal <150; Borderline 150–199; High 200–499 mg/dL" }
+      },
+      {
+        "id": "obs-tg-2024-11",
+        "type": "Triglycerides",
+        "loinc_code": "2571-8",
+        "date": "2024-11-20",
+        "value": 165,
+        "unit": "mg/dL",
+        "interpretation": "H"
+      },
+      {
+        "id": "obs-tc-2026-02",
+        "type": "Total Cholesterol",
+        "loinc_code": "2093-3",
+        "date": "2026-02-15",
+        "value": 218,
+        "unit": "mg/dL",
+        "interpretation": "H",
+        "reference_range": { "high": 200, "text": "Desirable <200; Borderline 200–239; High ≥240 mg/dL" }
+      },
+      {
+        "id": "obs-alt-2026-02",
+        "type": "ALT (SGPT)",
+        "loinc_code": "1742-6",
+        "date": "2026-02-15",
+        "value": 38,
+        "unit": "U/L",
+        "interpretation": "N",
+        "reference_range": { "high": 40, "text": "ULN: 40 U/L (men)" }
+      },
+      {
+        "id": "obs-ast-2026-02",
+        "type": "AST (SGOT)",
+        "loinc_code": "1920-8",
+        "date": "2026-02-15",
+        "value": 34,
+        "unit": "U/L",
+        "interpretation": "N",
+        "reference_range": { "high": 40, "text": "ULN: 40 U/L (men)" }
+      },
+      {
+        "id": "obs-creatinine-2026-02",
+        "type": "Creatinine (serum)",
+        "loinc_code": "2160-0",
+        "date": "2026-02-15",
+        "value": 1.0,
+        "unit": "mg/dL",
+        "interpretation": "N",
+        "reference_range": { "low": 0.7, "high": 1.3, "text": "Normal: 0.7–1.3 mg/dL (men)" }
+      },
+      {
+        "id": "obs-egfr-2026-02",
+        "type": "eGFR (CKD-EPI)",
+        "loinc_code": "62238-1",
+        "date": "2026-02-15",
+        "value": 82,
+        "unit": "mL/min/1.73m2",
+        "interpretation": "N",
+        "reference_range": { "low": 60, "text": "CKD G1 ≥90, G2 60–89, G3a 45–59, G3b 30–44, G4 15–29, G5 <15 (KDIGO)" }
+      },
+      {
+        "id": "obs-egfr-2024-11",
+        "type": "eGFR (CKD-EPI)",
+        "loinc_code": "62238-1",
+        "date": "2024-11-20",
+        "value": 85,
+        "unit": "mL/min/1.73m2",
+        "interpretation": "N"
+      },
+      {
+        "id": "obs-egfr-2023-08",
+        "type": "eGFR (CKD-EPI)",
+        "loinc_code": "62238-1",
+        "date": "2023-08-05",
+        "value": 88,
+        "unit": "mL/min/1.73m2",
+        "interpretation": "N"
+      },
+      {
+        "id": "obs-tsh-2026-02",
+        "type": "TSH",
+        "loinc_code": "3016-3",
+        "date": "2026-02-15",
+        "value": 2.1,
+        "unit": "mIU/L",
+        "interpretation": "N",
+        "reference_range": { "low": 0.4, "high": 4.0, "text": "Normal: 0.4–4.0 mIU/L" }
+      },
+      {
+        "id": "obs-psa-2024-11",
+        "type": "PSA (total)",
+        "loinc_code": "2857-1",
+        "date": "2024-11-20",
+        "value": 1.8,
+        "unit": "ng/mL",
+        "interpretation": "N",
+        "reference_range": { "high": 3.5, "text": "Age-adjusted ULN for 50s: <3.5 ng/mL" }
+      },
+      {
+        "id": "obs-uric-2026-02",
+        "type": "Uric Acid",
+        "loinc_code": "3084-1",
+        "date": "2026-02-15",
+        "value": 7.4,
+        "unit": "mg/dL",
+        "interpretation": "H",
+        "reference_range": { "high": 7.0, "text": "Hyperuricemia: >7.0 mg/dL (men)" }
+      }
+    ],
+
+    "social_history": [
+      {
+        "id": "obs-smoking-2026-02",
+        "type": "Tobacco Smoking Status",
+        "loinc_code": "72166-2",
+        "date": "2026-02-15",
+        "value_coded": {
+          "system": "http://snomed.info/sct",
+          "code": "8517006",
+          "display": "Ex-smoker"
+        }
+      },
+      {
+        "id": "obs-pack-years-2026-02",
+        "type": "Smoking Pack-Years",
+        "loinc_code": "8663-7",
+        "date": "2026-02-15",
+        "value": 22,
+        "unit": "{pack-years}",
+        "note": "Quit 3 years ago. Smoked 1 pack/day for 22 years."
+      },
+      {
+        "id": "obs-audit-c-2026-02",
+        "type": "AUDIT-C Score",
+        "loinc_code": "74013-4",
+        "date": "2026-02-15",
+        "value": 3,
+        "unit": "{score}",
+        "reference_range": { "high": 3, "text": "Positive screen ≥4 (men) / ≥3 (women)" }
+      }
+    ]
+  },
+
+  "conditions": [
+    {
+      "id": "cond-dyslipidemia",
+      "status": "active",
+      "verification_status": "confirmed",
+      "code": {
+        "snomed": { "code": "370992007", "display": "Dyslipidemia" },
+        "icd10": { "code": "E78.5", "display": "Hyperlipidemia, unspecified" }
+      },
+      "onset_date": "2022-03-10",
+      "recorded_date": "2022-03-10"
+    },
+    {
+      "id": "cond-prediabetes",
+      "status": "active",
+      "verification_status": "confirmed",
+      "code": {
+        "snomed": { "code": "15777000", "display": "Prediabetes" },
+        "icd10": { "code": "R73.09", "display": "Other abnormal glucose" }
+      },
+      "onset_date": "2024-11-20",
+      "recorded_date": "2024-11-20"
+    },
+    {
+      "id": "cond-hypertension",
+      "status": "active",
+      "verification_status": "confirmed",
+      "code": {
+        "snomed": { "code": "38341003", "display": "Hypertension" },
+        "icd10": { "code": "I10", "display": "Essential (primary) hypertension" }
+      },
+      "onset_date": "2025-01-15",
+      "recorded_date": "2025-01-15"
+    },
+    {
+      "id": "cond-hyperuricemia",
+      "status": "active",
+      "verification_status": "confirmed",
+      "code": {
+        "snomed": { "code": "35885006", "display": "Hyperuricemia" },
+        "icd10": { "code": "E79.0", "display": "Hyperuricemia without signs of inflammatory arthritis" }
+      },
+      "onset_date": "2026-02-15",
+      "recorded_date": "2026-02-15"
+    }
+  ],
+
+  "procedures": [
+    {
+      "id": "proc-colonoscopy-2019",
+      "status": "completed",
+      "type": "Colonoscopy",
+      "code": { "system": "CPT", "code": "45378", "display": "Colonoscopy, diagnostic" },
+      "performed_date": "2019-06-12",
+      "result_note": "No polyps found."
+    },
+    {
+      "id": "proc-chest-xray-2024",
+      "status": "completed",
+      "type": "Chest X-Ray",
+      "code": { "system": "CPT", "code": "71046", "display": "Radiologic examination, chest; 2 views" },
+      "performed_date": "2024-11-20"
+    },
+    {
+      "id": "proc-ecg-2024",
+      "status": "completed",
+      "type": "12-Lead ECG",
+      "code": { "system": "CPT", "code": "93000", "display": "Electrocardiogram, routine with interpretation" },
+      "performed_date": "2024-11-20"
+    }
+  ],
+
+  "immunizations": [
+    {
+      "id": "imm-influenza-2024",
+      "status": "completed",
+      "vaccine": { "cvx_code": "141", "display": "Influenza, seasonal, injectable" },
+      "administered_date": "2024-10-08",
+      "note": "Annual influenza — due again Oct 2025 (overdue as of Mar 2026)"
+    },
+    {
+      "id": "imm-hepb-2005",
+      "status": "completed",
+      "vaccine": { "cvx_code": "08", "display": "Hepatitis B, pediatric or pediatric/adolescent" },
+      "administered_date": "2005-03-01",
+      "note": "3-dose series completed. Anti-HBs titer not recently checked."
+    }
+  ],
+
+  "family_history": [
+    {
+      "id": "fhx-father-cad",
+      "relationship": { "code": "FTH", "display": "Father" },
+      "relationship_sex": "male",
+      "condition": {
+        "snomed": { "code": "53741008", "display": "Coronary arteriosclerosis" },
+        "icd10": { "code": "I25.10", "display": "Atherosclerotic heart disease of native coronary artery" }
+      },
+      "onset_age": 51,
+      "is_premature_cad": true,
+      "note": "Father had MI at age 51 (premature CAD threshold for males: <55)"
+    },
+    {
+      "id": "fhx-brother-colon",
+      "relationship": { "code": "NBRO", "display": "Natural brother" },
+      "relationship_sex": "male",
+      "condition": {
+        "snomed": { "code": "363406005", "display": "Malignant neoplasm of colon" },
+        "icd10": { "code": "C18.9", "display": "Malignant neoplasm of colon, unspecified" }
+      },
+      "onset_age": 48,
+      "note": "First-degree relative with colon cancer — triggers earlier/more frequent colonoscopy"
+    }
+  ],
+
+  "medications": [
+    {
+      "id": "med-amlodipine",
+      "status": "active",
+      "drug": {
+        "rxnorm_code": "329528",
+        "display": "Amlodipine 5 mg oral tablet",
+        "atc_class": "C08CA01"
+      },
+      "prescribed_date": "2025-01-15",
+      "indication": "Hypertension"
+    },
+    {
+      "id": "med-atorvastatin",
+      "status": "active",
+      "drug": {
+        "rxnorm_code": "617310",
+        "display": "Atorvastatin 10 mg oral tablet",
+        "atc_class": "C10AA05"
+      },
+      "prescribed_date": "2022-04-01",
+      "indication": "Dyslipidemia"
+    }
+  ],
+
+  "questionnaire_responses": [
+    {
+      "id": "qr-lifestyle-2026-02",
+      "type": "Lifestyle & Occupational Risk Questionnaire",
+      "date": "2026-02-15",
+      "responses": [
+        { "question": "Occupational risk", "value_coded": "office_syndrome", "note": "Desk job, 10h/day screen time, neck/shoulder pain" },
+        { "question": "Exercise frequency", "value": 1, "unit": "days/week", "note": "Light walking only" },
+        { "question": "Chief complaints", "value_coded": ["fatigue", "neck_pain", "mild_dyspnea_on_exertion"] }
+      ]
+    }
+  ],
+
+  "documents": [
+    {
+      "id": "doc-clinical-note-2026-02",
+      "type": "Practitioner Clinical Note",
+      "date": "2026-02-15",
+      "format": "pdf",
+      "binary_url": "Binary/doc-56291047-20260215"
+    }
+  ]
+}
