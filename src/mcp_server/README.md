@@ -20,6 +20,7 @@ The MCP Server acts as a secure data bridge between raw patient data/clinical ru
 
 | Tool | Purpose | Key Inputs | Output Example |
 | --- | --- | --- | --- |
+| `get_patient_context` | Demographic & identity info | `patient_id` | `{"name": "...", "age": 54, ...}` |
 | `get_hard_constraints` | Non-negotiable medical rules | `patient_id` | `["Exclude Mammogram", ...]` |
 | `get_clinical_signals` | Risk flags and alerts | `patient_id` | `{"prediabetes_alert": True, ...}` |
 | `get_biomarker_trends` | Historical trend analysis | `patient_id` | `{"bmi_trend": [...], "note": "..."}` |

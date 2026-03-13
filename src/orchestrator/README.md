@@ -15,46 +15,48 @@ This component implements a **Hybrid ReAct Loop** that ensures all clinical reco
 
 ## Project Structure
 
-- `agents/orchestrator.py`: The core engine managing the reasoning loop.
+- `agents/orchestrator.py`: The core engine managing the reasoning loop via BAML.
 - `privacy/`:
-    - `masking.py`: Logic for converting sensitive data into UUID tokens.
+    - `masking.py`: Logic for converting sensitive data into tokens.
     - `rehydration.py`: Logic for restoring tokens to original values.
-- `gateway.py`: Unified API wrapper for LLM providers.
-- `validation/`: (In-progress) Rules for output verification and clinical safety.
-- `logger/`: (In-progress) Implements immutable, hash-chained audit logging.
+- `safety/`:
+    - `validator.py`: Implements the `ClinicalSafetyGuard` for AI response verification.
+- `logger/`:
+    - `audit.py`: Implements a 5-dimensional audit logger for compliance.
 
 ## Usage
 
 ### Prerequisites
 
 - Ensure the [Clinical MCP Server](../mcp_server/README.md) is configured.
-- Environment variables:
-    - `NAVAVEIJ_MODEL_PROVIDER` (default: `openai`)
-    - `NAVAVEIJ_MODEL_ID` (default: `gpt-4o`)
-    - `OPENAI_API_KEY` (required if using OpenAI)
+- Environment variables (in `.env`):
+    - `LLM_MODEL`: The model name (e.g., `llama-3.2-3b-instruct`).
+    - `LLM_BASE_URL`: OpenAI-compatible endpoint.
+    - `LLM_API_KEY`: API key if required.
 
 ### Installation
 
 ```bash
 uv sync
+baml-cli generate
 ```
 
 ### Running the Orchestrator (Integration Test)
-
-To verify the end-to-end flow (MCP -> Masking -> Mock AI -> Rehydration), run the following command from the project root:
 
 ```bash
 PYTHONPATH=. uv run python test_orchestrator.py
 ```
 
-## How It Works (The 3-Step Loop)
+## How It Works (The Clinical reasoning Loop)
 
-1.  **Phase 1 — Discovery**: The orchestrator connects to the MCP Server and calls `get_patient_context`, `get_hard_constraints`, `get_clinical_signals`, etc.
-2.  **Phase 2 — Transformation**: The `PIIMasker` identifies fields like `birth_date` and replaces them with tokens (e.g., `tok_123456`).
-3.  **Phase 3 — Recommendation**: The cleaned data is sent to the LLM. The LLM's response is then "rehydrated" by the `PIIRehydrator` to produce the final dashboard-ready JSON.
+1.  **Phase 1 — Discovery**: Calls MCP tools to build a health context snapshot.
+2.  **Phase 2 — Transformation**: Masks PII to ensure privacy before cloud processing.
+3.  **Phase 3 — Recommendation**: Engages BAML to generate a structured recommendation.
+4.  **Phase 4 — Safety Audit**: A secondary AI "Critic" validates the recommendation.
+5.  **Phase 5 — Traceability**: Records an immutable audit log and rehydrates data for the final output.
 
 ## Coding Standards
 
-- **Ruff**: Enforced 120-character line limit.
-- **Validation**: Strict Pydantic v2 schemas.
-- **Logging**: Structured logs via `loguru`.
+- **Ruff**: Enforced formatting and linting.
+- **BAML**: Type-safe LLM outputs and schema enforcement.
+- **Loguru**: Structured logging.

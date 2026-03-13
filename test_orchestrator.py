@@ -1,8 +1,11 @@
 """Integration test for the Clinical Orchestrator flow."""
 
 import asyncio
+from dotenv import load_dotenv
 from loguru import logger
 from src.orchestrator.agents.orchestrator import ClinicalOrchestrator
+
+load_dotenv()
 
 
 async def test_full_orchestration():

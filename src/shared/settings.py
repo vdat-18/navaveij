@@ -46,6 +46,7 @@ class ProjectSettings(LLMSettings, MCPSettings):
 
     environment: str = "dev"
     log_level: LogLevel = LogLevel.INFO
+    audit_log_path: str = "logs/audit.jsonl"
 
 
 settings = ProjectSettings()
