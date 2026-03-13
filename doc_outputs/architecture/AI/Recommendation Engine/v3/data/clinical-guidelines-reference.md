@@ -947,6 +947,92 @@ if exercise_days <= 1:
 
 ---
 
+## Section 12 — Echocardiogram Periodic Screening
+
+**Source:** ADA *Standards of Medical Care in Diabetes*, 2024 (cardiovascular surveillance); Clinical practice guidelines for HTN cardiac evaluation
+
+> There is no USPSTF population-wide recommendation for routine echocardiogram screening. The `echo_gap` signal is a **clinical practice indicator** — it fires when a patient with an established indication (DM or active HTN) has not had an echocardiogram within the recommended surveillance interval, or when the Echo has never been performed.
+
+| Indication | Population | Recommended Interval |
+|---|---|---|
+| DM + cardiovascular risk | DM comorbidity + age > 35 + ≥1 CV risk factor | Every 3–5 years (or when symptoms change) |
+| Active HTN (Stage 1 or 2) | HTN comorbidity confirmed | Every 3–5 years (baseline + surveillance) |
+| Intermediate ASCVD risk | Age ≥ 50 + ASCVD 7.5–19.9% | Clinical discretion |
+
+**FHIR Signal:** `Procedure` CPT `93306` / `93307` + `Procedure.performedDateTime`
+
+**Signal Processing Rules:**
+```
+echo_indicated = any([
+  comorbidity_tag includes "DM" and age > 35,
+  comorbidity_tag includes "HTN",
+  age >= 50 and ascvd_risk >= 7.5
+])
+
+if echo_indicated:
+  echo_last = get_last_procedure_date("CPT:93306", "CPT:93307")
+  interval_months = 60  # 5-year standard; shorten to 36 for high-risk HTN
+  if echo_last is null:
+    → screening_gap: "echo_gap", priority_color: "Yellow"
+  elif days_since(echo_last) > interval_months * 30:
+    → screening_gap: "echo_gap", priority_color: "Yellow"
+```
+
+> **Note on ECG:** ECG is included in Diamond-tier Navavej packages and is not modeled as a standalone add-on signal. No `ecg_gap` signal is produced by the Recommendation Engine.
+
+---
+
+## Section 13 — Sleep Apnea Screening
+
+**Source:** AASM (American Academy of Sleep Medicine) *Clinical Practice Guideline for Diagnostic Testing for Adult Obstructive Sleep Apnea*, 2017
+
+> The `sleep_apnea_screen_result` signal is populated from a **QuestionnaireResponse** (not a lab or procedure). It fires when structured screening indicates high risk for obstructive sleep apnea (OSA), enabling the Recommendation Engine to trigger the Full Sleep Test (PSG) add-on.
+
+### 13.1 STOP-BANG Screening Criteria
+
+| Criterion | Score |
+|---|---|
+| **S**noring (audible at closed door) | 1 |
+| **T**ired / sleepy during daytime | 1 |
+| **O**bserved apnea (witnessed cessation) | 1 |
+| **P**ressure (hypertension diagnosed or treated) | 1 |
+| **B**MI > 35 (global) / > 30 (Asian-adjusted) | 1 |
+| **A**ge > 50 | 1 |
+| **N**eck circumference > 40 cm | 1 |
+| **G**ender = male | 1 |
+
+| STOP-BANG Score | OSA Risk | Signal |
+|---|---|---|
+| 0 – 2 | Low | No signal |
+| 3 – 4 | Intermediate | `sleep_apnea_screen_result: "intermediate"` |
+| 5 – 8 | High | `sleep_apnea_screen_result: "high"` |
+
+**FHIR Signal:** `QuestionnaireResponse` (STOP-BANG instrument); BMI `Observation` LOINC `39156-5`; BP `Observation` LOINC `85354-9`
+
+### 13.2 Signal Processing Rules
+
+```
+bmi_stopbang_threshold = 30 if ethnicity == "asian" else 35
+
+# Structured clinical fallback (when STOP-BANG not completed)
+high_risk_osa = any([
+  bmi >= bmi_stopbang_threshold and bp_category in ["Stage1_HTN", "Stage2_HTN"],
+  occupational_tag includes "night_shift" and bmi >= 23,
+  comorbidity_tag includes "HTN" and bmi >= bmi_stopbang_threshold
+])
+
+if stopbang_score >= 5 or high_risk_osa:
+  → signal: "sleep_apnea_screen_result: high"
+  → add_on: "sleep_apnea_psg"
+elif stopbang_score >= 3:
+  → signal: "sleep_apnea_screen_result: intermediate"
+  → add_on_consideration: "sleep_apnea_psg" (Yellow priority)
+```
+
+> **Maps to Navavej:** Full Sleep Test — 1 Night PSG (฿10,900) · Sleep Apnea Testing with CPAP Trial (฿12,500)
+
+---
+
 ## Appendix — Consolidated Signal Processing Rules Summary
 
 This table maps every clinical signal flag to its source guideline for traceability.
@@ -965,25 +1051,28 @@ This table maps every clinical signal flag to its source guideline for traceabil
 | `bp_category: Stage1_HTN` | SBP 130–139 OR DBP 80–89 | ACC/AHA BP | 2017 |
 | `bp_category: Stage2_HTN` | SBP ≥ 140 OR DBP ≥ 90 | ACC/AHA BP | 2017 |
 | `hypertensive_crisis` | SBP > 180 OR DBP > 120 | ACC/AHA BP | 2017 |
-| `bmi_overweight` | BMI ≥ 23 (Asian) / ≥ 25 (global) | WHO / Asia-Pacific | 2000 |
-| `bmi_obese` | BMI ≥ 27.5 (Asian) / ≥ 30 (global) | WHO / Asia-Pacific | 2000 |
+| `bmi_overweight_asian` | BMI ≥ 23 (Asian) / ≥ 25 (global) | WHO / Asia-Pacific | 2000 |
+| `bmi_obese_asian` | BMI ≥ 27.5 (Asian) / ≥ 30 (global) | WHO / Asia-Pacific | 2000 |
 | `lung_ct_threshold_met` | Age 50–80 + ≥20 pack-yrs + current/quit ≤15yr | USPSTF Lung | 2021 |
 | `screening_gap: mammogram` | Age 40–74 female, > 24mo since last | USPSTF Breast | 2024 |
 | `screening_gap: cervical_cancer_screen` | Age 21–65 female, > 36 or 60mo since last | USPSTF Cervical | 2018 |
 | `screening_gap: colonoscopy` | Age 45–85, > 10yr (or 5yr if FHx) since last | USPSTF Colorectal | 2021 |
-| `screening_gap: bone_density_dexa` | Female ≥ 65, overdue | USPSTF Osteoporosis | 2018 |
+| `dexa_screening_gap` | Female ≥ 65, overdue | USPSTF Osteoporosis | 2018 |
 | `vaccination_gap: influenza_overdue` | > 14mo since last flu vaccine | CDC ACIP | 2024 |
 | `vaccination_gap: hepatitis_b_not_started` | 0 Hep B doses | CDC ACIP | 2022 |
 | `vaccination_gap: hpv_incomplete` | Age ≤ 26, < 3 doses | CDC ACIP | 2023 |
 | `vaccination_gap: pneumococcal_not_done` | Age ≥ 65, no pneumococcal vaccine | CDC ACIP | 2022 |
 | `vaccination_gap: shingrix_incomplete` | Age ≥ 50, < 2 RZV doses | CDC ACIP | 2017 |
 | `fibroscan_indicated` | AUDIT-C positive + elevated ALT, OR TG ≥ 200, OR BMI ≥ 23/25 + elevated ALT | AASLD | 2023 |
-| `ascvd_high` | ASCVD 10-yr risk ≥ 10% | ACC/AHA Pooled Cohort | 2013/2018 |
+| `ascvd_risk_intermediate` | ASCVD 10-yr risk 7.5–19.9% | ACC/AHA Pooled Cohort | 2013/2018 |
+| `ascvd_high` | ASCVD 10-yr risk ≥ 10% (also covered by `ascvd_risk_intermediate` ≥ 7.5%) | ACC/AHA Pooled Cohort | 2013/2018 |
 | `ascvd_very_high` | ASCVD 10-yr risk ≥ 20% | ACC/AHA Pooled Cohort | 2013/2018 |
 | `at_risk_alcohol_use` | AUDIT-C ≥ 3 (F) / ≥ 4 (M) | NIAAA / AUDIT-C | 2005 |
-| `hyperuricemia` | Uric acid > 7.0 (M) / > 6.0 (F) mg/dL | ACR Gout | 2020 |
+| `uric_acid_hyperuricemia` | Uric acid > 7.0 (M) / > 6.0 (F) mg/dL | ACR Gout | 2020 |
 | `office_syndrome` | Questionnaire: prolonged sedentary desk work | WHO Workers' Health | 2008 |
 | `night_shift_worker` | Questionnaire: rotating/permanent night shift | WHO Workers' Health | 2008 |
+| `echo_gap` | DM comorbidity or active HTN or ASCVD intermediate, > 60mo since last Echo | Clinical practice / ADA 2024 | 2024 |
+| `sleep_apnea_screen_result` | STOP-BANG ≥ 3 OR high-risk clinical criteria (BMI + HTN/night-shift) | AASM OSA Guideline | 2017 |
 | `hard_constraint: no_contrast_procedures` | eGFR < 30 | KDIGO | 2022 |
 | `hard_constraint: EST_contraindicated` | Hypertensive crisis active | AHA/ACC Exercise Testing | 2002 |
 | `hard_constraint: exclude_mammogram` | Male patient | Eligibility | — |

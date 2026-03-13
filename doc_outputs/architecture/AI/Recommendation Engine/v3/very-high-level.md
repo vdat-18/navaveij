@@ -2,7 +2,7 @@
 
 Each block below represents a major zone from the detailed high-level diagram. All PII protection, access control, safety validation, and data re-identification are consolidated into the **PII & Safety** block.
 
----
+***
 
 ```mermaid
 ---
@@ -67,19 +67,20 @@ flowchart LR
   style REC_PLATFORM  fill:#F3F8FF,stroke:#1A237E,color:#000,stroke-width:2px
 ```
 
----
+***
 
 ## Block Contents
 
-| Block | Contains |
-|-------|----------|
-| **Hospital Networks** | Hospital A · B · C HIS systems |
-| **Data Pipeline** | FHIR R4 Transform · Feature Engineering · Clinical Signal Engine |
-| **Data Stores** | Signal Store · Ruleset Store · Model Config Store · Prompt Template Vault |
-| **Admin Panel** | Admin-configurable ruleset + AI model settings (no code change) |
-| **Recommendation Platform** | MCP Server · PII & Safety · Pluggable AI Engine |
-| ↳ **MCP Server** | `get_clinical_signals` · `get_biomarker_trends` · `get_hard_constraints` · `get_program_ruleset` |
-| ↳ **PII & Safety** | SMART on FHIR Auth · PII Masking · Safety Rule Validator · Fallback · Graceful Degradation · PII Rehydration |
-| ↳ **Pluggable AI Engine** | AI Gateway · Prompt Template Selector · Inference Orchestrator · AI Model · Output Schema Validator · Audit Logger |
-| **Output Layer** | ROC Dashboard · Personalized Checkup Plan · SalesAdmin Review · Approval decision |
-| **Feedback Store** | Rejection reasons · Model improvement input |
+| Block                       | Contains                                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Hospital Networks**       | Hospital A · B · C HIS systems                                                                                     |
+| **Data Pipeline**           | FHIR R4 Transform · Feature Engineering · Clinical Signal Engine                                                   |
+| **Data Stores**             | Signal Store · Ruleset Store · Model Config Store · Prompt Template Vault                                          |
+| **Admin Panel**             | Admin-configurable ruleset + AI model settings (no code change)                                                    |
+| **Recommendation Platform** | MCP Server · PII & Safety · Pluggable AI Engine                                                                    |
+| ↳ **MCP Server**            | `get_clinical_signals` · `get_biomarker_trends` · `get_hard_constraints` · `get_program_ruleset`                   |
+| ↳ **PII & Safety**          | SMART on FHIR Auth · PII Masking · Safety Rule Validator · Fallback · Graceful Degradation · PII Rehydration       |
+| ↳ **Pluggable AI Engine**   | AI Gateway · Prompt Template Selector · Inference Orchestrator · AI Model · Output Schema Validator · Audit Logger |
+| **Output Layer**            | ROC Dashboard · Personalized Checkup Plan · SalesAdmin Review · Approval decision                                  |
+| **Feedback Store**          | Rejection reasons · Model improvement inpu                                                                         |
+

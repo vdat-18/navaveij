@@ -208,7 +208,7 @@ signal_coverage = len(signals_fired) / len(applicable_signals)
     "fbs_status", "hba1c_status", "ldl_status", "hdl_status", "tg_status",
     "alt_status", "ast_status", "egfr_status", "tsh_status", "psa_sdm_status",
     "uric_acid_status", "bp_category", "bmi_status",
-    "colonoscopy_screening_gap", "chest_xray_gap", "ecg_gap", "est_gap",
+    "colonoscopy_screening_gap", "est_gap",
     "lung_ldct_gap",
     "influenza_vaccination_gap", "hepatitis_b_vaccination_status", "pneumococcal_vaccination_gap", "shingrix_vaccination_gap",
     "family_hx_premature_cad", "family_hx_colon_ca",
@@ -236,7 +236,6 @@ signal_coverage = len(signals_fired) / len(applicable_signals)
     "family_hx_premature_cad",
     "family_hx_colon_ca_first_degree",
     "lung_ct_threshold_met",
-    "at_risk_alcohol_use",
     "office_syndrome",
     "dyslipidemia_active",
     "htn_active",
@@ -1132,13 +1131,15 @@ confidence_score  = (0.4 × signal_coverage) + (0.4 × data_completeness) + (0.2
 
 **For Somchai W.:**
 ```
-signal_coverage   = 23 / 35 = 0.657
+signal_coverage   = 22 / 33 = 0.667
+  # applicable_signals: 33 (chest_xray_gap and ecg_gap removed — not used in any add-on trigger or tier rule)
+  # signals_fired: 22 (at_risk_alcohol_use removed — AUDIT-C 3 is below male threshold of 4)
 data_completeness = 40 / 45 = 0.889
 rule_agreement    = 1.0 (assuming AI agrees with Advanced tier)
 
-confidence_score  = (0.4 × 0.657) + (0.4 × 0.889) + (0.2 × 1.0)
-                  = 0.263 + 0.356 + 0.200
-                  = 0.819  → confidence_tier: "High"
+confidence_score  = (0.4 × 0.667) + (0.4 × 0.889) + (0.2 × 1.0)
+                  = 0.267 + 0.356 + 0.200
+                  = 0.823  → confidence_tier: "High"
 ```
 
 ---
@@ -1167,8 +1168,8 @@ All signal IDs used in `applicable_signals[]`, `signals_fired[]`, and `missing_s
 | `pap_smear_screening_gap` | Screening (female 21–65) | USPSTF 2018 | `Procedure` CPT `88141` |
 | `lung_ldct_gap` | Screening | USPSTF 2021 | `Procedure` CPT `71250` |
 | `dexa_screening_gap` | Screening (female ≥65) | USPSTF 2018 | `Procedure` CPT `77080` |
-| `chest_xray_gap` | Screening | Clinical practice | `Procedure` CPT `71046` |
-| `ecg_gap` | Screening | Clinical practice | `Procedure` CPT `93000` |
+| ~~`chest_xray_gap`~~ | *(removed — CXR is included in all Navavej packages; not used in any add-on trigger or tier rule)* | — | — |
+| ~~`ecg_gap`~~ | *(removed — ECG is bundled in Diamond packages; not used in any add-on trigger or tier rule)* | — | — |
 | `est_gap` | Screening | AHA/ACC 2002 | `Procedure` CPT `93015` |
 | `echo_gap` | Screening | Clinical practice | `Procedure` CPT `93306` |
 | `influenza_vaccination_gap` | Vaccination | CDC ACIP 2024 | `Immunization` CVX `141`/`158` |
