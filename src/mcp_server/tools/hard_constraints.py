@@ -1,6 +1,5 @@
 """Tool for retrieving non-negotiable medical constraints."""
 
-
 from loguru import logger
 
 from src.mcp_server.utils import load_sample_data

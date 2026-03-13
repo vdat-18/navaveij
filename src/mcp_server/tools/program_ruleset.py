@@ -11,7 +11,6 @@ def get_program_ruleset() -> dict:
         "Standard": "Default for low-risk patients under 35.",
         "Advanced": "Recommended for age > 40 or presence of 1-2 mild clinical signals.",
         "Premium": (
-            "Recommended for age > 50 or presence of multiple high-risk signals "
-            "(e.g., Prediabetes + Hypertension)."
+            "Recommended for age > 50 or presence of multiple high-risk signals (e.g., Prediabetes + Hypertension)."
         ),
     }
