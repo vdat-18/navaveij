@@ -51,11 +51,8 @@ class ClinicalOrchestrator:
             result = await session.call_tool(tool_name, arguments=kwargs)
             text_result = result.content[0].text if result.content else None
 
-            # Attempt to parse as JSON for structured masking
-            try:
-                raw_context[tool_name] = json.loads(text_result) if text_result else None
-            except (json.JSONDecodeError, TypeError):
-                raw_context[tool_name] = text_result
+            # Store result directly; AI and downstream tools handle raw/structured format
+            raw_context[tool_name] = text_result
 
             logger.debug(f"Raw result for {tool_name}: {raw_context[tool_name]}")
 
