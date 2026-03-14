@@ -1,12 +1,14 @@
 """FastAPI Entry point for the Navaveij Clinical Recommendation Engine."""
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import uvicorn
 
-from src.orchestrator.agents.orchestrator import ClinicalOrchestrator
+from src.orchestrator.core.manager import OrchestrationManager
+from src.shared.exceptions import NavaveijError
 
 # Load environment variables
 load_dotenv()
@@ -17,8 +19,23 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Initialize the orchestrator (singleton-like for the app context)
-orchestrator = ClinicalOrchestrator()
+# Initialize the orchestrator manager
+manager = OrchestrationManager()
+
+
+@app.exception_handler(NavaveijError)
+async def navaveij_error_handler(request, exc: NavaveijError):
+    """Global handler for domain-specific errors."""
+    logger.error(f"Domain error: {exc.message} | trace_id: {exc.trace_id}")
+    return JSONResponse(
+        status_code=400,
+        content={
+            "error": exc.__class__.__name__,
+            "message": exc.message,
+            "trace_id": exc.trace_id,
+            "metadata": exc.metadata
+        }
+    )
 
 
 class RecommendationRequest(BaseModel):
@@ -47,12 +64,9 @@ async def get_recommendation(request: RecommendationRequest):
     """
     logger.info(f"API Request received for patient: {request.patient_id}")
     
-    # In a real app, errors would bubble up or be handled by middleware
-    result = await orchestrator.generate_recommendation(request.patient_id)
+    # Delegate to Orchestration Manager
+    result = await manager.generate_recommendation(request.patient_id)
     
-    if not result:
-        raise HTTPException(status_code=500, detail="Failed to generate recommendation")
-        
     return result
 
 

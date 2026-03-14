@@ -3,16 +3,16 @@
 import asyncio
 from dotenv import load_dotenv
 from loguru import logger
-from src.orchestrator.agents.orchestrator import ClinicalOrchestrator
+from src.orchestrator.core.manager import OrchestrationManager
 
 load_dotenv()
 
 
 async def test_full_orchestration():
     """Verify the end-to-end flow: MCP -> Masking -> AI Gateway -> Rehydration."""
-    logger.info("Starting integration test for ClinicalOrchestrator")
+    logger.info("Starting integration test for OrchestrationManager")
 
-    orchestrator = ClinicalOrchestrator()
+    orchestrator = OrchestrationManager()
 
     # In a real scenario, this ID would match a record in the MCP source
     patient_id = "pt-001"

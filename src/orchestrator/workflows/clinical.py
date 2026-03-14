@@ -116,7 +116,13 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             if not result.content:
                 raise DataIntegrityError(f"Empty response from MCP tool: {name}")
             
-            return json.loads(result.content[0].text)
+            # FastMCP tools can return multiple content items; we typically want the first one's text
+            raw_text = result.content[0].text
+            try:
+                return json.loads(raw_text)
+            except json.JSONDecodeError:
+                # If not valid JSON, return the raw string (common for list[str] returns in some MCP setups)
+                return raw_text
         except Exception as e:
             logger.error(f"MCP tool call failed ({name}): {str(e)}")
             raise DataIntegrityError(f"Failure in MCP tool {name}: {str(e)}") from e
