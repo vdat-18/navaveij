@@ -171,6 +171,7 @@ Maps every health checkup signal required by the Recommendation Platform to its 
 | **BMI (current)** | Observation | `Observation.valueQuantity.value` | LOINC | `39156-5` |
 | **Body weight** | Observation | `Observation.valueQuantity.value` | LOINC | `29463-7` |
 | **Body height** | Observation | `Observation.valueQuantity.value` | LOINC | `8302-2` |
+| **Waist circumference** | Observation | `Observation.valueQuantity.value` | LOINC | `8280-0` |
 | **BP systolic** | Observation (panel) | `Observation.component[code=8480-6].valueQuantity.value` | LOINC | `8480-6` |
 | **BP diastolic** | Observation (panel) | `Observation.component[code=8462-4].valueQuantity.value` | LOINC | `8462-4` |
 | **Fasting blood glucose (FBS)** | Observation | `Observation.valueQuantity.value` | LOINC | `1558-6`, `76629-5` |
@@ -199,7 +200,8 @@ Maps every health checkup signal required by the Recommendation Platform to its 
 | **Influenza vaccination** | Immunization | `Immunization.occurrenceDateTime` where `vaccineCode` = CVX `141`/`158` | CVX | `141`, `158` |
 | **Hepatitis B vaccination** | Immunization | `Immunization.occurrenceDateTime` where `vaccineCode` = CVX `08` | CVX | `08` |
 | **HPV vaccination** | Immunization | `Immunization.occurrenceDateTime` where `vaccineCode` = CVX `137`/`165` | CVX | `137`, `165` |
-| **Pneumococcal vaccination** | Immunization | `Immunization.occurrenceDateTime` where `vaccineCode` = CVX `133`/`152` | CVX | `133`, `152` |
+| **Pneumococcal vaccination** | Immunization | `Immunization.occurrenceDateTime` where `vaccineCode` = CVX `133`/`152`/`215`/`216` | CVX | `133` (PPSV23), `152` (PCV13), `215` (PCV15), `216` (PCV20) |
+| **Zoster / Shingrix vaccination** | Immunization | `Immunization.occurrenceDateTime` where `vaccineCode` = CVX `187` | CVX | `187` (RZV/Shingrix) |
 | **Diabetes mellitus (comorbidity)** | Condition | `Condition.code` | SNOMED / ICD-10 | SNOMED `44054006`, ICD-10 `E11` |
 | **Hypertension (comorbidity)** | Condition | `Condition.code` | SNOMED / ICD-10 | SNOMED `38341003`, ICD-10 `I10` |
 | **CKD (comorbidity)** | Condition | `Condition.code` | SNOMED / ICD-10 | SNOMED `709044004`, ICD-10 `N18` |
