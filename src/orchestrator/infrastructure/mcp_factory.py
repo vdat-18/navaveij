@@ -30,14 +30,8 @@ class MCPClientFactory:
         )
 
         logger.debug("Starting MCP stdio client session")
-        try:
-            async with stdio_client(server_params) as (read, write):
-                async with ClientSession(read, write) as session:
-                    logger.debug("Initializing MCP session")
-                    await session.initialize()
-                    yield session
-        except Exception as e:
-            logger.error(f"Failed to initialize MCP session: {str(e)}")
-            raise InfrastructureError(f"MCP Session failure: {str(e)}") from e
-        finally:
-            logger.debug("MCP stdio client session closed")
+        async with stdio_client(server_params) as (read, write):
+            async with ClientSession(read, write) as session:
+                logger.debug("Initializing MCP session")
+                await session.initialize()
+                yield session

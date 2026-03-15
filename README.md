@@ -1,79 +1,90 @@
-# Navaveij — Intelligent Clinical Recommendation Engine
+# Navaveij Clinical Recommendation Engine 🏥
 
-Navaveij is a medical-grade AI orchestration system designed to provide personalized health checkup recommendations. It leverages the **Model Context Protocol (MCP)** for data retrieval, **BAML** for robust LLM interactions, and multi-layered safety guardrails.
+Welcome to **Navaveij**, an AI-powered system designed to help doctors suggest the best health checkup plans for their patients. This system uses advanced AI and clinical rules to analyze medical data safely and accurately.
 
-## 🌟 Core Features
+---
 
-- **Standardized Data Access**: Powered by [MCP Server](./src/mcp_server/README.md) to bridge clinical data and AI.
-- **Privacy First**: Built-in PII masking and rehydration to ensure patient data never leaves the local environment unencrypted.
-- **Robust AI Reasoning**: Uses [BAML](./baml_src/clinical/README.md) for type-safe, high-quality prompt engineering and response parsing.
-- **Clinical Safety Guardrails**: Hybrid validation using a Rule-based engine and an LLM-based Safety Critic.
-- **5-Dimensional Audit Logging**: Immutable record of every decision (Who, What, Why, How, When).
+## 🚀 What does this system do?
 
-## 🏗️ Architecture
+Think of Navaveij as an **"AI Medical Assistant."** It follows a specific path to give a recommendation:
 
-```mermaid
-graph TD
-    User([Doctor/Dashboard]) --> Orchestrator[Clinical Orchestrator]
-    Orchestrator --> MCP[Clinical MCP Server]
-    MCP --> Data[(Clinical Data)]
-    Orchestrator --> Masker[PII Masker]
-    Orchestrator --> BAML[BAML AI Interface]
-    BAML --> LLM[LLM: Gemini / Llama 3]
-    BAML --> Auditor[AI Safety Critic]
-    Orchestrator --> AuditLog[(Audit Logs)]
-    Orchestrator --> Rehydrator[PII Rehydrator]
-    Rehydrator --> User
-```
+1.  **Get Data**: It connects to hospital records to get patient info (blood tests, heart rate, etc.).
+2.  **Protect Privacy**: It hides the patient's name and ID so the AI doesn't know who they are.
+3.  **Analyze Trends**: It looks at how a patient's health changed over the last 3 years.
+4.  **AI Reasoning**: It asks a smart AI (LLM) to choose the best checkup package (Standard, Advanced, or Premium).
+5.  **Explain Why**: It provides a clear medical reason for its choice.
 
-## 🚀 Getting Started
+---
 
-### Prerequisites
+## 🏗️ Project Structure (How code is organized)
 
-- Python 3.10+
-- [uv](https://docs.astral.sh/uv/) for dependency management.
-- [BAML CLI](https://docs.boundaryml.com/ref/overview) installed.
+The code is split into logical "layers" to keep it clean and professional:
 
-### Setup
+*   📂 `src/api/`: The **Entry Point**. This is where the website or mobile app talks to the system.
+*   📂 `src/orchestrator/`: The **Brain**.
+    *   `manager.py`: Controls the whole process from start to finish.
+    *   `workflows/`: Steps of medical reasoning.
+    *   `infrastructure/`: Handles the connection to medical databases (MCP).
+    *   `privacy/`: Masks private information (names, IDs).
+    *   `safety/`: Double-checks AI advice to make sure it is medically safe.
+*   📂 `src/mcp_server/`: The **Data Connector**. It fetches real medical data using the Model Context Protocol (MCP).
+*   📂 `src/synthesis/`: The **Data Factory**. It uses AI to create "fake patients" with real medical logic for testing.
+*   📂 `src/shared/`: Common tools like error handling (Exceptions) and settings.
 
-1. **Clone the repository**:
-   ```bash
-   git clone <repository-url>
-   cd navaveij
-   ```
+---
 
-2. **Install dependencies**:
-   ```bash
-   uv sync
-   ```
+## 🛠️ Technology Stack (What we use)
 
-3. **Configure Environment**:
-   Copy `.env.example` to `.env` and fill in your LLM credentials:
-   ```bash
-   cp .env.example .env
-   ```
+We use modern and professional tools:
 
-4. **Generate BAML Clients**:
-   ```bash
-   baml-cli generate
-   ```
+| Tool | Purpose |
+| :--- | :--- |
+| **Python 3.10+** | The main language. |
+| **FastAPI** | Makes the system fast and easy to talk to over the internet. |
+| **BAML** | A special tool to make sure the AI always gives us clean, structured data. |
+| **MCP** | "Model Context Protocol" – a new way to connect AI to databases. |
+| **Pydantic** | Ensures all data (numbers, dates) is in the correct format. |
+| **Loguru** | Helps us see what's happening inside the system by writing clear logs. |
 
-### Running Tests
+---
 
-To run the end-to-end clinical recommendation flow:
+## 🔬 Scientific Logic (The 5-Phase Workflow)
+
+When the system analyzes a patient, it follows these 5 steps:
+
+1.  **Baseline**: Get the basic profile (age, gender, history).
+2.  **Signals**: Find medical alerts (e.g., "Blood pressure is too high!").
+3.  **Trends**: Look at changes (e.g., "Is the patient getting heavier every year?").
+4.  **AI Inference**: The AI considers everything and picks a checkup tier.
+5.  **Finalize**: Combine everything into a final report for the doctor.
+
+---
+
+## 🧪 How to Test and Run
+
+### 1. Generating Test Data
+You can create fake patients to test the system:
 ```bash
-PYTHONPATH=. uv run python test_orchestrator.py
+uv run python -m src.synthesis --count 1
 ```
 
-## 📂 Project Structure
+### 2. Running the API
+To start the system server:
+```bash
+uv run python -m src.api.main
+```
 
-- `src/orchestrator/`: The core reasoning loop, privacy, and safety layers.
-- `src/mcp_server/`: Implementation of MCP tools for clinical data retrieval.
-- `baml_src/`: BAML definitions for AI prompts and domain models.
-- `logs/`: Directory for audit and system logs.
+### 3. Running Tests
+To make sure everything is working correctly:
+```bash
+pytest
+```
 
-## 🛡️ Reliability & Standards
+---
 
-- **Ruff**: For strict Python code quality and formatting.
-- **Loguru**: For centralized, structured logging.
-- **Pydantic v2**: For data validation and type safety.
+## 🛡️ Error Policy
+We follow a simple rule: **"Let it crash."** We don't hide errors with complicated `try/except` blocks. If something goes wrong, the system shows us the exact error immediately so we can fix it.
+
+---
+
+*Developed with ❤️ for Navavej International Hospital.*
