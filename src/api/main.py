@@ -23,21 +23,6 @@ app = FastAPI(
 manager = OrchestrationManager()
 
 
-@app.exception_handler(NavaveijError)
-async def navaveij_error_handler(request, exc: NavaveijError):
-    """Global handler for domain-specific errors."""
-    logger.error(f"Domain error: {exc.message} | trace_id: {exc.trace_id}")
-    return JSONResponse(
-        status_code=400,
-        content={
-            "error": exc.__class__.__name__,
-            "message": exc.message,
-            "trace_id": exc.trace_id,
-            "metadata": exc.metadata
-        }
-    )
-
-
 class RecommendationRequest(BaseModel):
     """Schema for a recommendation request."""
     patient_id: str

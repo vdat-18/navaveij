@@ -34,30 +34,23 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         logger.info(f"Executing Clinical Workflow for patient: {patient_id}")
         context = WorkflowContext(patient_id=patient_id)
 
-        try:
-            # Phase 1: Baseline
-            await self._fetch_baseline(context)
-            
-            # Phase 2: Signals
-            await self._analyze_signals(context)
-            
-            # Phase 3: Trends
-            await self._evaluate_trends(context)
-            
-            # Mask data before sending to LLM
-            context.masked_context = self.masker.mask_data(context.raw_context)
+        # Phase 1: Baseline
+        await self._fetch_baseline(context)
 
-            # Phase 4: Recommendation
-            await self._generate_recommendation(context)
-            
-            # Phase 5: Finalize
-            return context
-            
-        except Exception as e:
-            logger.error(f"Workflow execution failed: {str(e)}")
-            if isinstance(e, (DataIntegrityError, WorkflowStepError)):
-                raise
-            raise WorkflowStepError(f"Unexpected error in clinical workflow: {str(e)}") from e
+        # Phase 2: Signals
+        await self._analyze_signals(context)
+
+        # Phase 3: Trends
+        await self._evaluate_trends(context)
+
+        # Mask data before sending to LLM
+        context.masked_context = self.masker.mask_data(context.raw_context)
+
+        # Phase 4: Recommendation
+        await self._generate_recommendation(context)
+
+        # Phase 5: Finalize
+        return context
 
     async def _fetch_baseline(self, context: WorkflowContext) -> None:
         """Phase 1: Get patient profile and history."""
@@ -111,18 +104,10 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
 
     async def _call_mcp_tool(self, name: str, arguments: dict[str, Any]) -> Any:
         """Helper to call MCP tools and parse JSON output."""
-        try:
-            result = await self.session.call_tool(name, arguments)
-            if not result.content:
-                raise DataIntegrityError(f"Empty response from MCP tool: {name}")
-            
-            # FastMCP tools can return multiple content items; we typically want the first one's text
-            raw_text = result.content[0].text
-            try:
-                return json.loads(raw_text)
-            except json.JSONDecodeError:
-                # If not valid JSON, return the raw string (common for list[str] returns in some MCP setups)
-                return raw_text
-        except Exception as e:
-            logger.error(f"MCP tool call failed ({name}): {str(e)}")
-            raise DataIntegrityError(f"Failure in MCP tool {name}: {str(e)}") from e
+        result = await self.session.call_tool(name, arguments)
+        if not result.content:
+            raise DataIntegrityError(f"Empty response from MCP tool: {name}")
+
+        # FastMCP tools can return multiple content items; we typically want the first one's text
+        raw_text = result.content[0].text
+        return json.loads(raw_text)
