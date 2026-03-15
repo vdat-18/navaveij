@@ -9,10 +9,12 @@ from loguru import logger
 # Constants
 SIGNAL_STORE_DIR = Path("src/mcp_server/data/synthetic")
 RULESET_TIER_CONFIG_PATH = Path(
-    "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_ruleset_tier_config.json"
+    "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/"
+    "sample_ruleset_tier_config.json"
 )
 RULESET_ADD_ON_ITEMS_PATH = Path(
-    "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_add_on_items.json"
+    "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/"
+    "sample_add_on_items.json"
 )
 
 
@@ -36,7 +38,9 @@ def load_signal_store_record(patient_token: str) -> dict | None:
                 logger.debug(f"Found Signal Store record: {file_path.name}")
                 return record
 
-    logger.warning(f"Signal Store record not found for patient_token: {patient_token}")
+    logger.warning(
+        f"Signal Store record not found for patient_token: {patient_token}"
+    )
     return None
 
 
@@ -83,7 +87,9 @@ def load_ruleset_tier_config() -> dict:
         Ruleset tier config dict with tier_selection_rules array
     """
     if not RULESET_TIER_CONFIG_PATH.exists():
-        logger.error(f"Ruleset tier config not found: {RULESET_TIER_CONFIG_PATH}")
+        logger.error(
+            f"Ruleset tier config not found: {RULESET_TIER_CONFIG_PATH}"
+        )
         return {"tier_selection_rules": []}
 
     with open(RULESET_TIER_CONFIG_PATH, encoding="utf-8") as f:
@@ -98,7 +104,9 @@ def load_ruleset_add_on_items() -> list[dict]:
         List of add-on item dicts
     """
     if not RULESET_ADD_ON_ITEMS_PATH.exists():
-        logger.error(f"Ruleset add-on items not found: {RULESET_ADD_ON_ITEMS_PATH}")
+        logger.error(
+            f"Ruleset add-on items not found: {RULESET_ADD_ON_ITEMS_PATH}"
+        )
         return []
 
     with open(RULESET_ADD_ON_ITEMS_PATH, encoding="utf-8") as f:
@@ -107,7 +115,9 @@ def load_ruleset_add_on_items() -> list[dict]:
 
 
 def filter_add_ons_by_demographics(
-    add_on_items: list[dict], gender: str, age: int
+    add_on_items: list[dict],
+    gender: str,
+    age: int,
 ) -> tuple[list[dict], list[dict]]:
     """Filter add-on items by patient demographics.
 
@@ -133,12 +143,15 @@ def filter_add_ons_by_demographics(
 
         # Check gender constraint
         if gender_constraint and gender_constraint != gender:
+            exclusion_reason = (
+                f"gender_{gender}_ineligible"
+                if gender in ["male", "female"]
+                else "gender_constraint_mismatch"
+            )
             excluded.append(
                 {
                     "item_code": item.get("item_code"),
-                    "exclusion_reason": f"gender_{gender}_ineligible"
-                    if gender in ["male", "female"]
-                    else "gender_constraint_mismatch",
+                    "exclusion_reason": exclusion_reason,
                 }
             )
             continue
@@ -168,7 +181,10 @@ def filter_add_ons_by_demographics(
 
 
 def resolve_package(
-    tier: str, gender: str, age: int, package_resolution_map: dict
+    tier: str,
+    gender: str,
+    age: int,
+    package_resolution_map: dict,
 ) -> dict | None:
     """Resolve package name and price from tier, gender, and age.
 
@@ -178,14 +194,21 @@ def resolve_package(
         age: Patient age
 
     Returns:
-        Resolved package dict with package_name, package_code, price_thb, or None
+        Resolved package dict with package_name, package_code, price_thb,
+        or None
     """
     tier_map = package_resolution_map.get(tier, {})
     gender_map = tier_map.get(gender, {})
 
     # Determine age band
     age_band = None
-    for band_key in ["age_15_to_35", "age_35_plus", "age_36_plus", "age_40_plus"]:
+    age_band_keys = [
+        "age_15_to_35",
+        "age_35_plus",
+        "age_36_plus",
+        "age_40_plus",
+    ]
+    for band_key in age_band_keys:
         if band_key in gender_map:
             # Simple age band matching (can be enhanced)
             if "15_to_35" in band_key and 15 <= age <= 35:

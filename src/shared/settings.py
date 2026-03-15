@@ -47,6 +47,7 @@ class ProjectSettings(LLMSettings, MCPSettings):
     environment: str = "dev"
     log_level: LogLevel = LogLevel.INFO
     audit_log_path: str = "logs/audit.jsonl"
+    patient_token_secret_salt: str = "navavej-clinical-recommendation-engine-secret-salt-2026"
 
 
 settings = ProjectSettings()

@@ -10,6 +10,8 @@ from baml_client.async_client import b
 from src.orchestrator.privacy.masking import PIIMasker
 from src.orchestrator.workflows.base import BaseWorkflow, WorkflowContext
 from src.shared.exceptions import WorkflowStepError, DataIntegrityError
+from src.shared.settings import settings
+from src.shared.utils import generate_patient_token
 
 
 class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
@@ -55,38 +57,41 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
     async def _fetch_baseline(self, context: WorkflowContext) -> None:
         """Phase 1: Get patient profile and history."""
         logger.debug("Phase 1: Fetching baseline data")
-        
+
+        # Generate patient_token for Signal Store tools
+        patient_token = generate_patient_token(context.patient_id, settings.patient_token_secret_salt)
+
         # Tools: get_patient_context, get_hard_constraints
         patient_data = await self._call_mcp_tool("get_patient_context", {"patient_id": context.patient_id})
-        constraints = await self._call_mcp_tool("get_hard_constraints", {"patient_id": context.patient_id})
-        
+        constraints = await self._call_mcp_tool("get_hard_constraints", {"patient_token": patient_token})
+
         context.raw_context["get_patient_context"] = patient_data
         context.raw_context["get_hard_constraints"] = constraints
 
     async def _analyze_signals(self, context: WorkflowContext) -> None:
         """Phase 2: Detect clinical alerts."""
         logger.debug("Phase 2: Analyzing clinical signals")
-        
-        signals = await self._call_mcp_tool("get_clinical_signals", {"patient_id": context.patient_id})
+
+        patient_token = generate_patient_token(context.patient_id, settings.patient_token_secret_salt)
+        signals = await self._call_mcp_tool("get_clinical_signals", {"patient_token": patient_token})
         context.raw_context["get_clinical_signals"] = signals
 
     async def _evaluate_trends(self, context: WorkflowContext) -> None:
         """Phase 3: Assess biomarker velocity."""
         logger.debug("Phase 3: Evaluating biomarker trends")
-        
-        trends = await self._call_mcp_tool("get_biomarker_trends", {"patient_id": context.patient_id})
+
+        patient_token = generate_patient_token(context.patient_id, settings.patient_token_secret_salt)
+        trends = await self._call_mcp_tool("get_biomarker_trends", {"patient_token": patient_token})
         context.raw_context["get_biomarker_trends"] = trends
 
     async def _generate_recommendation(self, context: WorkflowContext) -> None:
         """Phase 4: BAML call for clinical tiering."""
         logger.debug("Phase 4: Generating recommendation via BAML")
-        
-        # Add program ruleset (static context for now)
-        context.raw_context["get_program_ruleset"] = {
-            "Standard": "Default for low-risk patients under 35.",
-            "Advanced": "Recommended for age > 40 or presence of 1-2 mild clinical signals.",
-            "Premium": "Recommended for age > 50 or presence of multiple high-risk signals.",
-        }
+
+        # Get program ruleset with patient_token
+        patient_token = generate_patient_token(context.patient_id, settings.patient_token_secret_salt)
+        ruleset = await self._call_mcp_tool("get_program_ruleset", {"patient_token": patient_token})
+        context.raw_context["get_program_ruleset"] = ruleset
         
         # Mask again to include ruleset if needed, or just update masked_context
         context.masked_context = self.masker.mask_data(context.raw_context)

@@ -73,43 +73,33 @@ function SynthesizeSignalStoreRecord(scenario: ClinicalScenario) -> SignalStoreR
     
     3. CLINICAL SCENARIO MAPPING:
        
-       {{#if scenario == "UncontrolledHypertension"}}
-       - signals_fired MUST include: htn_active, bp_stage1_htn or bp_stage2_htn, bp_trend_worsening
-       - risk_flags MUST include BP-related flags with severity "Moderate" or "High"
-       - biomarker_trends.blood_pressure MUST show increasing trend (sbp_slope_per_year > 0, trend_direction: "increasing")
-       - comorbidity_tags MUST include HTN with on_treatment: true
-       {{/if}}
+       Based on the scenario provided, generate data that matches:
        
-       {{#if scenario == "MetabolicSyndromeRisk"}}
-       - signals_fired MUST include: prediabetes_confirmed, bmi_overweight_asian or bmi_obese_asian, dyslipidemia_active
-       - risk_flags MUST include metabolic flags (prediabetes_confirmed, ldl_borderline_high, etc.)
-       - biomarker_trends.labs MUST show worsening trends for FBS, HbA1c, lipids
-       {{/if}}
+       - UncontrolledHypertension: signals_fired MUST include htn_active, bp_stage1_htn or bp_stage2_htn, bp_trend_worsening.
+         Risk flags MUST include BP-related flags with severity "Moderate" or "High".
+         biomarker_trends.blood_pressure MUST show increasing trend (sbp_slope_per_year > 0, trend_direction: "increasing").
+         comorbidity_tags MUST include HTN with on_treatment: true.
        
-       {{#if scenario == "SeniorCancerScreeningGap"}}
-       - signals_fired MUST include: colonoscopy_overdue_XXXd (overdue > 2 years = 730+ days)
-       - If female: mammogram_overdue_XXXd (overdue > 2 years)
-       - screening_gaps MUST show overdue_days > 730, priority_color: "Red", overdue_score > 0.8
-       - age MUST be ≥50
-       {{/if}}
+       - MetabolicSyndromeRisk: signals_fired MUST include prediabetes_confirmed, bmi_overweight_asian or bmi_obese_asian, dyslipidemia_active.
+         Risk flags MUST include metabolic flags (prediabetes_confirmed, ldl_borderline_high, etc.).
+         biomarker_trends.labs MUST show worsening trends for FBS, HbA1c, lipids.
        
-       {{#if scenario == "EarlyOnsetDiabetes"}}
-       - signals_fired MUST include: diabetes_confirmed, dm_comorbidity, dm_organ_complication_screening
-       - risk_flags MUST include diabetes_confirmed with severity "High"
-       - comorbidity_tags MUST include DM with organ_risk_tags
-       {{/if}}
+       - SeniorCancerScreeningGap: signals_fired MUST include colonoscopy_overdue_XXXd (overdue > 2 years = 730+ days).
+         If female: mammogram_overdue_XXXd (overdue > 2 years).
+         screening_gaps MUST show overdue_days > 730, priority_color: "Red", overdue_score > 0.8.
+         age MUST be ≥50.
        
-       {{#if scenario == "ChronicKidneyDiseaseProgression"}}
-       - signals_fired MUST include: ckd_comorbidity, ckd_rapid_progression (if annual_slope < -5)
-       - biomarker_trends.egfr MUST show declining trend (annual_slope < 0)
-       - risk_flags MUST include CKD-related flags
-       {{/if}}
+       - EarlyOnsetDiabetes: signals_fired MUST include diabetes_confirmed, dm_comorbidity, dm_organ_complication_screening.
+         Risk flags MUST include diabetes_confirmed with severity "High".
+         comorbidity_tags MUST include DM with organ_risk_tags.
        
-       {{#if scenario == "HealthyRoutineCheckup"}}
-       - signals_fired should be minimal (5-10 signals, mostly normal/low severity)
-       - No major risk flags (severity "High" or "Critical")
-       - rule_preliminary_tier: "Standard"
-       {{/if}}
+       - ChronicKidneyDiseaseProgression: signals_fired MUST include ckd_comorbidity, ckd_rapid_progression (if annual_slope < -5).
+         biomarker_trends.egfr MUST show declining trend (annual_slope < 0).
+         Risk flags MUST include CKD-related flags.
+       
+       - HealthyRoutineCheckup: signals_fired should be minimal (5-10 signals, mostly normal/low severity).
+         No major risk flags (severity "High" or "Critical").
+         rule_preliminary_tier: "Standard".
     
     4. RISK FLAGS STRUCTURE:
        Each risk_flag MUST have:
