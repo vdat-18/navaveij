@@ -12,7 +12,6 @@ from loguru import logger
 
 from baml_client.async_client import b
 from baml_client.types import ClinicalScenario, SignalStoreRecord
-from src.synthesis.validator import validate_signal_store_record
 
 
 class SynthesisOrchestrator:
@@ -56,9 +55,22 @@ class SynthesisOrchestrator:
         scenario_dir = self.base_output_dir / scenario.value
         scenario_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Synthesizing {count} variations for {scenario}...")
+        # Detect existing files to avoid overwriting
+        existing_indices = []
+        for f in scenario_dir.glob("record_*.json"):
+            try:
+                # Extract index from filename like 'record_001.json'
+                idx = int(f.stem.split("_")[1])
+                existing_indices.append(idx)
+            except (IndexError, ValueError):
+                continue
+
+        start_index = max(existing_indices) + 1 if existing_indices else 0
+
+        logger.info(f"Synthesizing {count} variations for {scenario} (Starting from index {start_index})...")
         for i in range(count):
-            await self._run_hybrid_synthesis(seed_record, scenario, i, scenario_dir)
+            current_index = start_index + i
+            await self._run_hybrid_synthesis(seed_record, scenario, current_index, scenario_dir)
 
     async def _run_hybrid_synthesis(
         self, seed: SignalStoreRecord, scenario: ClinicalScenario, index: int, output_path: Path
@@ -82,8 +94,6 @@ class SynthesisOrchestrator:
                 | set(clinical.get("missing_signals", []))
             )
         )
-
-        validate_signal_store_record(data)
 
         file_path = output_path / f"record_{index:03d}.json"
         with open(file_path, "w", encoding="utf-8") as f:

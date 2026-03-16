@@ -7,12 +7,15 @@ from pathlib import Path
 from loguru import logger
 
 # Constants
-SIGNAL_STORE_DIR = Path("assets/synthesis")
+SIGNAL_STORE_DIR = Path("assets/synthesis/generated")
 RULESET_TIER_CONFIG_PATH = Path(
     "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_ruleset_tier_config.json"
 )
 RULESET_ADD_ON_ITEMS_PATH = Path(
     "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_add_on_items.json"
+)
+PACKAGE_RESOLUTION_PATH = Path(
+    "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_package_resolution.json"
 )
 
 
@@ -105,6 +108,20 @@ def load_ruleset_add_on_items() -> list[dict]:
     with open(RULESET_ADD_ON_ITEMS_PATH, encoding="utf-8") as f:
         data = json.load(f)
         return data.get("items", [])
+
+
+def load_package_resolution_map() -> dict:
+    """Load package resolution map from JSON.
+
+    Returns:
+        Package resolution map dict
+    """
+    if not PACKAGE_RESOLUTION_PATH.exists():
+        logger.error(f"Package resolution map not found: {PACKAGE_RESOLUTION_PATH}")
+        return {}
+
+    with open(PACKAGE_RESOLUTION_PATH, encoding="utf-8") as f:
+        return json.load(f)
 
 
 def filter_add_ons_by_demographics(

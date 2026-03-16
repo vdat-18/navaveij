@@ -48,19 +48,20 @@ function CritiqueAndFixRecord(record: SignalStoreRecord) -> SignalStoreRecord {
     ### AUDIT CHECKLIST:
 
     1. VALID SIGNAL IDs (VOCABULARY CONTROL):
-       Only use these IDs in `applicable_signals`, `signals_fired`, and `missing_signals`:
-       - Labs: fbs_status, hba1c_status, ldl_status, hdl_status, tg_status, alt_status, ast_status, egfr_status, tsh_status, psa_sdm_status, uric_acid_status
-       - Vitals: bp_category, bmi_status
-       - Screening: colonoscopy_screening_gap, mammogram_screening_gap, pap_smear_screening_gap, lung_ldct_gap, dexa_screening_gap, est_gap, echo_gap
-       - Vaccination: influenza_vaccination_gap, hepatitis_b_vaccination_status, hpv_vaccination_gap, pneumococcal_vaccination_gap, shingrix_vaccination_gap
-       - Others: family_hx_premature_cad, family_hx_breast_ca, family_hx_colon_ca, family_hx_prostate_ca, smoking_status, lung_ct_threshold, alcohol_risk, occupational_risk, dm_comorbidity, htn_comorbidity, ckd_comorbidity, dyslipidemia_comorbidity, ascvd_10yr_risk_status, dm_organ_complication_screening, fibroscan_indication, reproductive_history, frax_bone_density_risk, sleep_apnea_screen_result, physical_activity_level.
-       - Specialized fired signals: e.g., "prediabetes_confirmed", "hba1c_prediabetes", "bmi_overweight_asian", "{id}_overdue_{days}d".
+       Only use these IDs in `applicable_signals`, `signals_fired`, and `missing_signals`. DO NOT use generic status IDs.
+       - High Severity (Premium): ckd_rapid_progression, ascvd_very_high, hypertensive_crisis, diabetes_confirmed (requires dm_organ_complication_screening), liver_enzyme_elevation_significant (requires fibroscan_indication).
+       - Moderate (Advanced ANY): prediabetes_confirmed, diabetes_confirmation_required, ascvd_risk_intermediate, htn_active, lung_ct_threshold_met, ckd_comorbidity, bmi_obese_asian.
+       - Low-Moderate (Advanced COUNT >= 2): bmi_overweight_asian, low_hdl, high_triglycerides, high_ldl, bp_stage1_htn, bp_worsening, family_hx_premature_cad, at_risk_alcohol_use, office_syndrome, night_shift_worker, uric_acid_hyperuricemia, dyslipidemia_active, fibroscan_indication.
+       - Gaps: colonoscopy_screening_gap, mammogram_screening_gap, pap_smear_screening_gap, dexa_screening_gap, influenza_vaccination_gap, hepatitis_b_vaccination_status, hpv_vaccination_gap, pneumococcal_vaccination_gap, shingrix_vaccination_gap.
 
     2. CROSS-FIELD CONSISTENCY (TRUTH-ANCHORING):
-       - ASCVD RISK: Check `ascvd_10yr_risk.inputs_used`. Age, Sex, Total Cholesterol, HDL, Systolic BP, Smoking status, and Diabetes status MUST match the values in `patient_demographics`, `biomarker_trends.labs`, `biomarker_trends.blood_pressure`, and `behavioral_flags`. 
-         If values changed during perturbation, you MUST manually update the `ascvd_10yr_risk.score` and `category` to be medically plausible.
-       - BP CATEGORY: If SBP >= 140 or DBP >= 90, `category` MUST be "Stage2_HTN". If SBP 130-139, "Stage1_HTN".
-       - BMI: If ethnicity is "asian" and BMI >= 23, `category` is "Overweight".
+       - TIERING LOGIC: Update `rule_preliminary_tier` strictly:
+         * "Premium": Any High Severity signal fired; OR >= 5 Moderate/Low-Moderate signals fired.
+         * "Advanced": Any single Moderate signal fired; OR >= 2 Low-Moderate signals fired.
+         * "Standard": Default if no other rules match.
+       - ASCVD RISK: Check `ascvd_10yr_risk.inputs_used`. Age, Sex, Total Cholesterol, HDL, Systolic BP, Smoking status, and Diabetes status MUST match other fields.
+       - BP CATEGORY: If SBP >= 180 or DBP >= 120 -> "Hypertensive Crisis". If SBP >= 140 or DBP >= 90 -> "Stage2_HTN". If SBP 130-139 -> "Stage1_HTN".
+       - BMI: If ethnicity is "asian" and BMI >= 27.5 -> "Obese". If BMI >= 23 -> "Overweight".
 
     3. CONFIDENCE FORMULA LOGIC:
        - Every signal ID in `signals_fired` MUST also be present in `applicable_signals`.
