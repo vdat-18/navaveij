@@ -1,57 +1,41 @@
-"""FastAPI Entry point for the Navaveij Clinical Recommendation Engine."""
+"""Main entry point for the Navaveij API."""
 
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
-from pydantic import BaseModel
 
-from src.orchestrator.core.manager import OrchestrationManager
-
-# Load environment variables
 load_dotenv()
 
+from src.api.routes import clinical, patients
+
 app = FastAPI(
-    title="Navaveij Clinical API",
-    description="Intelligent Health Checkup Recommendation Engine",
+    title="Navaveij Clinical AI API",
+    description="Backend API for clinical recommendations and patient management",
     version="1.0.0",
 )
 
-# Initialize the orchestrator manager
-manager = OrchestrationManager()
+# Configure CORS for Frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Adjust in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include routers
+app.include_router(patients.router, prefix="/api/v1/patients", tags=["Patients"])
+app.include_router(clinical.router, prefix="/api/v1/clinical", tags=["Clinical AI"])
 
 
-class RecommendationRequest(BaseModel):
-    """Schema for a recommendation request."""
-
-    patient_id: str
-
-
-@app.get("/")
-async def root():
+@app.get("/health")
+async def health_check():
     """Health check endpoint."""
-    return {"status": "online", "engine": "Navaveij Clinical Orchestrator"}
-
-
-@app.post("/recommend")
-async def get_recommendation(request: RecommendationRequest):
-    """Generate a personalized clinical recommendation for a patient.
-
-    This endpoint triggers the full ReAct loop:
-    1. MCP data retrieval
-    2. PII Masking
-    3. BAML Inference
-    4. Safety validation
-    5. Audit logging
-    6. PII Rehydration
-    """
-    logger.info(f"API Request received for patient: {request.patient_id}")
-
-    # Delegate to Orchestration Manager
-    result = await manager.generate_recommendation(request.patient_id)
-
-    return result
+    return {"status": "healthy", "version": "1.0.0"}
 
 
 if __name__ == "__main__":
+    logger.info("Starting Navaveij API server...")
     uvicorn.run("src.api.main:app", host="0.0.0.0", port=8000, reload=True)

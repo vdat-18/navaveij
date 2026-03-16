@@ -27,19 +27,19 @@ class AuditLogger:
         if not self.log_file_jsonl.exists() or self.log_file_jsonl.stat().st_size == 0:
             return "0" * 64
 
-        with open(self.log_file_jsonl, "rb") as f:
-            f.seek(0, 2)
-            file_size = f.tell()
-            read_size = min(file_size, 8192)
-            f.seek(file_size - read_size)
-            content = f.read().decode("utf-8", errors="ignore")
-
-            lines = [line.strip() for line in content.split("\n") if line.strip()]
-            if not lines:
-                return "0" * 64
-
-            last_line = json.loads(lines[-1])
-            return last_line.get("current_hash", "0" * 64)
+        try:
+            with open(self.log_file_jsonl, "r", encoding="utf-8") as f:
+                # For safety in this demo, we read the whole file. 
+                # Each line can be 10KB+, so fixed-buffer reading from end can cut lines.
+                lines = [line.strip() for line in f if line.strip()]
+                if not lines:
+                    return "0" * 64
+                
+                last_line = json.loads(lines[-1])
+                return last_line.get("current_hash", "0" * 64)
+        except Exception as e:
+            logger.warning(f"Could not parse last audit hash (file might be corrupt): {e}")
+            return "0" * 64
 
     def _write_json_array(self, payload: dict[str, Any]) -> None:
         """Update the JSON array file by appending the new entry."""
@@ -58,8 +58,7 @@ class AuditLogger:
         masked_context: dict[str, Any],
         ai_output: dict[str, Any],
         model_id: str,
-    ) -> None:
-        """Record a hash-chained audit entry to both JSONL and JSON formats."""
+    ) -> str:
         timestamp = datetime.now(timezone.utc).isoformat()
 
         payload = {
@@ -90,3 +89,56 @@ class AuditLogger:
 
         self.last_hash = current_hash
         logger.info(f"Dual audit log written for patient: {patient_id}")
+        return current_hash
+
+    def log_decision(
+        self,
+        patient_id: str,
+        recommendation_hash: str,
+        decision: str,
+        physician_id: str,
+        notes: str = ""
+    ) -> str:
+        """Record the human physician's decision linked to the AI recommendation."""
+        timestamp = datetime.now(timezone.utc).isoformat()
+        
+        payload = {
+            "timestamp": timestamp,
+            "who": {
+                "patient_id": patient_id,
+                "physician_id": physician_id
+            },
+            "what": {
+                "event": "PROVISIONING_DECISION",
+                "recommendation_reference_hash": recommendation_hash
+            },
+            "why": {
+                "decision": decision,
+                "notes": notes
+            },
+            "metadata": {"environment": settings.environment},
+            "previous_hash": self.last_hash,
+        }
+
+        payload_str = json.dumps(payload, sort_keys=True)
+        current_hash = hashlib.sha256(payload_str.encode("utf-8")).hexdigest()
+        payload["current_hash"] = current_hash
+
+        with open(self.log_file_jsonl, "a", encoding="utf-8") as f:
+            f.write(json.dumps(payload) + "\n")
+        self._write_json_array(payload)
+
+        self.last_hash = current_hash
+        logger.info(f"Decision audit log written for patient {patient_id}: {decision}")
+        return current_hash
+
+    def get_logs(self) -> list[dict[str, Any]]:
+        """Retrieve all logs from the JSON audit file."""
+        if not self.log_file_json.exists():
+            return []
+        try:
+            with open(self.log_file_json, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to read audit logs: {e}")
+            return []

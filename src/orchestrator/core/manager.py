@@ -50,11 +50,44 @@ class OrchestrationManager:
 
             # Post-process: Audit Logging
             logger.info("Recording audit log")
-            self.audit_logger.log_recommendation(
+            recommendation_hash = self.audit_logger.log_recommendation(
                 patient_id=patient_id,
                 masked_context=context.masked_context,
                 ai_output=context.ai_output,
                 model_id=settings.llm_model,
             )
 
-            return context.ai_output
+            context.ai_output["recommendation_hash"] = recommendation_hash
+            
+            # Expose raw data for visualization/HUDs
+            return {
+                **context.ai_output,
+                "biomarker_trends": context.masked_context.get("get_biomarker_trends", {}),
+                "clinical_signals": context.masked_context.get("get_clinical_signals", {}),
+            }
+
+    async def record_decision(
+        self,
+        patient_id: str,
+        recommendation_hash: str,
+        decision: str,
+        physician_id: str,
+        notes: str = ""
+    ) -> dict[str, Any]:
+        """Record the final clinical decision in the immutable audit trail."""
+        logger.info(f"Recording {decision} decision for patient {patient_id}")
+        
+        decision_hash = self.audit_logger.log_decision(
+            patient_id=patient_id,
+            recommendation_hash=recommendation_hash,
+            decision=decision,
+            physician_id=physician_id,
+            notes=notes
+        )
+        
+        return {
+            "status": "success",
+            "decision_hash": decision_hash,
+            "patient_id": patient_id,
+            "decision": decision
+        }

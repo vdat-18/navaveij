@@ -1,11 +1,11 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_88zz77yy",
+  "patient_token": "tok_hmac_1aa1b504",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_88zz77yy",
+    "patient_token": "tok_hmac_1aa1b504",
     "patient_demographics": {
       "gender": "male",
       "age": 35,
@@ -37,7 +37,7 @@
     "pipeline_run_id": "pipe_20260315_0300"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_88zz77yy",
+    "patient_token": "tok_hmac_1aa1b504",
     "rule_preliminary_tier": "Standard",
     "overall_risk_level": "Low",
     "applicable_signals": [
@@ -143,7 +143,7 @@
     "pipeline_run_id": "pipe_20260315_0300"
   },
   "biomarker_trends": {
-    "patient_token": "tok_hmac_88zz77yy",
+    "patient_token": "tok_hmac_1aa1b504",
     "bmi": {
       "current": 22.4,
       "unit": "kg/m2",
