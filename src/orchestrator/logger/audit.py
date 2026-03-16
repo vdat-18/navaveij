@@ -18,7 +18,7 @@ class AuditLogger:
         """Initialize log files and retrieve the last known hash to maintain the chain."""
         self.log_file_jsonl = Path(settings.audit_log_path)
         self.log_file_json = self.log_file_jsonl.with_suffix(".json")
-        
+
         self.log_file_jsonl.parent.mkdir(parents=True, exist_ok=True)
         self.last_hash = self._get_last_hash()
 
@@ -33,11 +33,11 @@ class AuditLogger:
             read_size = min(file_size, 8192)
             f.seek(file_size - read_size)
             content = f.read().decode("utf-8", errors="ignore")
-            
+
             lines = [line.strip() for line in content.split("\n") if line.strip()]
             if not lines:
                 return "0" * 64
-                
+
             last_line = json.loads(lines[-1])
             return last_line.get("current_hash", "0" * 64)
 
@@ -45,9 +45,9 @@ class AuditLogger:
         """Update the JSON array file by appending the new entry."""
         entries = []
         if self.log_file_json.exists() and self.log_file_json.stat().st_size > 0:
-            with open(self.log_file_json, "r", encoding="utf-8") as f:
+            with open(self.log_file_json, encoding="utf-8") as f:
                 entries = json.load(f)
-        
+
         entries.append(payload)
         with open(self.log_file_json, "w", encoding="utf-8") as f:
             json.dump(entries, f, indent=2)
@@ -84,9 +84,9 @@ class AuditLogger:
         # Write to JSONL (append-only)
         with open(self.log_file_jsonl, "a", encoding="utf-8") as f:
             f.write(json.dumps(payload) + "\n")
-        
+
         # Write to JSON (array format)
         self._write_json_array(payload)
-        
+
         self.last_hash = current_hash
         logger.info(f"Dual audit log written for patient: {patient_id}")

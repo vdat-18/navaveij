@@ -9,15 +9,14 @@ from mcp import ClientSession
 from baml_client.async_client import b
 from src.orchestrator.privacy.masking import PIIMasker
 from src.orchestrator.workflows.base import BaseWorkflow, WorkflowContext
-from src.shared.exceptions import WorkflowStepError, DataIntegrityError
+from src.shared.exceptions import DataIntegrityError
 from src.shared.settings import settings
 from src.shared.utils import generate_patient_token
 
 
 class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
-    """
-    Implements the 5-phase clinical reasoning loop.
-    
+    """Implements the 5-phase clinical reasoning loop.
+
     Phases:
     1. Fetch Baseline
     2. Analyze Signals
@@ -64,7 +63,7 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         # Tools: get_hard_constraints
         constraints = await self._call_mcp_tool("get_hard_constraints", {"patient_token": patient_token})
         context.raw_context["get_hard_constraints"] = constraints
-        
+
         # Extract demographic context from hard constraints (as patient_context tool was removed)
         demographics = constraints.get("patient_demographics", {})
         context.raw_context["get_patient_context"] = {
@@ -92,10 +91,10 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         # Get program ruleset with patient_token
         ruleset = await self._call_mcp_tool("get_program_ruleset", {"patient_token": patient_token})
         context.raw_context["get_program_ruleset"] = ruleset
-        
+
         # Mask again to include ruleset
         context.masked_context = self.masker.mask_data(context.raw_context)
-        
+
         context_str = json.dumps(context.masked_context, indent=2)
         # Phase 4: Recommendation
         # function GenerateRecommendation(hard_constraints: string, clinical_signals: string, biomarker_trends: string, program_ruleset: string)
@@ -103,19 +102,16 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             hard_constraints=json.dumps(context.masked_context.get("get_hard_constraints"), indent=2),
             clinical_signals=json.dumps(context.masked_context.get("get_clinical_signals"), indent=2),
             biomarker_trends=json.dumps(context.masked_context.get("get_biomarker_trends"), indent=2),
-            program_ruleset=json.dumps(context.masked_context.get("get_program_ruleset"), indent=2)
+            program_ruleset=json.dumps(context.masked_context.get("get_program_ruleset"), indent=2),
         )
-        
+
         context.ai_output = {
             "ai_recommended_tier": recommendation.ai_recommended_tier.value,
             "tier_deviation_justification": recommendation.tier_deviation_justification,
             "reasoning_trace": recommendation.reasoning_trace,
             "add_ons": [
-                {
-                    "item_code": item.item_code,
-                    "priority_level": item.priority_level.value,
-                    "rationale": item.rationale
-                } for item in recommendation.add_ons
+                {"item_code": item.item_code, "priority_level": item.priority_level.value, "rationale": item.rationale}
+                for item in recommendation.add_ons
             ],
             "supporting_signals": recommendation.supporting_signals,
             "missing_signals": recommendation.missing_signals,
@@ -125,7 +121,7 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
                 "recommendation_explanation": recommendation.communication_script.recommendation_explanation,
                 "add_on_highlights": recommendation.communication_script.add_on_highlights,
                 "next_steps": recommendation.communication_script.next_steps,
-            }
+            },
         }
 
     async def _call_mcp_tool(self, name: str, arguments: dict[str, Any]) -> Any:

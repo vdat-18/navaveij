@@ -73,13 +73,15 @@ class SynthesisOrchestrator:
         # Ensure signals_fired and missing_signals are subsets of applicable_signals
         data = perfected.model_dump()
         clinical = data.get("clinical_signals", {})
-        
+
         # Merge fired/missing into applicable for contract compliance
-        clinical["applicable_signals"] = sorted(list(
-            set(clinical.get("applicable_signals", [])) | 
-            set(clinical.get("signals_fired", [])) | 
-            set(clinical.get("missing_signals", []))
-        ))
+        clinical["applicable_signals"] = sorted(
+            list(
+                set(clinical.get("applicable_signals", []))
+                | set(clinical.get("signals_fired", []))
+                | set(clinical.get("missing_signals", []))
+            )
+        )
 
         validate_signal_store_record(data)
 

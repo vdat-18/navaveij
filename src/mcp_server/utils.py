@@ -9,12 +9,10 @@ from loguru import logger
 # Constants
 SIGNAL_STORE_DIR = Path("assets/synthesis")
 RULESET_TIER_CONFIG_PATH = Path(
-    "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/"
-    "sample_ruleset_tier_config.json"
+    "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_ruleset_tier_config.json"
 )
 RULESET_ADD_ON_ITEMS_PATH = Path(
-    "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/"
-    "sample_add_on_items.json"
+    "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_add_on_items.json"
 )
 
 
@@ -86,9 +84,7 @@ def load_ruleset_tier_config() -> dict:
         Ruleset tier config dict with tier_selection_rules array
     """
     if not RULESET_TIER_CONFIG_PATH.exists():
-        logger.error(
-            f"Ruleset tier config not found: {RULESET_TIER_CONFIG_PATH}"
-        )
+        logger.error(f"Ruleset tier config not found: {RULESET_TIER_CONFIG_PATH}")
         return {"tier_selection_rules": []}
 
     with open(RULESET_TIER_CONFIG_PATH, encoding="utf-8") as f:
@@ -103,9 +99,7 @@ def load_ruleset_add_on_items() -> list[dict]:
         List of add-on item dicts
     """
     if not RULESET_ADD_ON_ITEMS_PATH.exists():
-        logger.error(
-            f"Ruleset add-on items not found: {RULESET_ADD_ON_ITEMS_PATH}"
-        )
+        logger.error(f"Ruleset add-on items not found: {RULESET_ADD_ON_ITEMS_PATH}")
         return []
 
     with open(RULESET_ADD_ON_ITEMS_PATH, encoding="utf-8") as f:
@@ -143,9 +137,7 @@ def filter_add_ons_by_demographics(
         # Check gender constraint
         if gender_constraint and gender_constraint != gender:
             exclusion_reason = (
-                f"gender_{gender}_ineligible"
-                if gender in ["male", "female"]
-                else "gender_constraint_mismatch"
+                f"gender_{gender}_ineligible" if gender in ["male", "female"] else "gender_constraint_mismatch"
             )
             excluded.append(
                 {

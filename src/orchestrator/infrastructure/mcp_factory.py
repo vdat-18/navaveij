@@ -1,15 +1,14 @@
 """MCP Infrastructure Factory for Navaveij."""
 
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
+from loguru import logger
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-from loguru import logger
 
 from src.shared.settings import settings
-from src.shared.exceptions import InfrastructureError
 
 
 class MCPClientFactory:
@@ -18,15 +17,14 @@ class MCPClientFactory:
     @staticmethod
     @asynccontextmanager
     async def get_client() -> AsyncGenerator[ClientSession, None]:
-        """
-        Yield a context-managed MCP session.
-        
+        """Yield a context-managed MCP session.
+
         Currently implements stdio transport based on environment configuration.
         """
         server_params = StdioServerParameters(
             command=settings.mcp_server_command,
             args=settings.mcp_server_args,
-            env={**os.environ, "PYTHONPATH": os.getcwd()}
+            env={**os.environ, "PYTHONPATH": os.getcwd()},
         )
 
         logger.debug("Starting MCP stdio client session")

@@ -9,7 +9,6 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from baml_client.async_client import b
-from baml_client.types import CheckupTier
 from src.mcp_server.utils import load_signal_store_record
 from src.orchestrator.enrichment.output_enricher import OutputEnricher
 from src.orchestrator.logger.audit import AuditLogger
@@ -37,7 +36,9 @@ class ClinicalOrchestrator:
             command=settings.mcp_server_command, args=settings.mcp_server_args, env={**os.environ, "PYTHONPATH": "."}
         )
 
-    async def run_baseline_phase(self, session: ClientSession, patient_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    async def run_baseline_phase(
+        self, session: ClientSession, patient_id: str
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Execute mandatory baseline MCP tool calls and return raw and masked context.
 
         Args:
@@ -137,9 +138,7 @@ class ClinicalOrchestrator:
                 # Convert BAML object to dict for downstream processing
                 ai_output = {
                     "ai_recommended_tier": recommendation.ai_recommended_tier.value,
-                    "tier_deviation_justification": getattr(
-                        recommendation, "tier_deviation_justification", None
-                    ),
+                    "tier_deviation_justification": getattr(recommendation, "tier_deviation_justification", None),
                     "reasoning_trace": recommendation.reasoning_trace,
                     "add_ons": [
                         {

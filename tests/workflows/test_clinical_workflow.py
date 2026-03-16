@@ -1,9 +1,11 @@
 """Tests for the Clinical Reasoning Workflow."""
 
-import pytest
 from unittest.mock import AsyncMock, patch
-from src.orchestrator.workflows.clinical import ClinicalReasoningWorkflow
+
+import pytest
+
 from src.orchestrator.workflows.base import WorkflowContext
+from src.orchestrator.workflows.clinical import ClinicalReasoningWorkflow
 
 
 @pytest.fixture
@@ -18,7 +20,7 @@ def mock_session():
 async def test_clinical_workflow_execution(mock_session):
     """Verify the full execution loop of the clinical workflow."""
     patient_id = "pt-001"
-    
+
     # Mock MCP tool responses
     mock_session.call_tool.side_effect = [
         # fetch_baseline (2 tools)
@@ -29,7 +31,7 @@ async def test_clinical_workflow_execution(mock_session):
         # evaluate_trends (1 tool)
         AsyncMock(content=[AsyncMock(text='{"bmi_trend": "increasing"}')]),
     ]
-    
+
     # Mock BAML GenerateRecommendation
     mock_recommendation = AsyncMock()
     mock_recommendation.ai_recommended_tier.value = "Advanced"
@@ -41,7 +43,7 @@ async def test_clinical_workflow_execution(mock_session):
     with patch("baml_client.async_client.b.GenerateRecommendation", return_value=mock_recommendation):
         workflow = ClinicalReasoningWorkflow(mock_session)
         result = await workflow.execute(patient_id)
-        
+
         assert isinstance(result, WorkflowContext)
         assert result.patient_id == patient_id
         assert result.ai_output["ai_recommended_tier"] == "Advanced"

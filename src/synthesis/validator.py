@@ -119,7 +119,7 @@ def validate_signal_ids(applicable_signals: list[str], signals_fired: list[str],
     """Validate all signal IDs match the Signal Store Contract catalog."""
     all_signals = set(applicable_signals) | set(signals_fired) | set(missing_signals)
     invalid_signals = [s for s in all_signals if not _is_valid_signal_id(s)]
-    
+
     assert not invalid_signals, f"Invalid signal IDs: {sorted(invalid_signals)}"
     assert signals_fired, "signals_fired[] cannot be empty"
 
@@ -142,9 +142,7 @@ def validate_signal_store_record(record: dict) -> None:
 
     signals = record.get("clinical_signals", {})
     validate_signal_ids(
-        signals.get("applicable_signals", []), 
-        signals.get("signals_fired", []), 
-        signals.get("missing_signals", [])
+        signals.get("applicable_signals", []), signals.get("signals_fired", []), signals.get("missing_signals", [])
     )
 
     tier = signals.get("rule_preliminary_tier")

@@ -6,9 +6,7 @@ from loguru import logger
 class OutputEnricher:
     """Enriches AI output with system-injected fields from Signal Store and Ruleset Store."""
 
-    def enrich_add_ons(
-        self, ai_add_ons: list[dict], ruleset_add_on_library: list[dict]
-    ) -> list[dict]:
+    def enrich_add_ons(self, ai_add_ons: list[dict], ruleset_add_on_library: list[dict]) -> list[dict]:
         """Enrich add-on items with Ruleset Store metadata.
 
         Args:
@@ -50,9 +48,7 @@ class OutputEnricher:
 
         return enriched
 
-    def _find_matched_signals(
-        self, item_code: str, ruleset_item: dict, supporting_signals: list[str]
-    ) -> list[str]:
+    def _find_matched_signals(self, item_code: str, ruleset_item: dict, supporting_signals: list[str]) -> list[str]:
         """Find which trigger signals from Ruleset Store matched the supporting signals.
 
         Args:
@@ -66,9 +62,7 @@ class OutputEnricher:
         trigger_signals = ruleset_item.get("trigger_signals", [])
         matched = [sig for sig in trigger_signals if sig in supporting_signals]
 
-        logger.debug(
-            f"Add-on {item_code}: {len(matched)}/{len(trigger_signals)} trigger signals matched"
-        )
+        logger.debug(f"Add-on {item_code}: {len(matched)}/{len(trigger_signals)} trigger signals matched")
 
         return matched
 
@@ -105,8 +99,6 @@ class OutputEnricher:
 
         # Enrich add-ons
         if "add_ons" in ai_output:
-            enriched["add_ons"] = self.enrich_add_ons(
-                ai_output["add_ons"], ruleset_response.get("add_on_library", [])
-            )
+            enriched["add_ons"] = self.enrich_add_ons(ai_output["add_ons"], ruleset_response.get("add_on_library", []))
 
         return enriched

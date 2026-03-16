@@ -134,18 +134,14 @@ def get_program_ruleset(patient_token: str) -> dict:
     admin_last_updated = tier_config.get("created_at", "")
 
     # Evaluate tier rules to find applied rule
-    applied_rule_id, applied_condition, evaluated_tier = _evaluate_tier_rules(
-        tier_selection_rules, signals_fired
-    )
+    applied_rule_id, applied_condition, evaluated_tier = _evaluate_tier_rules(tier_selection_rules, signals_fired)
 
     # Use rule_preliminary_tier from Signal Store if available, otherwise use evaluated
     final_tier = rule_preliminary_tier if rule_preliminary_tier else evaluated_tier
 
     # Load and filter add-on items
     all_add_ons = load_ruleset_add_on_items()
-    filtered_add_ons, excluded_add_ons = filter_add_ons_by_demographics(
-        all_add_ons, gender, age
-    )
+    filtered_add_ons, excluded_add_ons = filter_add_ons_by_demographics(all_add_ons, gender, age)
 
     # Build package resolution map (simplified - should be loaded from config)
     package_resolution_map = {

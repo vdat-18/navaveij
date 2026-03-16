@@ -1,14 +1,12 @@
 """FastAPI Entry point for the Navaveij Clinical Recommendation Engine."""
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+import uvicorn
+from dotenv import load_dotenv
+from fastapi import FastAPI
 from loguru import logger
 from pydantic import BaseModel
-from dotenv import load_dotenv
-import uvicorn
 
 from src.orchestrator.core.manager import OrchestrationManager
-from src.shared.exceptions import NavaveijError
 
 # Load environment variables
 load_dotenv()
@@ -25,6 +23,7 @@ manager = OrchestrationManager()
 
 class RecommendationRequest(BaseModel):
     """Schema for a recommendation request."""
+
     patient_id: str
 
 
@@ -36,9 +35,8 @@ async def root():
 
 @app.post("/recommend")
 async def get_recommendation(request: RecommendationRequest):
-    """
-    Generate a personalized clinical recommendation for a patient.
-    
+    """Generate a personalized clinical recommendation for a patient.
+
     This endpoint triggers the full ReAct loop:
     1. MCP data retrieval
     2. PII Masking
@@ -48,10 +46,10 @@ async def get_recommendation(request: RecommendationRequest):
     6. PII Rehydration
     """
     logger.info(f"API Request received for patient: {request.patient_id}")
-    
+
     # Delegate to Orchestration Manager
     result = await manager.generate_recommendation(request.patient_id)
-    
+
     return result
 
 

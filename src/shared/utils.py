@@ -1,9 +1,7 @@
 """Shared utility functions for the Navaveij Recommendation Engine."""
 
-import hmac
 import hashlib
-
-from loguru import logger
+import hmac
 
 
 def generate_patient_token(patient_id: str, secret_salt: str) -> str:
