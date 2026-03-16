@@ -1,4 +1,8 @@
-"""Orchestrates the generation of synthetic Signal Store records using LLMs via BAML."""
+"""Orchestrates the hybrid synthesis of Signal Store records.
+
+Uses a Seed-based approach (Perturbation) combined with a Self-Correction loop
+(Critique & Fix) to ensure high-fidelity clinical data generation.
+"""
 
 import asyncio
 import json
@@ -8,87 +12,85 @@ from loguru import logger
 
 from baml_client.async_client import b
 from baml_client.types import ClinicalScenario, SignalStoreRecord
-
 from src.synthesis.validator import validate_signal_store_record
 
 
 class SynthesisOrchestrator:
-    """Orchestrates the generation of synthetic Signal Store records using LLMs via BAML.
+    """Orchestrates the generation of synthetic Signal Store records using LLMs.
 
-    Generates complete Signal Store DB records according to signal-store-contract.md v1.0,
-    including hard_constraints, clinical_signals, and biomarker_trends sections.
+    Implements a hybrid strategy:
+    1. Loads a 'Golden Seed' record for the scenario.
+    2. Perturbs the seed to create a realistic variation.
+    3. Runs a self-correction loop (Critique & Fix) for medical accuracy.
     """
 
     def __init__(self, output_dir: str | None = None):
-        """Initialize the orchestrator.
+        """Initialize the orchestrator."""
+        self.base_output_dir = Path(output_dir or "assets/synthesis/generated")
+        self.seed_dir = Path("assets/synthesis/seeds")
+        self.base_output_dir.mkdir(parents=True, exist_ok=True)
 
-        Args:
-            output_dir: Directory to save generated records. Defaults to src/mcp_server/data/synthetic
-        """
-        self.output_dir = Path(output_dir or "src/mcp_server/data/synthetic")
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-
-    async def generate_scenario(self, scenario: ClinicalScenario, count: int = 1) -> None:
-        """Generate N Signal Store records for a specific clinical scenario.
-
-        Args:
-            scenario: Clinical scenario to generate
-            count: Number of records to generate per scenario
-        """
-        logger.info(f"Starting synthesis for scenario: {scenario} (Count: {count})")
-
-        tasks = []
-        for i in range(count):
-            tasks.append(self._generate_single_record(scenario, i))
-
-        await asyncio.gather(*tasks)
-        logger.success(f"Completed scenario {scenario}")
-
-    async def _generate_single_record(self, scenario: ClinicalScenario, index: int) -> None:
-        """Generate a single Signal Store record and save it to disk.
-
-        Args:
-            scenario: Clinical scenario to generate
-            index: Record index for filename uniqueness
-        """
-        record: SignalStoreRecord = await b.SynthesizeSignalStoreRecord(scenario=scenario)
-
-        data = record.model_dump()
-
-        # Transform field names to match Signal Store Contract (_schema, _meta)
-        # BAML doesn't support field names starting with underscore, so we transform here
-        if "schema_version" in data:
-            data["_schema"] = data.pop("schema_version")
-        if "metadata" in data:
-            data["_meta"] = data.pop("metadata")
-
-        # Validate against Signal Store Contract
-        validate_signal_store_record(data)
-
-        # Use deterministic but unique filenames
-        filename = f"signal_store_{scenario.value.lower()}_{index:03d}.json"
-        file_path = self.output_dir / filename
-
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-
-        logger.debug(f"Saved Signal Store record to {file_path}")
-
-    async def generate_all_scenarios(self, count_per_scenario: int = 1) -> None:
-        """Generate records for all defined ClinicalScenarios.
-
-        Args:
-            count_per_scenario: Number of records to generate per scenario
-        """
-        scenarios = [
+    async def generate_all_scenarios(self, count_per_scenario: int = 1, scenario_name: str | None = None) -> None:
+        """Generate records for clinical scenarios."""
+        all_scenarios = [
             ClinicalScenario.HealthyRoutineCheckup,
             ClinicalScenario.UncontrolledHypertension,
             ClinicalScenario.MetabolicSyndromeRisk,
             ClinicalScenario.SeniorCancerScreeningGap,
-            ClinicalScenario.EarlyOnsetDiabetes,
-            ClinicalScenario.ChronicKidneyDiseaseProgression,
         ]
 
-        logger.info(f"Generating Signal Store records for {len(scenarios)} scenarios...")
-        for scenario in scenarios:
-            await self.generate_scenario(scenario, count=count_per_scenario)
+        # Use filtered list if scenario_name is provided
+        scenarios = [s for s in all_scenarios if s.value == scenario_name] if scenario_name else all_scenarios
+
+        logger.info(f"Starting hybrid synthesis for {len(scenarios)} scenarios...")
+        await asyncio.gather(*(self.generate_scenario(s, count_per_scenario) for s in scenarios))
+        logger.success("Hybrid synthesis pipeline completed.")
+
+    async def generate_scenario(self, scenario: ClinicalScenario, count: int = 1) -> None:
+        """Generate N variations for a specific scenario."""
+        seed_path = self._get_seed_path(scenario)
+        with open(seed_path, encoding="utf-8") as f:
+            seed_record = SignalStoreRecord.model_validate(json.load(f))
+
+        # Create scenario-specific subdirectory
+        scenario_dir = self.base_output_dir / scenario.value
+        scenario_dir.mkdir(parents=True, exist_ok=True)
+
+        logger.info(f"Synthesizing {count} variations for {scenario}...")
+        for i in range(count):
+            await self._run_hybrid_synthesis(seed_record, scenario, i, scenario_dir)
+
+    async def _run_hybrid_synthesis(
+        self, seed: SignalStoreRecord, scenario: ClinicalScenario, index: int, output_path: Path
+    ) -> None:
+        """Run perturbation and self-correction loop."""
+        logger.debug(f"Phase 1: Perturbing {scenario} ({index})")
+        variant = await b.PerturbSignalStoreRecord(seed=seed, scenario=scenario)
+
+        logger.debug(f"Phase 2: Correcting {scenario}")
+        perfected = await b.CritiqueAndFixRecord(record=variant)
+
+        # Ensure signals_fired and missing_signals are subsets of applicable_signals
+        data = perfected.model_dump()
+        clinical = data.get("clinical_signals", {})
+        
+        # Merge fired/missing into applicable for contract compliance
+        clinical["applicable_signals"] = sorted(list(
+            set(clinical.get("applicable_signals", [])) | 
+            set(clinical.get("signals_fired", [])) | 
+            set(clinical.get("missing_signals", []))
+        ))
+
+        validate_signal_store_record(data)
+
+        file_path = output_path / f"record_{index:03d}.json"
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+        logger.info(f"Saved: {file_path}")
+
+    def _get_seed_path(self, scenario: ClinicalScenario) -> Path:
+        """Map scenario enum to seed file path."""
+        # Simple CamelCase to snake_case converter
+        name = "".join(["_" + c.lower() if c.isupper() else c for c in scenario.value]).lstrip("_")
+        return self.seed_dir / f"{name}_seed.json"

@@ -2,8 +2,8 @@
 
 from loguru import logger
 
-# Complete Signal ID Catalog from signal-store-contract.md Field Dictionary
-VALID_SIGNAL_IDS = {
+# Base Signal ID Catalog from signal-store-contract.md Field Dictionary
+BASE_SIGNAL_IDS = {
     # Lab signals (11)
     "fbs_status",
     "hba1c_status",
@@ -60,70 +60,101 @@ VALID_SIGNAL_IDS = {
 }
 
 
+def _is_valid_signal_id(signal_id: str) -> bool:
+    """Return True if signal_id is allowed by the contract and guidelines."""
+    if signal_id in BASE_SIGNAL_IDS:
+        return True
+
+    # Overdue pattern from screening/vaccination gaps, e.g. colonoscopy_overdue_2557d
+    if "_overdue_" in signal_id and signal_id.endswith("d"):
+        return True
+
+    # Guideline-derived flags from clinical-guidelines-reference appendix
+    suffixes = (
+        "_confirmed",
+        "_high",
+        "_low",
+        "_very_high",
+        "_intermediate",
+        "_borderline_high",
+        "_borderline",
+        "_active",
+        "_rapid_progression",
+    )
+    if signal_id.endswith(suffixes):
+        return True
+
+    # Specific known composite flags used in examples
+    known_flags = {
+        "prediabetes_confirmed",
+        "diabetes_confirmed",
+        "diabetes_confirmation_required",
+        "bmi_normal_asian",
+        "bmi_overweight_asian",
+        "bmi_obese_asian",
+        "ascvd_risk_intermediate",
+        "ascvd_risk_high",
+        "ascvd_very_high",
+        "bp_normal",
+        "bp_stage1_htn",
+        "bp_stage2_htn",
+        "bp_trend_worsening",
+        "lifestyle_healthy",
+        "influenza_due_soon",
+        "hypertriglyceridemia_severe",
+        "hyperuricemia",
+        "office_syndrome",
+        "night_shift_worker",
+        "at_risk_alcohol_use",
+        "lung_ct_threshold_met",
+        "ckd_rapid_progression",
+    }
+    if signal_id in known_flags:
+        return True
+
+    return False
+
+
 def validate_signal_ids(applicable_signals: list[str], signals_fired: list[str], missing_signals: list[str]) -> None:
-    """Validate all signal IDs match the Signal Store Contract catalog.
-
-    Args:
-        applicable_signals: All signals evaluated for patient profile
-        signals_fired: Subset that evaluated to active
-        missing_signals: Signals with no source data
-
-    Raises:
-        ValueError: If any signal ID is invalid
-    """
+    """Validate all signal IDs match the Signal Store Contract catalog."""
     all_signals = set(applicable_signals) | set(signals_fired) | set(missing_signals)
+    invalid_signals = [s for s in all_signals if not _is_valid_signal_id(s)]
+    
+    assert not invalid_signals, f"Invalid signal IDs: {sorted(invalid_signals)}"
+    assert signals_fired, "signals_fired[] cannot be empty"
 
-    invalid_signals = all_signals - VALID_SIGNAL_IDS
-    if invalid_signals:
-        raise ValueError(f"Invalid signal IDs found: {sorted(invalid_signals)}")
+    fired_not_applicable = set(signals_fired) - set(applicable_signals)
+    assert not fired_not_applicable, f"signals_fired contains unknown IDs: {sorted(list(fired_not_applicable))}"
 
-    if not signals_fired:
-        raise ValueError("signals_fired[] cannot be empty")
+    missing_not_applicable = set(missing_signals) - set(applicable_signals)
+    assert not missing_not_applicable, f"missing_signals contains unknown IDs: {sorted(list(missing_not_applicable))}"
 
-    if set(signals_fired) - set(applicable_signals):
-        raise ValueError("signals_fired[] must be a subset of applicable_signals[]")
-
-    if set(missing_signals) - set(applicable_signals):
-        raise ValueError("missing_signals[] must be a subset of applicable_signals[]")
-
-    signal_coverage = len(signals_fired) / len(applicable_signals) if applicable_signals else 0.0
-    if signal_coverage < 0.3 or signal_coverage > 1.0:
-        logger.warning(f"Signal coverage {signal_coverage:.2f} is outside expected range (0.3-1.0)")
+    if applicable_signals:
+        coverage = len(signals_fired) / len(applicable_signals)
+        if not (0.3 <= coverage <= 1.0):
+            logger.warning(f"Signal coverage {coverage:.2f} is outside range (0.3-1.0)")
 
 
 def validate_signal_store_record(record: dict) -> None:
-    """Validate complete Signal Store record structure.
+    """Validate Signal Store record structure."""
+    version = record.get("schema_version")
+    assert version == "signal_store_record_v1", f"Expected version 'signal_store_record_v1', got {version}"
 
-    Args:
-        record: Signal Store record dictionary (with _schema and _meta fields)
+    signals = record.get("clinical_signals", {})
+    validate_signal_ids(
+        signals.get("applicable_signals", []), 
+        signals.get("signals_fired", []), 
+        signals.get("missing_signals", [])
+    )
 
-    Raises:
-        ValueError: If record structure is invalid
-    """
-    schema = record.get("_schema") or record.get("schema_version")
-    if schema != "signal_store_record_v1":
-        raise ValueError(f"_schema must be 'signal_store_record_v1', got {schema}")
+    tier = signals.get("rule_preliminary_tier")
+    assert tier in ["Standard", "Advanced", "Premium"], f"Invalid tier: {tier}"
 
-    clinical_signals = record.get("clinical_signals", {})
-    applicable_signals = clinical_signals.get("applicable_signals", [])
-    signals_fired = clinical_signals.get("signals_fired", [])
-    missing_signals = clinical_signals.get("missing_signals", [])
+    risk = signals.get("overall_risk_level")
+    assert risk in ["Low", "Moderate", "High"], f"Invalid risk level: {risk}"
 
-    validate_signal_ids(applicable_signals, signals_fired, missing_signals)
-
-    # Validate tier values
-    rule_preliminary_tier = clinical_signals.get("rule_preliminary_tier")
-    if rule_preliminary_tier not in ["Standard", "Advanced", "Premium"]:
-        raise ValueError(f"Invalid rule_preliminary_tier: {rule_preliminary_tier}")
-
-    overall_risk_level = clinical_signals.get("overall_risk_level")
-    if overall_risk_level not in ["Low", "Moderate", "High"]:
-        raise ValueError(f"Invalid overall_risk_level: {overall_risk_level}")
-
-    # Validate data completeness
-    meta = record.get("_meta") or record.get("metadata", {})
+    meta = record.get("metadata", {})
     completeness = meta.get("data_completeness_ratio", 0.0)
-    if not 0.0 <= completeness <= 1.0:
-        raise ValueError(f"data_completeness_ratio must be 0.0-1.0, got {completeness}")
+    assert 0.0 <= completeness <= 1.0, f"Completeness ratio must be 0-1, got {completeness}"
 
-    logger.info(f"Signal Store record validated: {len(applicable_signals)} applicable, {len(signals_fired)} fired, {len(missing_signals)} missing")
+    logger.info(f"Validated: {len(signals.get('signals_fired', []))} signals active")

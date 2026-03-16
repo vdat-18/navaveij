@@ -7,7 +7,7 @@ from pathlib import Path
 from loguru import logger
 
 # Constants
-SIGNAL_STORE_DIR = Path("src/mcp_server/data/synthetic")
+SIGNAL_STORE_DIR = Path("assets/synthesis")
 RULESET_TIER_CONFIG_PATH = Path(
     "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/"
     "sample_ruleset_tier_config.json"
@@ -31,16 +31,15 @@ def load_signal_store_record(patient_token: str) -> dict | None:
         logger.warning(f"Signal Store directory not found: {SIGNAL_STORE_DIR}")
         return None
 
-    for file_path in SIGNAL_STORE_DIR.glob("signal_store_*.json"):
+    # Search recursively for record_*.json in all scenario subdirectories
+    for file_path in SIGNAL_STORE_DIR.glob("**/record_*.json"):
         with open(file_path, encoding="utf-8") as f:
             record = json.load(f)
             if record.get("patient_token") == patient_token:
-                logger.debug(f"Found Signal Store record: {file_path.name}")
+                logger.debug(f"Found Signal Store record: {file_path.parent.name}/{file_path.name}")
                 return record
 
-    logger.warning(
-        f"Signal Store record not found for patient_token: {patient_token}"
-    )
+    logger.warning(f"Record not found for token: {patient_token}")
     return None
 
 

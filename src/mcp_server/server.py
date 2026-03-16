@@ -6,8 +6,6 @@ from src.mcp_server.tools.biomarker_trends import get_biomarker_trends
 from src.mcp_server.tools.clinical_signals import get_clinical_signals
 from src.mcp_server.tools.hard_constraints import get_hard_constraints
 from src.mcp_server.tools.program_ruleset import get_program_ruleset
-from src.mcp_server.tools.patient_context import get_patient_context
-
 # Initialize FastMCP server
 mcp = FastMCP("Navaveij Clinical Server")
 
@@ -16,7 +14,6 @@ mcp.tool()(get_hard_constraints)
 mcp.tool()(get_clinical_signals)
 mcp.tool()(get_biomarker_trends)
 mcp.tool()(get_program_ruleset)
-mcp.tool()(get_patient_context)
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")

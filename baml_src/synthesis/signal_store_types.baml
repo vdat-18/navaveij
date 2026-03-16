@@ -309,3 +309,4 @@ class SignalStoreRecord {
   biomarker_trends BiomarkerTrends
   metadata SignalStoreMeta
 }
+
