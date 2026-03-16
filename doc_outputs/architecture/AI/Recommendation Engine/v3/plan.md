@@ -1,234 +1,383 @@
-# Plan: POC Deliverables — UI Mockup Screens + Missing Schema Contracts
+# Plan: POC Interactive Demo — Full Build Plan
 
 ## Context
+The v3 folder has 20 specification documents (20 `.md` files) covering architecture, MCP tool contracts, sample data, and screen-by-screen UI specs. No interactive application exists. This plan builds the POC demo from scratch, using every v3 spec as a source of truth.
 
-The backend architecture, all schema contracts for the Recommendation Platform, and sample data are complete (15 documents, checkpoint v3). The POC requires 3 minimum UI mockup screens for the evaluation committee presentation.
-
-Two gaps block screen production:
-1. **Screen 2 needs a 5th MCP tool** — `get_patient_event_timeline` — to provide the structured historical events (diagnoses with dates, hospitalizations, significant lab events) required for the Trend & Timeline view. The existing tools return computed metrics, not event-structured history.
-2. **Screen 3 has no schema contract at all** — TOR §3.4 specifies 6 sub-features for the Admin/DPO Access Monitoring Dashboard but none have been designed.
-
-Decision: Full schema contracts first (same rigour as existing contracts), then screens.
-
----
-
-## Deliverables in Order
-
-### 1. `event-timeline-contract.md` — New 5th MCP Tool
-
-**File:** `doc_outputs/architecture/AI/Recommendation Engine/v3/schema-contracts/event-timeline-contract.md`
-
-**Tool:** `get_patient_event_timeline(patient_token)`
-
-**Purpose:** Returns structured historical event data for the Trend & Timeline screen. The existing `get_biomarker_trends` tool returns computed metrics (slope, velocity, trend direction) and short history arrays — it does NOT return a structured clinical event timeline needed for the timeline track on Screen 2.
-
-**Response structure (5 arrays):**
-
-```
-diagnoses[]
-  date, icd10_code, snomed_code, label, clinical_status, onset_type (acute/chronic), onset_year
-  source: FHIR Condition.onsetDateTime + code
-
-hospitalizations[]
-  date_admit, date_discharge, length_of_stay_days, reason_label, encounter_class
-  source: FHIR Encounter (class: inpatient)
-
-significant_lab_events[]
-  date, lab_id, loinc_code, label, value, unit, interpretation (H/L/HH/LL), threshold_crossed
-  — Only abnormal results (interpretation != N); max last 5 years
-  source: FHIR Observation where interpretation != Normal
-
-screening_procedure_history[]
-  date, procedure_code, cpt_code, label, status (completed/cancelled), days_ago
-  — All completed screenings relevant to screening gap calculation
-  source: FHIR Procedure (completed)
-
-medication_changes[]
-  date, drug_name, rxnorm_code, change_type (started/stopped/dose_change), dose
-  source: FHIR MedicationStatement + MedicationRequest
-
-timeline_span:
-  earliest_event_date, latest_event_date, total_years_covered
-```
-
-**Contract format:** Same as `signal-store-contract.md` — purpose, full JSON example (Somchai W.), JSON Schema, field dictionary.
-
-**Somchai W. example events to include:**
-- Dyslipidemia diagnosis 2022
-- HTN diagnosis 2025 (on Amlodipine)
-- Prediabetes confirmed 2024
-- Hyperuricemia 2026
-- Colonoscopy 2019-06-12 (last performed)
-- Statin started 2022
-- Significant labs: FBS crossing 100 in 2024, HbA1c crossing 5.7% in 2024
+**POC evaluation scoring:**
+- 35% Hybrid Recommendation Engine + MCP
+- 25% Pluggable AI + FHIR
+- 20% UX/XAI explainability
+- 20% Security, Privacy & Audit
 
 ---
 
-### 2. `access-monitoring-contract.md` — Admin/DPO Dashboard Schema
-
-**File:** `doc_outputs/architecture/AI/Recommendation Engine/v3/schema-contracts/access-monitoring-contract.md`
-
-**Covers all 6 TOR §3.4 sub-features:**
-
-#### 2a. Audit Log Record (TOR §3.4.3 + §5.3)
-Already described architecturally in `component-inventory §2.7`. This contract formalises the actual record schema.
+## Build Order Overview
 
 ```
-audit_log_entry {
-  entry_id:         UUID
-  sha256_hash:      string  (this entry's hash)
-  prev_entry_hash:  string  (chain link — tamper evident)
-
-  who:   { user_id, user_role, smart_fhir_session_token }
-  when:  { iso_timestamp_utc }
-  where: { service_id, source_ip, request_id }
-  what:  { action_type (View/Generate/Export/Admin),
-           patient_token (masked),
-           prompt_hash, context_hash, response_hash,
-           model_id, template_version, latency_ms,
-           safety_validator_result }
-  why:   { request_context, indication_code }
-
-  retention_expiry: date
-}
+┌─────────────────────────────────────────────────────────────────────┐
+│  PHASE 0 (data updates) — run IN PARALLEL with everything else      │
+│  • P0-A: update sample_add_on_items.json with confirmed prices       │
+│  • P0-B: update __checkpoint.md OQ section                          │
+└─────────────────────────────────────────────────────────────────────┘
+          │                          │
+          ▼                          ▼
+┌──────────────────┐      ┌──────────────────────────────┐
+│  PHASE 1         │      │  PHASE 2                      │
+│  Backend API     │      │  Frontend Scaffold            │
+│  (SEQUENTIAL     │      │  (PARALLEL with Phase 1)      │
+│   prerequisite   │      │  Vite project, shared         │
+│   for Phases     │      │  layout, navigation,          │
+│   3-5)           │      │  API client layer             │
+└──────────────────┘      └──────────────────────────────┘
+          │                          │
+          └──────────┬───────────────┘
+                     ▼  (both Phase 1 + 2 must be done first)
+        ┌────────────┴───────────────────────────────┐
+        │  PHASES 3, 4, 5 — run IN PARALLEL          │
+        │  • Phase 3: Screen 1 (Recommendation)       │
+        │  • Phase 4: Screen 2 (Trend & Timeline)     │
+        │  • Phase 5: Screen 3 (Access Monitoring)    │
+        └─────────────────────────────────────────────┘
+                     │
+                     ▼  (all screens must be complete)
+             ┌───────────────┐
+             │  PHASE 6      │
+             │  Integration  │
+             │  + Demo Polish│
+             └───────────────┘
 ```
-
-**Search API spec:** `search_audit_logs(filters)` — filters by user_id, patient_token, date_range, action_type; returns paginated entries.
-
-#### 2b. Anomaly Detection (TOR §3.4.2)
-Define:
-- **User baseline model**: rolling 30-day window per user — avg records/session, typical access hours, department affinity
-- **Anomaly signals** (3 types):
-  - `high_volume`: records accessed in session > 3× user's 30-day average
-  - `out_of_department`: patient's department != user's primary department AND access count > threshold
-  - `off_hours`: access outside user's typical hour band (computed from baseline)
-- **AnomalyAlert record**: alert_id, user_id, alert_type, severity (Low/Medium/High/Critical), triggered_at, detail, status (Open/Acknowledged/Resolved)
-
-#### 2c. Real-Time Monitoring Metrics (TOR §3.4.1)
-```
-monitoring_snapshot {
-  active_users_now:      integer
-  sessions_today:        integer
-  patient_records_accessed_today: integer
-  alert_counts: { critical, high, medium, low }
-  snapshot_at: ISO timestamp
-}
-```
-
-#### 2d. RBAC Data Model (TOR §3.4.4)
-```
-role { role_id, role_name, department, permissions[] }
-permission { resource_type (Patient/AuditLog/MasterData/MappingTable),
-             actions[] (View/Generate/Export/Edit) }
-user_role_assignment { user_id, role_id, assigned_at, expires_at? }
-```
-
-#### 2e. Mapping Table Schema (TOR §3.4.5)
-```
-mapping_entry {
-  local_code:    string   (HIS internal code)
-  local_label:   string
-  target_system: enum (LOINC/SNOMED_CT/ICD10/CPT/CVX/NAVAVEJ_PRODUCT)
-  target_code:   string
-  target_label:  string
-  status:        enum (active/pending_review/deprecated)
-  last_updated_by, last_updated_at
-}
-```
-
-#### 2f. Master Data Record Types (TOR §3.4.6)
-Enumerate the 5 admin-managed master data types:
-- `checkup_program` — maps to Ruleset Store package_resolution_map
-- `alert_threshold` — lab ULN overrides per hospital policy
-- `screening_interval` — admin-configurable interval overrides per guideline
-- `vaccine_schedule` — active vaccine list with CVX codes
-- `safety_rule` — admin-configurable safety rules (gender/age eligibility overrides)
 
 ---
 
-### 3. UI Mockup Screens (3 screens)
+## Phase 0 — Data Updates
+**Folder:** `v3/samples/`
+**Parallel with:** Everything
 
-**Format:** Markdown files with ASCII wireframe layout + field-by-field annotation mapping each UI element to its data contract source field. This is consistent with all other project documents and is self-contained for the POC presentation.
+### Context
+`navavej-checkup-package-discovery.md` was created 2026-03-12 and contains confirmed Expo promo prices for 29 add-on programs. `sample_add_on_items.json` currently has `price_thb: null` for most items.
 
-**Files:**
-- `doc_outputs/poc-screens/screen-1-individual-summary.md`
-- `doc_outputs/poc-screens/screen-2-trend-timeline.md`
-- `doc_outputs/poc-screens/screen-3-access-monitoring.md`
+### Functional Requirements
+**P0-A: `samples/sample_add_on_items.json`**
+- Fill `price_thb` for 29 items from discovery doc §5 (full list in Appendix A)
+- Add `"price_note": "5th Anniversary Expo 2026 promo — expires 2026-03-31"` to each filled item
+- Retain `price_thb: null` for: `psa_sdm`, `hepatitis_b_vaccine`, `pneumococcal_vaccine`, `shingrix_vaccine`, `unexplained_weight_loss_workup`
+- Update `colonoscopy` item: annotate that this maps to Upper GI Endoscopy Package (฿9,500) pending lower GI colonoscopy confirmation
+- Update `_open_questions_pending` array: remove items now resolved; retain only the 5 null-price items
+- Change file `status` field from `"draft"` to `"partial"`
 
-#### Screen 1: Individual Summary & Recommendation
+**P0-B: `__checkpoint.md`**
+- OQ-Prices → **Partial**: Expo promo prices now confirmed; post-Expo standard prices still unknown (urgent before 2026-03-31)
+- OQ-7 → **Partial**: Upper GI Endoscopy ฿9,500 confirmed; standalone lower GI colonoscopy TBD
+- Add **OQ-WeightLoss**: no dedicated single program found; maps to SPOT-MAS (฿15,900) + Thyroid Pro 2 (฿3,395)
+- Update Next Steps table: POC demo build is the current work item
+- Add `data/navavej-checkup-package-discovery.md` to documents table if not already there
 
-Key display areas (all from `recommendation-output-schema.md`):
-- **Header bar**: patient identifier (rehydrated), resolved package name + price, `recommendation_source` badge
-- **Patient High Alert panel** (top, red band): `patient_high_alert.critical_signals[]` + `missing_data_alerts[]`
-- **Tier comparison row**: `rule_preliminary_tier` vs `ai_recommended_tier` side-by-side; `tier_deviation_justification` if different
-- **Confidence Score widget**: `confidence_score` gauge (0–1) + `confidence_tier` label (High/Medium/Low)
-- **Explainable AI panel**: `reasoning_trace` (scrollable text, full chain-of-thought)
-- **Add-on list**: `add_ons[]` sorted by priority_level (Red → Orange → Yellow → Green), each card showing label, rationale, Navavej product name + price
-- **Screening Gap / Overdue list**: extracted from `add_ons[]` where category = cancer_screening or vaccination
-- **Communication Script panel**: tabbed sections (health_summary / recommendation_explanation / add_on_highlights / next_steps)
+### Client Escalation (no action needed in code — for human follow-up)
+| OQ | Urgency | Ask |
+|---|---|---|
+| OQ-Prices | 🔴 17 days | Standard prices for all packages after 2026-03-31 |
+| OQ-7 | Medium | Standalone lower GI colonoscopy program? |
+| OQ-10 | Medium | PSA standalone product code + price |
+| OQ-HepB | Medium | Hepatitis B vaccine per-dose price |
+| OQ-Pneumo | Medium | PCV20 or PCV15+PPSV23? Product code + price? |
+| OQ-Shingrix | Medium | Shingrix per-dose price (confirm if offered at all) |
+| OQ-HIS | Low | HIS system + FHIR R4 export capability |
+| OQ-PackageItems | Low | Full itemized lists: Gold, Platinum M/F, Diamond Men |
 
-#### Screen 2: Trend & Timeline
-
-Key display areas:
-- **Biomarker trend charts** (from `get_biomarker_trends`): line charts for FBS, HbA1c, LDL, BMI, BP (systolic), eGFR — each with reference range band and trend arrow
-- **Timeline track** (horizontal, chronological, from `get_patient_event_timeline`):
-  - Diagnosis events (blue markers)
-  - Hospitalizations (red markers)
-  - Significant abnormal labs (orange markers)
-  - Completed screenings (green markers)
-  - Medication changes (grey markers)
-- **Screening gap status bar**: overdue items from `get_clinical_signals.screening_gaps[]` with `priority_color` and `overdue_days`
-- **Vaccination status row**: `vaccination_gaps[]` with color badges
-
-#### Screen 3: Access Monitoring Dashboard
-
-Key display areas (from `access-monitoring-contract.md`):
-- **Live metrics bar**: active users, sessions today, records accessed today, open alert count
-- **Anomaly Alert table**: `AnomalyAlert[]` filtered to Open/Unacknowledged, sortable by severity; inline acknowledge action
-- **Audit Log Search panel**: filter form (user, patient_token, date range, action_type) + paginated results table showing Who/When/Where/What/Why columns
-- **User Activity heatmap**: per-user access volume vs baseline (for anomaly visualization)
-- **Navigation tabs** (shown but not detailed in POC): Role Management | Mapping Tool | Master Data
+### Testing
+- `jq '[.[] | select(.price_thb == null)]' sample_add_on_items.json` returns exactly 5 items
+- `jq '.status' sample_add_on_items.json` returns `"partial"`
 
 ---
 
-### 4. Update `__checkpoint.md`
+## Phase 1 — Backend API
+**Folder:** `v3/demo/backend/`
+**Must complete before:** Phases 3, 4, 5
 
-Add documents 16–19 (event-timeline-contract, access-monitoring-contract, 3 screen files) and update Next Steps to: POC presentation deck.
+### Context
+The backend serves as the "Recommendation Platform" from the architecture. For the POC it uses synthetic data instead of live FHIR feeds, but follows the exact same API contracts. The key demo value is proving the AI actually calls MCP tools and produces a structured, schema-valid output.
+
+### Files
+```
+v3/demo/backend/
+├── main.py              ← FastAPI app (all endpoints)
+├── requirements.txt     ← dependencies
+├── .env.example         ← AI_ACTIVE_CLIENT, ANTHROPIC_API_KEY, OPENAI_API_KEY
+├── data/
+│   ├── signals.json     ← Somchai W. MCP tool responses (from signal-store-contract)
+│   ├── ruleset.json     ← from sample_ruleset_tier_config.json + sample_add_on_items.json
+│   ├── timeline.json    ← Somchai W. timeline (from event-timeline-contract example)
+│   └── monitoring.json  ← audit logs + anomaly alerts + snapshot (from access-monitoring-contract)
+└── prompt_template.txt  ← system prompt from recommendation-output.baml §GenerateRecommendation
+```
+
+### Functional Requirements
+
+**`POST /api/recommend`**
+- Input: `{ "patient_token": "tok_hmac_56291047" }`
+- Step 1 (Mock MCP Phase 1 — fixed baseline): call all 4 MCP tools in sequence:
+  1. `get_hard_constraints(patient_token)` → load from `data/signals.json`
+  2. `get_clinical_signals(patient_token)` → load from `data/signals.json`
+  3. `get_biomarker_trends(patient_token)` → load from `data/signals.json`
+  4. `get_program_ruleset(tier, gender, age)` → load from `data/ruleset.json`
+- Step 2 (AI inference): assemble system prompt from `prompt_template.txt` + MCP responses → call Claude API with structured output mode
+- Step 3 (Stage 2 enrichment): inject `rule_preliminary_tier`, `resolved_package`, `confidence_score` (0.823), `confidence_tier` ("High"), `recommendation_source`, `metadata.model_id`, `metadata.latency_ms`, `metadata.ruleset_version`; enrich each add-on with `label`, `category`, `navavej_product` from ruleset
+- Output: full Stage 2 `RecommendationOutput` JSON
+- `AI_ACTIVE_CLIENT` env var controls model: `claude` → `claude-sonnet-4-6`; `gpt4o` → `gpt-4o-mini`
+
+**`GET /api/timeline/{patient_token}`**
+- Returns event timeline object from `data/timeline.json` (Somchai W. example from event-timeline-contract)
+
+**`GET /api/monitoring-snapshot`**
+- Returns `MonitoringSnapshot` from `data/monitoring.json`
+
+**`GET /api/audit-logs`**
+- Query params: `user_id`, `patient_token_prefix`, `action_type`, `start_date`, `end_date`, `resource_type`
+- Filters the audit log array in `data/monitoring.json` and returns matching entries
+
+**CORS**: allow `http://localhost:5173` (Vite dev server)
+
+### Testing
+- `curl -X POST /api/recommend -d '{"patient_token":"tok_hmac_56291047"}'` returns JSON with non-empty `reasoning_trace` and at least 5 `add_ons`
+- `reasoning_trace` changes on re-run (confirms live Claude call, not cached)
+- Setting `AI_ACTIVE_CLIENT=gpt4o` and re-calling returns response with `metadata.model_id` showing GPT model name
+- `GET /api/audit-logs?action_type=VIEW` returns only VIEW-type entries
 
 ---
 
-## File Locations Summary
+## Phase 2 — Frontend Scaffold
+**Folder:** `v3/demo/frontend/`
+**Parallel with:** Phase 1
 
-| # | File | New/Update |
-|---|------|-----------|
-| 16 | `schema-contracts/event-timeline-contract.md` | New |
-| 17 | `schema-contracts/access-monitoring-contract.md` | New |
-| 18 | `poc-screens/screen-1-individual-summary.md` | New |
-| 19 | `poc-screens/screen-2-trend-timeline.md` | New |
-| 20 | `poc-screens/screen-3-access-monitoring.md` | New |
-| — | `__checkpoint.md` | Update |
+### Context
+Vite + React + TypeScript project providing shared layout (top navigation between 3 screens), the API client layer (typed fetch wrappers), and shared UI primitives (badge, card, loading spinner). Screens are empty shells at this phase — filled in Phases 3-5.
 
-All files under `doc_outputs/architecture/AI/Recommendation Engine/v3/`.
+### Files
+```
+v3/demo/frontend/
+├── index.html
+├── vite.config.ts
+├── package.json          ← react, react-dom, recharts, typescript, vite
+├── tsconfig.json
+└── src/
+    ├── main.tsx
+    ├── App.tsx            ← screen state, top nav, screen router
+    ├── api/
+    │   ├── recommend.ts   ← POST /api/recommend → RecommendationOutput
+    │   ├── timeline.ts    ← GET /api/timeline/{token}
+    │   └── monitoring.ts  ← GET /api/monitoring-snapshot, /api/audit-logs
+    ├── types/
+    │   └── index.ts       ← TypeScript types mirroring Stage 2 JSON schema
+    ├── components/
+    │   ├── Badge.tsx      ← priority color badges (Red/Orange/Yellow/Green)
+    │   ├── Card.tsx       ← section card wrapper
+    │   └── Spinner.tsx    ← loading state
+    └── screens/
+        ├── Screen1.tsx    ← placeholder (Phase 3)
+        ├── Screen2.tsx    ← placeholder (Phase 4)
+        └── Screen3.tsx    ← placeholder (Phase 5)
+```
+
+### Functional Requirements
+- Top nav: 3 tabs — "Recommendation", "Trend & Timeline", "Access Monitoring"
+- Active tab highlighted; switching screens does not re-fetch unless explicitly triggered
+- `api/recommend.ts`: calls `POST /api/recommend`, returns typed `RecommendationOutput`; exposes `loading`, `error`, `data` states
+- TypeScript types must match Stage 2 JSON schema in `schema-contracts/recommendation-output-schema.md`
+- Loading spinner shown while API call is in flight
+- Error banner shown if API returns non-200
+
+### Testing
+- `npm run dev` starts without error
+- Switching between 3 nav tabs renders placeholder without crash
+- `api/recommend.ts` unit test: mock fetch, assert typed response shape
 
 ---
 
-## Execution Order
+## Phase 3 — Screen 1: Individual Summary & Recommendation
+**Folder:** `v3/demo/frontend/src/screens/Screen1.tsx`
+**Spec:** `v3/poc-screens/screen-1-individual-summary.md`
+**Parallel with:** Phases 4, 5
 
-1. `event-timeline-contract.md` — unblocks Screen 2
-2. `access-monitoring-contract.md` — unblocks Screen 3
-3. Screen 1 (no dependencies, can be written in parallel with #1–2)
-4. Screen 2 (after #1)
-5. Screen 3 (after #2)
-6. Checkpoint update
+### Context
+Primary clinical workflow screen. Demonstrates the hybrid engine output (rule tier vs AI tier comparison), XAI reasoning trace, and personalized add-on list with pricing. Highest weight in evaluation scoring (contributes to 35% + 25% + 20% UX criteria).
+
+### Functional Requirements
+**Panel A — Navigation**: provided by App.tsx (shared)
+
+**Panel B — Patient Header**
+- Name (PII-masked as "Somchai W."), age, gender, program type
+- `model_id` badge (e.g., "claude-sonnet-4-6"), `latency_ms`, `ruleset_version`
+- Source: `metadata` fields from Stage 2 output
+
+**Panel C — Alert Banner**
+- Critical signals: red badge list (`patient_high_alert.critical_signals`)
+- Missing data warnings: yellow badge list (`patient_high_alert.missing_data_alerts`)
+- Collapsible; defaults to expanded if `critical_signals.length > 0`
+
+**Panel D — Tier Resolution**
+- Left column: Rule Preliminary Tier (`rule_preliminary_tier`) with badge
+- Right column: AI Recommended Tier (`ai_recommended_tier`) with badge
+- Agreement indicator: green checkmark if match, amber warning if deviation
+- If deviation: show `tier_deviation_justification` in amber callout box
+- Confidence gauge: circular meter showing `confidence_score` (0.0–1.0) with `confidence_tier` label
+- `recommendation_source` badge ("AI" or "Rule-Based")
+
+**Panel E — AI Reasoning Trace (XAI)**
+- Collapsible section (default collapsed)
+- Shows full `reasoning_trace` string in monospace, left-bordered callout
+- Label: "AI Chain-of-Thought (XAI)"
+
+**Panel F — Add-On Recommendations**
+- Sorted by priority: Red → Orange → Yellow → Green
+- Each row: priority badge, `label`, `rationale`, `navavej_product.product_code`, `navavej_product.price_thb` formatted as "฿X,XXX"
+- `price_thb: null` items: show "Price TBD" in grey
+- Count badge on section header (e.g., "13 recommendations")
+
+**Panel G — Communication Script**
+- 4 tabs: Health Summary | Recommendation | Add-on Highlights | Next Steps
+- Each tab: displays corresponding field from `communication_script`
+- Copy-to-clipboard button on each tab
+
+### Testing
+- Render with fixture Stage 2 JSON → all 13 add-ons appear
+- Tier deviation scenario: if `ai_recommended_tier ≠ rule_preliminary_tier`, amber callout visible
+- Confidence gauge renders at 0.823 with "HIGH" label
+- Reasoning trace toggle shows/hides content
+- "Price TBD" shows for any `price_thb: null` item
 
 ---
 
-## Verification
+## Phase 4 — Screen 2: Trend & Timeline
+**Folder:** `v3/demo/frontend/src/screens/Screen2.tsx`
+**Spec:** `v3/poc-screens/screen-2-trend-timeline.md`
+**Parallel with:** Phases 3, 5
 
-- Each schema contract follows the same structure as `signal-store-contract.md`: purpose → example JSON (Somchai W. or equivalent) → JSON Schema → field dictionary
-- Each screen mockup maps every UI element to a named field in a contract doc (no orphaned UI elements)
-- All 4 POC evaluation criteria are visually represented across the 3 screens:
-  - 35% Hybrid mechanism → Screen 1 (rule_preliminary_tier vs ai_recommended_tier side-by-side)
-  - 25% Pluggable AI + FHIR → Screen 1 metadata + Screen 2 data labels with LOINC codes
-  - 20% XAI + Trend → Screen 1 reasoning_trace + confidence_score + Screen 2 charts
-  - 20% Security/Audit → Screen 3
+### Context
+Longitudinal health history view. Demonstrates FHIR sourcing (LOINC codes on each chart) and data-driven clinical reasoning. Key for the 25% FHIR criterion.
+
+### Functional Requirements
+
+**Panel B — Patient Header**: same patient info strip as Screen 1 (shared component)
+
+**Panel C — Biomarker Trend Charts** (6 charts, 2-column grid)
+- FBS — LOINC 1558-6 — reference range 70–100 mg/dL
+- HbA1c — LOINC 4548-4 — reference range < 5.7%
+- LDL Cholesterol — LOINC 13457-7 — reference range < 100 mg/dL
+- BMI — LOINC 39156-5 — reference range 18.5–22.9 (Asia-Pacific)
+- BP Systolic — LOINC 8480-6 — reference range < 120 mmHg
+- eGFR — LOINC 62238-1 — reference range ≥ 60 mL/min/1.73m²
+- Each chart: LOINC code shown in subtitle, horizontal reference range band (shaded), slope annotation ("↑ +X.X/yr" or "↓")
+- Data source: `get_biomarker_trends` response (loaded from `data/signals.json`)
+- Chart library: Recharts `LineChart` + `ReferenceLine`
+
+**Panel D — Clinical Event Timeline**
+- Horizontal scrollable track of 12 events from `get_patient_event_timeline` response
+- Event types: diagnosis (ICD-10 code shown), abnormal lab (LOINC + value), medication change, screening procedure
+- Color-coded by event type; hover tooltip shows full event details
+- Data source: `data/timeline.json`
+
+**Panel E — Screening Gap Status**
+- List of overdue screenings from `clinical_signals.screening_gaps`
+- Each: screening name, days_overdue, next_recommended_date
+- Color: red if > 365 days overdue, amber if < 365
+
+**Time-range selector**: 1yr / 3yr / 5yr / All buttons — filters visible data window on all charts
+
+### Testing
+- All 6 charts render with correct LOINC code in subtitle
+- Reference range band visible on each chart
+- Timeline renders 12 events; hover tooltip shows ICD-10 or LOINC code
+- "3yr" selector reduces visible data points on all charts simultaneously
+
+---
+
+## Phase 5 — Screen 3: Access Monitoring Dashboard
+**Folder:** `v3/demo/frontend/src/screens/Screen3.tsx`
+**Spec:** `v3/poc-screens/screen-3-access-monitoring.md`
+**Parallel with:** Phases 3, 4
+
+### Context
+Admin/DPO security dashboard. Demonstrates PDPA compliance: RBAC, tamper-evident audit logging (SHA-256 hash chain), anomaly detection. Key for the 20% Security criterion.
+
+### Functional Requirements
+
+**Panel A — Live Metrics Bar**
+- 7 KPIs from `MonitoringSnapshot`: active_users_now, sessions_today, records_accessed_today, ai_recommendations_today, alert_counts (critical/high/medium/low), safety_validator_failures_today
+- Auto-refresh every 30 seconds (re-calls `GET /api/monitoring-snapshot`)
+
+**Panel B — Anomaly Alerts**
+- Table of anomaly alerts from `monitoring.json`
+- Columns: severity badge, alert_type, user_id, description, detected_at, status (Open/Acknowledged/Resolved)
+- Drilldown: click row → expand with full details + Acknowledge / Resolve buttons (UI-only state change for demo)
+
+**Panel C — Audit Log Search**
+- Filter bar: user_id, patient_token_prefix, action_type dropdown, start_date, end_date, resource_type
+- Results table: who, when, what, patient_token (masked), resource_type
+- Row drilldown: 5-dimension view (Who / When / Where / What / Why) + SHA-256 `entry_hash` + `prev_entry_hash`
+- Hash chain verify button: client-side SHA-256 computation on the displayed entry's data fields; compare against `entry_hash`; show ✅ or ❌
+
+**Secondary tabs:**
+- **Role Management**: table of 5 system roles with permission matrix (physician/nurse/pharmacist/admin/dpo × resource×action)
+- **Mapping Tool**: table of LOINC/SNOMED/ICD-10 mappings from `data/monitoring.json`
+- **Master Data**: list of checkup programs, alert thresholds, screening intervals (read-only display)
+
+### Testing
+- Metrics bar renders all 7 KPIs from snapshot
+- Audit log filter by `action_type=VIEW` reduces result set
+- Hash chain verification: compute SHA-256 of displayed entry data; assert matches `entry_hash` field
+- Role management tab: physician row shows no access to audit_log resource
+
+---
+
+## Phase 6 — Integration & Demo Polish
+**Folder:** `v3/demo/` (both backend + frontend)
+**Sequential after:** All screens complete
+
+### Functional Requirements
+- End-to-end smoke test: full page load → Screen 1 auto-fetches recommendation → all panels populated from API (not hardcoded)
+- "Regenerate" button on Screen 1: re-calls `/api/recommend`; new `reasoning_trace` appears (proving live AI call)
+- Model switcher (demo mode): dropdown in header toggles `AI_ACTIVE_CLIENT` between Claude and GPT-4o; header `model_id` badge updates
+- `VITE_API_BASE_URL` env var for configuring backend URL (supports local dev and hosted demo)
+- README in `v3/demo/` with setup instructions: `pip install -r requirements.txt`, `uvicorn main:app`, `npm install`, `npm run dev`
+
+### Testing
+- Full end-to-end: start backend, start frontend, load browser → Screen 1 populated with real AI output within 30s (TOR SLA for existing patient)
+- Switch model → `model_id` in header changes → reasoning_trace is different style/length
+- Screen 1 → Screen 2 navigation: timeline loads; biomarker charts render
+- Screen 2 → Screen 3 navigation: monitoring snapshot loads; audit log search works
+
+---
+
+## Appendix A — Confirmed Add-On Prices (from discovery doc §5)
+
+| item_id | price_thb |
+|---|---|
+| `colonoscopy` (Upper GI Endoscopy) | 9500 |
+| `exercise_stress_test` | 2900 |
+| `echocardiogram` | 2900 |
+| `ct_cac` | 3900 |
+| `cardiac_patch_monitor` | 7742 |
+| `low_dose_ct_lung` | 3900 |
+| `diabetes_screening_pro` | 2134 |
+| `hepatitis_abc_screening` | 1900 |
+| `fibrotouch` | 1900 |
+| `gi_liver_screening` | 3500 |
+| `kidney_disease_screening` | 2500 |
+| `influenza_vaccine` | 490 |
+| `senior_flu_vaccine` | 2300 |
+| `mammogram` | 2850 |
+| `pap_smear_hpv` | 2300 |
+| `dexa_scan` | 1150 |
+| `carotid_ultrasound` | 5096 |
+| `spot_mas_multi_cancer` | 15900 |
+| `spine_mri` | 6500 |
+| `thyroid_pro_1` | 2134 |
+| `thyroid_pro_2` | 3395 |
+| `full_sleep_test` | 10900 |
+| `sleep_apnea_cpap` | 12500 |
+| `menopause_screening` | 7900 |
+| `male_hormone_assessment` | 2900 |
+| `abdominal_ultrasound_full` | 2550 |
+| `dengue_vaccine` | 2990 |
+| `hpv_vaccine` | 6990 |
+| `dementia_screening` | 13900 |

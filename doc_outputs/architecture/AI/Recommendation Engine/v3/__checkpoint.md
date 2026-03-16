@@ -29,6 +29,7 @@
 | 18 | `poc-screens/screen-1-individual-summary.md` | ✅ Done | Screen 1 mockup: Physician/Nurse view — 7 panels (A nav, B patient header, C alert banner, D tier+confidence, E AI reasoning trace, F add-on list, G communication script); all fields traced to recommendation-output-schema; full Somchai W. data (13 add-ons shown with rationale, product code, price; AI/Rule tier side-by-side; confidence 0.823 High; 3 critical alerts; 2 missing data alerts; 4-tab communication script); tier deviation and rule-based fallback states documented |
 | 19 | `poc-screens/screen-2-trend-timeline.md` | ✅ Done | Screen 2 mockup: Physician/Nurse longitudinal view — 5 panels (A nav, B header, C 6-chart biomarker grid, D clinical event timeline track, E screening gap status); all charts annotated with LOINC codes and field paths from signal-store-contract; all 12 timeline events (4 diagnoses × ICD-10, 5 abnormal labs × LOINC + threshold, 2 medication changes, 1 colonoscopy screening) traced to event-timeline-contract; screening gap panel cross-references both contracts via days_ago alignment; slope annotations, chart rendering notes, zoom/tooltip interaction spec |
 | 20 | `poc-screens/screen-3-access-monitoring.md` | ✅ Done | Screen 3 mockup: Admin/DPO view — 5 panels (A header, B live metrics bar, C anomaly alerts, D audit log search, E secondary tabs); all 9 MonitoringSnapshot fields mapped; 3 anomaly alert rows with drilldown (alert detail + resolution lifecycle + hash chain verification); audit log search with 6 filter fields + 4 result rows + entry drilldown (5-dimension Who/When/Where/What/Why display); role-access boundary table (Admin vs DPO); hash chain integrity check spec; audit-of-the-audit (export action self-logging) noted; secondary tabs: Role Management (RBAC sub-schema 4), Mapping Tool (sub-schema 5), Master Data (sub-schema 6) |
+| 21 | `data/client-open-questions.md` | ✅ Done | Formal client questionnaire for Navavej: 5 sections covering all 9 production-blocking OQs — Section 1 (URGENT: post-Expo standard pricing for all 8 packages, deadline 2026-03-31), Section 2 (add-on catalog nulls: PSA, HepB vaccine, Pneumococcal, Shingrix, Weight Loss workup — each with context + sub-questions), Section 3 (colonoscopy lower GI product clarification), Section 4 (full itemizations: Gold, Platinum M/F, Diamond Men), Section 5 (HIS system + FHIR R4 integration capability); includes 9-row priority summary table, 60-minute meeting agenda template, and document maintenance guide |
 
 ---
 
@@ -108,6 +109,7 @@ add_ons[].trigger_signals_matched[] intersection of trigger_signals ∩ signals_
 | Priority | Task | Status |
 |----------|------|--------|
 | ✅ Complete | UI mockup specs — all 3 screens specified (docs 18–20) | Done |
+| ✅ Complete | Client questionnaire for all 9 OQs — `data/client-open-questions.md` | Done |
 | 🔜 In Progress | **POC interactive demo** — FastAPI backend + React frontend | Building now |
 | ⏳ Blocked on client | OQ escalation — standard pricing + vaccine prices + HIS confirmation | Awaiting client |
 
@@ -140,3 +142,5 @@ add_ons[].trigger_signals_matched[] intersection of trigger_signals ∩ signals_
 
 **POC-blocking OQs:** None — POC uses synthetic data for Somchai W.
 **Production-blocking OQs:** OQ-Prices (urgent), OQ-10, OQ-HepB, OQ-Pneumo, OQ-Shingrix, OQ-HIS, OQ-PackageItems, OQ-WeightLoss.
+
+**Client questionnaire:** `data/client-open-questions.md` — formal document covering all 9 OQs with context, sub-questions, a 60-min meeting agenda, and a document maintenance guide. Use this for the next client meeting or email to the Navavej Health Checkup Program Office.
