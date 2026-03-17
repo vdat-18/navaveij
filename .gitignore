@@ -180,7 +180,21 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 .vscode
+.agents/
+.claude/
+
+logs/
 external/
 baml_client/
+# Web / Frontend stuff
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.vercel
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+frontend/.pnp*
+frontend/.yarn/
 .agents/*
 .claude/*

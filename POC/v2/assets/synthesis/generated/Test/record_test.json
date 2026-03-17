@@ -1,17 +1,18 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_88zz77yy",
+  "patient_token": "tok_hmac_965c8137",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_88zz77yy",
+    "patient_token": "tok_hmac_965c8137",
     "patient_demographics": {
       "gender": "male",
       "age": 35,
       "date_of_birth_token": "dob_tok_19910301",
       "ethnicity": "asian",
-      "bmi_threshold_profile": "asian_adjusted"
+      "bmi_threshold_profile": "asian_adjusted",
+      "name": "Somchai Wichai"
     },
     "eligibility_exclusions": [
       {
@@ -34,50 +35,49 @@
     "active_safety_flags": [],
     "tier_ceiling": null,
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "patient_id": "id_965c8137"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_88zz77yy",
-    "rule_preliminary_tier": "Standard",
-    "overall_risk_level": "Low",
+    "patient_token": "tok_hmac_965c8137",
+    "rule_preliminary_tier": "Premium",
+    "overall_risk_level": "High",
     "applicable_signals": [
-      "alcohol_risk",
-      "alt_status",
-      "ascvd_10yr_risk_status",
-      "ast_status",
-      "bmi_status",
-      "bp_category",
-      "ckd_comorbidity",
-      "dm_comorbidity",
+      "ckd_rapid_progression",
+      "ascvd_very_high",
+      "hypertensive_crisis",
+      "diabetes_confirmed",
       "dm_organ_complication_screening",
-      "dyslipidemia_comorbidity",
-      "echo_gap",
-      "egfr_status",
-      "est_gap",
-      "family_hx_colon_ca",
-      "family_hx_premature_cad",
-      "fbs_status",
+      "liver_enzyme_elevation_significant",
       "fibroscan_indication",
-      "hba1c_status",
-      "hdl_status",
-      "hepatitis_b_vaccination_status",
-      "htn_comorbidity",
-      "influenza_vaccination_gap",
-      "ldl_status",
-      "occupational_risk",
-      "physical_activity_level",
-      "sleep_apnea_screen_result",
-      "smoking_status",
-      "tg_status",
-      "tsh_status",
-      "uric_acid_status"
+      "prediabetes_confirmed",
+      "diabetes_confirmation_required",
+      "ascvd_risk_intermediate",
+      "htn_active",
+      "lung_ct_threshold_met",
+      "ckd_comorbidity",
+      "bmi_obese_asian",
+      "bmi_overweight_asian",
+      "low_hdl",
+      "high_triglycerides",
+      "high_ldl",
+      "bp_stage1_htn",
+      "bp_worsening",
+      "family_hx_premature_cad",
+      "at_risk_alcohol_use",
+      "office_syndrome",
+      "night_shift_worker",
+      "uric_acid_hyperuricemia",
+      "dyslipidemia_active",
+      "colonoscopy_screening_gap",
+      "mammogram_screening_gap"
     ],
     "signals_fired": [
-      "bmi_status",
-      "bp_category",
-      "smoking_status",
-      "physical_activity_level",
-      "ascvd_10yr_risk_status"
+      "ascvd_very_high",
+      "hypertensive_crisis",
+      "bmi_obese_asian",
+      "family_hx_premature_cad",
+      "office_syndrome"
     ],
     "missing_signals": [
       "tg_status",
@@ -151,56 +151,56 @@
     "pipeline_run_id": "pipe_20260315_0300"
   },
   "biomarker_trends": {
-    "patient_token": "tok_hmac_88zz77yy",
+    "patient_token": "tok_hmac_965c8137",
     "bmi": {
-      "current": 22.4,
+      "current": 28.5,
       "unit": "kg/m2",
       "threshold_profile": "asian_adjusted",
-      "category": "Normal",
-      "trend_direction": "stable",
-      "slope_per_year": 0.1,
+      "category": "Obese",
+      "trend_direction": "increasing",
+      "slope_per_year": 1.1,
       "history": [
         {
           "date": "2023-08-20",
-          "value": 22.1
+          "value": 26.1
         },
         {
           "date": "2024-09-10",
-          "value": 22.3
+          "value": 27.3
         },
         {
           "date": "2026-03-05",
-          "value": 22.4
+          "value": 28.5
         }
       ],
       "alert": null
     },
     "blood_pressure": {
       "latest": {
-        "sbp": 116,
-        "dbp": 72,
+        "sbp": 185,
+        "dbp": 125,
         "date": "2026-03-05"
       },
       "unit": "mmHg",
-      "category": "Normal",
-      "category_label": "Normal blood pressure (<120/<80)",
-      "trend_direction": "stable",
-      "sbp_slope_per_year": -0.4,
+      "category": "Hypertensive Crisis",
+      "category_label": "Hypertensive Crisis (SBP > 180 or DBP > 120)",
+      "trend_direction": "increasing",
+      "sbp_slope_per_year": 15.4,
       "history": [
         {
           "date": "2023-08-20",
-          "sbp": 117,
-          "dbp": 74
+          "sbp": 140,
+          "dbp": 90
         },
         {
           "date": "2024-09-10",
-          "sbp": 118,
-          "dbp": 75
+          "sbp": 160,
+          "dbp": 105
         },
         {
           "date": "2026-03-05",
-          "sbp": 116,
-          "dbp": 72
+          "sbp": 185,
+          "dbp": 125
         }
       ],
       "alert": null
@@ -433,10 +433,10 @@
       }
     ],
     "ascvd_10yr_risk": {
-      "score": 0.014,
-      "score_pct": 1.4,
-      "category": "Low",
-      "category_label": "Low risk (<5%)",
+      "score": 0.21,
+      "score_pct": 21.0,
+      "category": "Very High",
+      "category_label": "Very High risk (>=20%)",
       "inputs_used": {
         "age": 35,
         "sex": "male",
@@ -479,5 +479,6 @@
       "fibroscan_indication",
       "sleep_apnea_screen_result"
     ]
-  }
+  },
+  "patient_id": "id_965c8137"
 }
