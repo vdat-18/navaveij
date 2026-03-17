@@ -196,3 +196,5 @@ frontend/*.tsbuildinfo
 frontend/next-env.d.ts
 frontend/.pnp*
 frontend/.yarn/
+.agents/*
+.claude/*

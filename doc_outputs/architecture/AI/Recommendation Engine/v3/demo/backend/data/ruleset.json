@@ -1,0 +1,149 @@
+{
+  "patient_token": "tok_hmac_56291047",
+  "ruleset_version": "v2026.03.1",
+  "admin_last_updated": "2026-03-10T09:15:00Z",
+  "applied_rule_id": "ADVANCED_METABOLIC_OR_CVD",
+  "applied_condition": "prediabetes_confirmed",
+  "rule_preliminary_tier": "Advanced",
+  "resolved_package": {
+    "tier": "Advanced",
+    "gender": "male",
+    "age": 54,
+    "age_band": "age_35_plus",
+    "package_name": "Platinum — Men",
+    "package_code": "PLAT_M",
+    "price_thb": 8700
+  },
+  "add_on_library": [
+    {
+      "item_code": "colonoscopy",
+      "label": "Colonoscopy — Colorectal Cancer Screening",
+      "category": "cancer_screening",
+      "trigger_signals": ["colonoscopy_screening_gap", "colonoscopy_overdue_2557d", "family_hx_colon_ca_first_degree"],
+      "priority_level_default": "Red",
+      "navavej_product": { "product_name": "Endoscopy Package (Upper GI)", "product_code": "ENDO_UPPER", "price_thb": 9500 },
+      "gender_constraint": null, "age_min": 45, "age_max": 85,
+      "guideline": "USPSTF Colorectal Cancer Screening 2021"
+    },
+    {
+      "item_code": "ldct_lung",
+      "label": "Low-Dose CT Chest — Lung Cancer Annual Screening",
+      "category": "cancer_screening",
+      "trigger_signals": ["lung_ct_threshold_met"],
+      "priority_level_default": "Red",
+      "navavej_product": { "product_name": "Low-Dose CT Chest (Lung Cancer / PM2.5 Screening)", "product_code": "LDCT_LUNG", "price_thb": 3900 },
+      "gender_constraint": null, "age_min": 50, "age_max": 80,
+      "guideline": "USPSTF Lung Cancer Screening 2021"
+    },
+    {
+      "item_code": "influenza_vaccine",
+      "label": "Influenza Vaccine — Annual (Standard 3-strain, Age 1–59)",
+      "category": "vaccination",
+      "trigger_signals": ["influenza_vaccination_gap", "influenza_overdue_428d"],
+      "priority_level_default": "Orange",
+      "navavej_product": { "product_name": "Influenza Vaccine (3-strain)", "product_code": "VAX_FLU_STD", "price_thb": 490 },
+      "gender_constraint": null, "age_min": 1, "age_max": 59,
+      "guideline": "CDC ACIP 2024"
+    },
+    {
+      "item_code": "shingrix_vaccine",
+      "label": "Shingrix (RZV) — Zoster Vaccine 2-Dose Series",
+      "category": "vaccination",
+      "trigger_signals": ["shingrix_not_started", "shingrix_vaccination_gap"],
+      "priority_level_default": "Orange",
+      "navavej_product": { "product_name": "Shingrix (RZV) — Zoster Vaccine", "product_code": "VAX_SHINGRIX", "price_thb": null, "note": "OQ-Shingrix: price pending client confirmation" },
+      "gender_constraint": null, "age_min": 50, "age_max": null,
+      "guideline": "CDC ACIP 2017"
+    },
+    {
+      "item_code": "diabetes_screening_pro",
+      "label": "Diabetes Screening Pro 1 — HbA1c, Insulin, HOMA-IR (12 items)",
+      "category": "endocrine",
+      "trigger_signals": ["prediabetes_confirmed", "hba1c_prediabetes"],
+      "priority_level_default": "Yellow",
+      "navavej_product": { "product_name": "Diabetes Screening Pro 1", "product_code": "DM_PRO1", "price_thb": 2134 },
+      "gender_constraint": null, "age_min": 15, "age_max": null,
+      "guideline": "ADA Standards of Medical Care 2024"
+    },
+    {
+      "item_code": "exercise_stress_test",
+      "label": "Exercise Stress Test (EST) — Treadmill ECG",
+      "category": "cardiac",
+      "trigger_signals": ["est_consideration", "ascvd_risk_intermediate", "family_hx_premature_cad"],
+      "priority_level_default": "Yellow",
+      "navavej_product": { "product_name": "Exercise Stress Test (EST)", "product_code": "EST_TREADMILL", "price_thb": 2900 },
+      "gender_constraint": null, "age_min": 30, "age_max": null,
+      "guideline": "AHA/ACC Exercise Testing Guidelines 2002; ADA 2024"
+    },
+    {
+      "item_code": "ct_coronary_calcium",
+      "label": "CT Coronary Artery Calcium Scoring (CAC)",
+      "category": "cardiac",
+      "trigger_signals": ["family_hx_premature_cad", "ascvd_risk_intermediate", "ldl_borderline_high"],
+      "priority_level_default": "Yellow",
+      "navavej_product": { "product_name": "Coronary Artery Calcium Scoring (CT-CAC)", "product_code": "CT_CAC", "price_thb": 3900 },
+      "gender_constraint": null, "age_min": 40, "age_max": null,
+      "guideline": "ACC/AHA Cholesterol Guideline 2018"
+    },
+    {
+      "item_code": "carotid_ultrasound",
+      "label": "Carotid Artery Ultrasound — Atherosclerosis & Stroke Risk",
+      "category": "imaging",
+      "trigger_signals": ["family_hx_premature_cad", "ascvd_risk_intermediate", "htn_active"],
+      "priority_level_default": "Yellow",
+      "navavej_product": { "product_name": "Carotid Artery Ultrasound", "product_code": "US_CAROTID", "price_thb": 5096 },
+      "gender_constraint": null, "age_min": 50, "age_max": null,
+      "guideline": "ACC/AHA 2018 Cholesterol Guideline"
+    },
+    {
+      "item_code": "kidney_screening",
+      "label": "Kidney Disease Screening — Urine ACR, eGFR, Microalbumin",
+      "category": "nephrology",
+      "trigger_signals": ["htn_active", "prediabetes_confirmed", "dyslipidemia_active"],
+      "priority_level_default": "Yellow",
+      "navavej_product": { "product_name": "Kidney Disease Screening", "product_code": "KIDNEY_SCREEN", "price_thb": 2500 },
+      "gender_constraint": null, "age_min": 18, "age_max": null,
+      "guideline": "KDIGO 2022; ADA Standards 2024"
+    },
+    {
+      "item_code": "multi_cancer_spotmas",
+      "label": "Multi-Cancer Screening (SPOT-MAS)",
+      "category": "cancer_screening",
+      "trigger_signals": ["family_hx_colon_ca_first_degree", "family_hx_colon_ca"],
+      "priority_level_default": "Yellow",
+      "navavej_product": { "product_name": "Multi-Cancer Screening SPOT-MAS", "product_code": "SPOTMAS", "price_thb": 15900 },
+      "gender_constraint": null, "age_min": 40, "age_max": null,
+      "guideline": "Clinical practice — first-degree family history of hereditary cancers"
+    },
+    {
+      "item_code": "hepatitis_abc_screen",
+      "label": "Hepatitis A, B, C Viral Screening (5 items)",
+      "category": "gi_liver",
+      "trigger_signals": ["hepatitis_b_anti_hbs_check_needed"],
+      "priority_level_default": "Yellow",
+      "navavej_product": { "product_name": "Hepatitis A, B, C Screening (5 items)", "product_code": "HEPA_ABC", "price_thb": 1900 },
+      "gender_constraint": null, "age_min": 18, "age_max": null,
+      "guideline": "AASLD HBV Management Guidelines 2023"
+    },
+    {
+      "item_code": "psa_sdm",
+      "label": "PSA (Prostate-Specific Antigen) — Shared Decision-Making",
+      "category": "cancer_screening",
+      "trigger_signals": ["psa_sdm_status"],
+      "priority_level_default": "Green",
+      "navavej_product": { "product_name": "PSA Standalone Test", "product_code": "TBD", "price_thb": null, "note": "OQ-10: price pending client confirmation" },
+      "gender_constraint": "male", "age_min": 50, "age_max": 69,
+      "guideline": "USPSTF 2018 Grade C; ACS Prostate Cancer Early Detection 2023"
+    },
+    {
+      "item_code": "spine_mri",
+      "label": "Spine MRI — Cervical or Lumbar (Office Syndrome)",
+      "category": "musculoskeletal",
+      "trigger_signals": ["office_syndrome"],
+      "priority_level_default": "Green",
+      "navavej_product": { "product_name": "Spine MRI (Cervical or Lumbar)", "product_code": "MRI_SPINE", "price_thb": 6500 },
+      "gender_constraint": null, "age_min": 18, "age_max": null,
+      "guideline": "WHO Workers' Health 2008; clinical practice"
+    }
+  ]
+}
