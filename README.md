@@ -55,13 +55,13 @@ uv sync
 baml-cli generate
 
 # Start the API Server
-PYTHONPATH=. uv run python src/api/main.py
+PYTHONPATH=.:./backend uv run python -m src.api.main
 ```
 *API will be available at `http://localhost:8000`*
 
 ### 2. Frontend Setup & Run
 ```bash
-cd web
+cd frontend
 
 # Install dependencies
 npm install
@@ -75,12 +75,13 @@ npm run dev
 
 ## 📂 Repository Structure
 
-- `web/`: Next.js frontend application.
-- `src/api/`: FastAPI routes and endpoint definitions.
-- `src/orchestrator/`: The "Brain" - manager, workflows, and audit logging.
-- `src/mcp_server/`: Clinical data bridge adhering to the Model Context Protocol.
-- `src/synthesis/`: Hybrid AI clinical data generator for testing.
-- `baml_src/`: BAML prompt templates and LLM schema definitions.
+- `backend/src/`: Core Python logic (API, Orchestrator, MCP).
+- `baml_src/`: BAML prompt templates and LLM schema definitions (at root).
+- `baml_client/`: Auto-generated BAML client for Python (at root).
+- `frontend/`: Next.js frontend application.
+- `scripts/`: Integration tests and helper scripts.
+- `assets/`: Clinical Signal Store (JSON database).
+- `doc_outputs/`: Ruleset configurations and clinical samples.
 - `logs/audit.jsonl`: The immutable ledger of all clinical decisions.
 
 ---

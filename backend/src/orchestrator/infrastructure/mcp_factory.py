@@ -24,7 +24,7 @@ class MCPClientFactory:
         server_params = StdioServerParameters(
             command=settings.mcp_server_command,
             args=settings.mcp_server_args,
-            env={**os.environ, "PYTHONPATH": os.getcwd()},
+            env={**os.environ, "PYTHONPATH": f"{os.getcwd()}:{os.path.join(os.getcwd(), 'backend')}"},
         )
 
         logger.debug("Starting MCP stdio client session")
