@@ -2,8 +2,8 @@
 
 import React from "react";
 import { Beaker, ArrowUpRight, ArrowDownRight, Minus, AlertCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { translateIdentifier } from "@/lib/clinical-dictionary";
+import { cn } from "@/shared/utils";
+import { translateIdentifier } from "@/shared/clinical-dictionary";
 
 interface LabResult {
     lab_id: string;

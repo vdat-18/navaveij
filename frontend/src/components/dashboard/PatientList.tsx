@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { User, ChevronRight, Activity, Search } from "lucide-react";
 import { patientService } from "@/services/api";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/utils";
 
 interface Patient {
     patient_id: string;

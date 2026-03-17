@@ -18,10 +18,10 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { clinicalService } from "@/services/api";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/utils";
 import { BiomarkerCharts } from "./BiomarkerCharts";
 import { LabResultsGrid } from "./LabResultsGrid";
-import { CLINICAL_DICTIONARY } from "@/lib/clinical-dictionary";
+import { CLINICAL_DICTIONARY } from "@/shared/clinical-dictionary";
 
 interface RecommendationPanelProps {
     patientId: string | null;
