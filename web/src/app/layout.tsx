@@ -29,8 +29,8 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased selection:bg-teal-accent selection:text-navy-950`}
       >
         <Sidebar />
-        <main className="pl-64 min-h-screen bg-navy-950">
-          <div className="container mx-auto p-8">
+        <main className="pl-64 min-h-screen bg-white">
+          <div className="w-full">
             {children}
           </div>
         </main>

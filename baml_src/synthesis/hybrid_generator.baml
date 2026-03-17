@@ -89,6 +89,8 @@ function ListScenarioSeeds() -> string[] {
   client NavaveijClient
   prompt #"
     List the available seed filenames for clinical scenarios in a medical synthesis context.
-    Return a list of strings representing kịch bản y khoa.
+    Return a list of strings representing clinical scenario seed files.
+
+    {{ ctx.output_format }}
   "#
 }

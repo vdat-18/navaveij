@@ -1,13 +1,8 @@
 // Clinical Entities and Enums
-
-enum CheckupTier {
-  Standard
-  Advanced
-  Premium
-}
+// Note: The Tier enum is defined in recommendation_output.baml and shared across this domain.
 
 class RecommendationResponse {
-  ai_recommended_tier CheckupTier
+  ai_recommended_tier Tier
   reasoning_trace string @description("Detailed medical rationale for the selection.")
   additional_tests string[] @description("List of specific tests to add based on signals")
   confidence_score float

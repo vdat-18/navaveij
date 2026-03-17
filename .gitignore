@@ -180,5 +180,7 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 .vscode
+.agents/
+.claude/
 external/
 baml_client/

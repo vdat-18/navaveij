@@ -21,7 +21,7 @@ class AddOnItem {
 }
 
 class CommunicationScript {
-  opening string
+  clinical_conclusion string
   health_summary string
   recommendation_explanation string
   add_on_highlights string[]
@@ -99,47 +99,57 @@ function GenerateRecommendation(
       Order add-ons: Red first, then Orange, Yellow, Green.
 
     Step 3 — Reasoning trace
-      Write a structured chain-of-thought covering:
-        a) Tier determination (which rule matched, why you agree or deviate)
-        b) Each major signal cluster (metabolic, cardiovascular, cancer screening,
-           vaccination, kidney/liver, occupational, missing signals)
-        c) Any clinical nuance (e.g. borderline Premium vs Advanced; ASCVD
-           intermediate risk; pre-diabetes trajectory; safety flag impacts)
-      Reference specific values: FBS velocity, eGFR slope, overdue_days, pack-years.
-      Name guidelines by source and year (e.g. "USPSTF Lung Cancer Screening 2021").
-      Minimum 150 words. No real PII — use only the pseudonymized tokens as given.
+      Write a highly structured clinical summary for the physician.
+      - FORMAT: You MUST output this as a BULLETED LIST (using '*' or '-').
+      - Each bullet must be a single, concise clinical point.
+      - TOTAL SILENCE on raw tokens: Never, ever use raw identifiers like 'bmi_obese_asian' or 'htn_active'.
+      - Use Markdown bolding (**text**) for the translated clinical terms and values.
+      - Maximum 5-6 bullets.
 
+    ── CLINICAL VOCABULARY MAPPING (MANDATORY) ───────────────────────────────
+    Translate ALL technical tokens into professional medical English. 
+    Examples:
+    - 'office_syndrome'              => **Office Syndrome**
+    - 'night_shift_worker'           => **Night Shift Worker**
+    - 'bmi_obese_asian'              => **Obesity (Asian Criteria)**
+    - 'hypertensive_crisis'          => **Hypertensive Crisis**
+    - 'htn_active'                   => **Active Hypertension**
+    - 'ascvd_risk_intermediate'      => **Intermediate ASCVD Risk**
+    - 'family_hx_premature_cad'      => **Family History of Premature CAD**
+    - 'PREMIUM_MULTI_SIGNAL'         => **Multi-Signal Premium Rule**
+    - 'PREMIUM_SEVERE_SINGLE'        => **Severe Signal Premium Rule**
+    - 'dm_complication_screening'    => **Diabetes Complication Screening**
+    - 'urine_microalbumin_creatinine'=> **Urine Microalbumin/Creatinine Ratio**
     Step 4 — Supporting and missing signals
-      List the signal IDs that directly drove your tier and add-on decisions in
-      supporting_signals. These must be a subset of signals_fired from clinical_signals.
-      List signal IDs with no source data (from clinical_signals.missing_signals) in
-      missing_signals. Briefly explain the most clinically significant gap in the
-      reasoning_trace.
+      List the signal IDs in supporting_signals and missing_signals fields.
 
     Step 5 — Communication script
-      Write a patient-facing communication guide in friendly, non-technical Thai
-      hospital style (in English for this POC). Cover:
-        opening                  — greeting + purpose of today's consultation
-        health_summary           — 2–4 sentences on key findings, plain language
-        recommendation_explanation — explain the recommended program + why it fits
-        add_on_highlights        — one entry per Red/Orange add-on only, plain language
-        next_steps               — how to book, what to do before leaving today
+      Write a patient-facing consultation guide in professional, direct English.
+      - NO GREETINGS: Avoid all "Hello", "Dear patient", "Welcome", or general pleasantries.
+      - NO SMALL TALK: Skip conversational filler and "I hope you are well".
+      - CLINICAL CONCLUSION: Use the clinical_conclusion field for a high-level summary of the patient's primary health status.
+      - START DIRECTLY: Begin the health_summary with the most significant clinical findings.
+      - CONCISE: Keep descriptions short and focused on clinical impact.
+
+    ── ULTRA-STRICT MAPPING & FORMATTING (CRITICAL) ──────────────────────────
+    - NO CONVERSATIONAL FILLER: Total prohibition on greetings, apologies, or personal address.
+    - TOTAL SILENCE on raw tokens: You are FORBIDDEN from using raw snake_case or SCREAMING_SNAKE_CASE identifiers (e.g., 'bmi_obese_asian', 'PREMIUM_MULTI_SIGNAL') in any visible text field.
+    - FORMAT: Reasoning trace MUST be a BULLETED LIST. Use '*' or '-' for each point.
+    - EMPHASIS (NON-NEGOTIABLE): You MUST wrap clinical terms in DOUBLE ASTERISKS ON BOTH SIDES.
+      * Pattern: **Your Text Here**
+      * FORBIDDEN: *Title:** or **Title*
+      * EXACT SYNTAX: The frontend will ONLY detect bold if you use exactly two stars on each side.
+    - DICTIONARY (Bold results required in output):
+        * 'bmi_obese_asian'         => **Obesity (Asian Criteria)**
+        * 'hypertensive_crisis'     => **Hypertensive Crisis**
+        * 'ascvd_risk_intermediate' => **Intermediate ASCVD Risk**
+        * 'office_syndrome'          => **Office Syndrome**
+        * 'dm_confirmation_required'=> **Diabetes Confirmation Required**
+        * 'PREMIUM_MULTI_SIGNAL'    => **Multi-Signal Premium Rule**
+        * 'PREMIUM_SEVERE_SINGLE'   => **Severe Signal Premium Rule**
+        * 'RESOLVED_BY_OFFLINE_ENGINE' => **Resolved by Offline Engine**
 
     ── OUTPUT FORMAT ──────────────────────────────────────────────────────────
-
     {{ ctx.output_format }}
-
-    IMPORTANT CONSTRAINTS ON YOUR OUTPUT:
-    - Only output the fields defined in RecommendationOutput.
-    - Do NOT output rule_preliminary_tier, resolved_package, confidence_score,
-      confidence_tier, patient_high_alert, or metadata — these are system fields.
-    - item_code values in add_ons[] must match exactly the item_code values in
-      the add_on_library from program_ruleset. Do not invent new item codes.
-    - supporting_signals values must be from signals_fired in clinical_signals.
-    - missing_signals values must be from missing_signals in clinical_signals.
-    - tier_deviation_justification must be null when ai_recommended_tier matches
-      rule_preliminary_tier, and non-null with clinical justification when it differs.
-    - Every add-on rationale must be patient-specific (cite actual values),
-      not generic.
   "#
 }

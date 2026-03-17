@@ -21,13 +21,18 @@ const menuItems = [
 export function Sidebar() {
     return (
         <aside className="w-64 glass-sidebar h-screen flex flex-col p-6 fixed left-0 top-0 z-50">
-            <div className="flex items-center gap-3 mb-12">
-                <div className="bg-teal-accent p-2 rounded-lg">
-                    <Stethoscope className="text-navy-950 w-6 h-6" />
+            <div className="flex flex-col mb-12">
+                <img
+                    src="/logo-navavej.png"
+                    alt="Navavej"
+                    className="h-12 w-auto object-contain mb-2 self-start"
+                />
+                <div className="flex items-center gap-2 px-1">
+                    <div className="h-4 w-[2px] bg-teal-accent/40" />
+                    <h1 className="text-xs font-black tracking-[0.3em] uppercase opacity-70">
+                        Clinical <span className="text-teal-accent">Intelligence</span>
+                    </h1>
                 </div>
-                <h1 className="text-xl font-bold tracking-tight">
-                    Navaveij <span className="text-teal-accent">ROC</span>
-                </h1>
             </div>
 
             <nav className="flex-1 space-y-2">

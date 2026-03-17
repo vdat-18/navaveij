@@ -116,7 +116,7 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             "supporting_signals": recommendation.supporting_signals,
             "missing_signals": recommendation.missing_signals,
             "communication_script": {
-                "opening": recommendation.communication_script.opening,
+                "clinical_conclusion": recommendation.communication_script.clinical_conclusion,
                 "health_summary": recommendation.communication_script.health_summary,
                 "recommendation_explanation": recommendation.communication_script.recommendation_explanation,
                 "add_on_highlights": recommendation.communication_script.add_on_highlights,

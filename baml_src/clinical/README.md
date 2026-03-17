@@ -4,8 +4,8 @@ This directory contains the BAML definitions for the Navaveij clinical reasoning
 
 ## Structure
 
-- `entities.baml`: Domain models (Enums, Classes) for medical recommendations and safety checks.
-- `orchestrator.baml`: Function and prompt for generating patient checkup recommendations.
+- `entities.baml`: Domain models (Classes) for medical recommendations and safety checks. Note: the `Tier` enum is defined in `recommendation_output.baml` and shared across this domain.
+- `recommendation_output.baml`: Output types and `GenerateRecommendation` function for producing structured patient checkup recommendations.
 - `safety_critic.baml`: Function and prompt for the Safety Critic agent.
 
 ## Usage

@@ -8,18 +8,16 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 
 const NavavejBrand = () => (
-  <div className="flex items-center gap-4">
-    <div className="relative">
-      <div className="w-12 h-12 bg-navavej-teal rounded-lg flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-navavej-teal/20">
-        N
-      </div>
-      <div className="absolute -top-1 -right-1 w-5 h-5 bg-navavej-red rounded-full border-2 border-white flex items-center justify-center">
-        <div className="w-2 h-2 bg-white rounded-full" />
-      </div>
-    </div>
+  <div className="flex items-center gap-3">
+    <img
+      src="/logo-navavej.png"
+      alt="Navavej International Hospital"
+      className="h-10 w-auto object-contain"
+    />
+    <div className="h-8 w-[1px] bg-navavej-border mx-1 hidden sm:block" />
     <div className="flex flex-col">
-      <h1 className="text-[#00ABC7] font-black text-2xl tracking-tighter leading-none uppercase">NAVAVEJ</h1>
-      <span className="text-[#666666] text-[9px] font-bold uppercase tracking-[0.2em] mt-1">International Hospital</span>
+      <h1 className="text-[#00ABC7] font-black text-xl tracking-tighter leading-none uppercase">Clinical Guidance</h1>
+      <span className="text-[#666666] text-[8px] font-bold uppercase tracking-[0.2em] mt-1">Strategic Advisory System</span>
     </div>
   </div>
 );
@@ -78,12 +76,12 @@ export default function DashboardPage() {
       </header>
 
       {/* Clinical Workbench Layout */}
-      <main className="max-w-[1600px] mx-auto p-10">
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-12 items-start">
+      <main className="w-full px-8 lg:px-16 py-10">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
 
           {/* Patient Directory Sidebar */}
-          <div className="xl:col-span-3">
-            <div className="bg-[#fcfdfe] p-6 rounded-[20px] border border-navavej-border min-h-[600px] shadow-inner">
+          <div className="xl:col-span-2">
+            <div className="bg-[#fcfdfe] p-4 rounded-[20px] border border-navavej-border min-h-[600px] shadow-inner">
               <PatientList
                 onSelectPatient={setSelectedPatient}
                 selectedId={selectedPatient?.patient_id}
@@ -92,14 +90,14 @@ export default function DashboardPage() {
           </div>
 
           {/* Core Analysis Area */}
-          <div className="xl:col-span-9">
+          <div className="xl:col-span-10">
             <div className="mb-10">
               <div className="flex items-center gap-2 text-navavej-teal mb-3">
                 <div className="w-6 h-0.5 bg-navavej-teal rounded-full" />
-                <span className="text-[10px] font-black uppercase tracking-[0.3em]">Precision Medicine Environment</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.3em]">Personalized Health Insights</span>
               </div>
               <h2 className="text-4xl font-black text-navavej-gray-dark tracking-tighter uppercase italic leading-none">
-                AI Orchestration <span className="text-navavej-teal">Workspace</span>
+                Clinical Checkup <span className="text-navavej-teal">Advisory Center</span>
               </h2>
             </div>
 
@@ -154,9 +152,9 @@ export default function DashboardPage() {
       </main>
 
       {/* Official-style Footer Highlight */}
-      <footer className="mt-20 border-t border-navavej-border py-20 px-10 bg-navavej-gray-light overflow-hidden relative">
+      <footer className="mt-20 border-t border-navavej-border py-20 px-8 lg:px-16 bg-navavej-gray-light overflow-hidden relative">
         <div className="absolute top-0 right-0 w-96 h-96 bg-navavej-teal/5 rounded-full blur-[100px] translate-x-1/2 -translate-y-1/2" />
-        <div className="max-w-[1600px] mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
+        <div className="w-full grid grid-cols-1 md:grid-cols-4 gap-12">
           <div>
             <NavavejBrand />
             <p className="text-xs text-navavej-gray-med mt-6 leading-relaxed font-medium">
