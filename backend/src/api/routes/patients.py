@@ -26,11 +26,26 @@ async def list_patients():
         logger.error(f"Failed to load patient registry: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+from src.mcp_server.utils import load_signal_store_record
+
 @router.get("/{patient_id}")
 async def get_patient_details(patient_id: str):
-    """Retrieve details for a specific patient."""
+    """Retrieve details for a specific patient, including demographics from Signal Store."""
     registry = load_registry()
-    patient = next((p for p in registry if p["patient_id"] == patient_id), None)
-    if not patient:
+    patient_base = next((p for p in registry if p["patient_id"] == patient_id), None)
+    
+    if not patient_base:
         raise HTTPException(status_code=404, detail="Patient not found")
-    return patient
+    
+    # Enrich with real demographics from Signal Store
+    record = load_signal_store_record(patient_id)
+    if record:
+        demographics = record.get("hard_constraints", {}).get("patient_demographics", {})
+        return {
+            **patient_base,
+            "age": demographics.get("age"),
+            "gender": demographics.get("gender"),
+            "ethnicity": demographics.get("ethnicity"),
+        }
+    
+    return patient_base

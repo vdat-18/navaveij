@@ -3,9 +3,11 @@
 import React, { useState } from "react";
 import { PatientList } from "@/components/dashboard/PatientList";
 import { RecommendationPanel } from "@/components/dashboard/RecommendationPanel";
-import { Bell, Search, User, Globe, Phone, ShoppingCart, Menu, Info, Activity, ShieldCheck } from "lucide-react";
+import { patientService } from "@/services/api";
+import { Bell, Search, User, Globe, Phone, ShoppingCart, Menu, Info, Activity, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { cn } from "@/shared/utils";
 
 const NavavejBrand = () => (
   <div className="flex items-center gap-3">
@@ -24,6 +26,28 @@ const NavavejBrand = () => (
 
 export default function DashboardPage() {
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
+  const [privacyMode, setPrivacyMode] = useState(false);
+
+  // Helper to get token for display
+  const getPatientDisplayId = (patient: any) => {
+    if (!patient) return "";
+    return privacyMode ? patient.patient_token : patient.patient_id;
+  };
+
+  const getPatientDisplayName = (patient: any) => {
+    if (!patient) return "";
+    return privacyMode ? patient.patient_token : patient.patient_name;
+  };
+
+  const handleSelectPatient = async (patient: any) => {
+    setSelectedPatient(patient); // Immediate UI update with basic info
+    try {
+      const fullData = await patientService.getDetails(patient.patient_id);
+      setSelectedPatient(fullData);
+    } catch (error) {
+      console.error("Failed to fetch full patient details:", error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -83,7 +107,7 @@ export default function DashboardPage() {
           <div className="xl:col-span-2">
             <div className="bg-[#fcfdfe] p-4 rounded-[20px] border border-navavej-border min-h-[600px] shadow-inner">
               <PatientList
-                onSelectPatient={setSelectedPatient}
+                onSelectPatient={handleSelectPatient}
                 selectedId={selectedPatient?.patient_id}
               />
             </div>
@@ -105,33 +129,55 @@ export default function DashboardPage() {
               <motion.div
                 initial={{ opacity: 0, y: -15 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-8 p-8 navavej-card bg-[#F0F9FA] border-navavej-teal/20 flex items-center justify-between"
+                className={cn(
+                  "mb-8 p-8 navavej-card flex items-center justify-between transition-colors duration-500",
+                  privacyMode ? "bg-navavej-red/5 border-navavej-red/20 shadow-navavej-red/5" : "bg-[#F0F9FA] border-navavej-teal/20"
+                )}
               >
                 <div className="flex items-center gap-8">
                   <div className="relative">
-                    <div className="w-20 h-20 bg-white rounded-[20px] flex items-center justify-center shadow-xl border border-navavej-teal/10 group overflow-hidden">
-                      <div className="absolute top-0 right-0 w-8 h-8 bg-navavej-teal/10 rounded-bl-[20px]" />
-                      <span className="text-4xl font-black text-navavej-teal tracking-tighter relative z-10">
-                        {selectedPatient.patient_name.charAt(0)}
+                    <div className={cn(
+                      "w-20 h-20 rounded-[20px] flex items-center justify-center shadow-xl border bg-white group overflow-hidden transition-all duration-500",
+                      privacyMode ? "border-navavej-red/30" : "border-navavej-teal/10"
+                    )}>
+                      <div className={cn(
+                        "absolute top-0 right-0 w-8 h-8 rounded-bl-[20px] transition-colors",
+                        privacyMode ? "bg-navavej-red/10" : "bg-navavej-teal/10"
+                      )} />
+                      <span className={cn(
+                        "text-4xl font-black tracking-tighter relative z-10 transition-colors",
+                        privacyMode ? "text-navavej-red" : "text-navavej-teal"
+                      )}>
+                        {getPatientDisplayName(selectedPatient).charAt(0)}
                       </span>
                     </div>
-                    <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-navavej-teal text-white rounded-full flex items-center justify-center border-4 border-white shadow-lg">
-                      <Activity className="w-4 h-4" />
+                    <div className={cn(
+                      "absolute -bottom-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center border-4 border-white shadow-lg transition-colors",
+                      privacyMode ? "bg-navavej-red" : "bg-navavej-teal"
+                    )}>
+                      {privacyMode ? <ShieldCheck className="w-4 h-4 text-white" /> : <Activity className="w-4 h-4 text-white" />}
                     </div>
                   </div>
                   <div>
-                    <h3 className="text-3xl font-black text-navavej-gray-dark tracking-tighter uppercase">
-                      {selectedPatient.patient_name}
+                    <h3 className={cn(
+                      "text-3xl font-black tracking-tighter uppercase transition-colors",
+                      privacyMode ? "text-navavej-red font-mono" : "text-navavej-gray-dark"
+                    )}>
+                      {getPatientDisplayName(selectedPatient)}
                     </h3>
                     <div className="flex items-center gap-6 mt-2">
                       <div className="flex flex-col">
                         <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest">Medical ID</span>
-                        <span className="text-xs font-bold text-navavej-teal">{selectedPatient.patient_id}</span>
+                        <span className={cn("text-xs font-bold transition-colors", privacyMode ? "text-navavej-red/60" : "text-navavej-teal")}>
+                          {getPatientDisplayId(selectedPatient)}
+                        </span>
                       </div>
                       <div className="w-[1px] h-6 bg-navavej-border" />
                       <div className="flex flex-col">
                         <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest">Demographics</span>
-                        <span className="text-xs font-bold text-navavej-gray-dark">35 Yrs / Male / Asian</span>
+                        <span className="text-xs font-bold text-navavej-gray-dark capitalize">
+                          {`${selectedPatient.age || "???"} Yrs / ${selectedPatient.gender || "???"} / ${selectedPatient.ethnicity || "???"}`}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -139,14 +185,20 @@ export default function DashboardPage() {
 
                 <div className="flex gap-4">
                   <div className="px-6 py-3 bg-white/60 border border-white rounded-2xl flex flex-col justify-center">
-                    <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest mb-1">Last Analysis Run</span>
-                    <span className="text-xs font-black text-navavej-gray-dark uppercase tracking-tighter">16 MAR 2026 • 18:43</span>
+                    <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest mb-1">Status</span>
+                    <span className={cn("text-xs font-black uppercase tracking-tighter", privacyMode ? "text-navavej-red" : "text-navavej-teal")}>
+                      {privacyMode ? "De-Identified Trace" : "Clinical Context Active"}
+                    </span>
                   </div>
                 </div>
               </motion.div>
             )}
 
-            <RecommendationPanel patientId={selectedPatient?.patient_id || null} />
+            <RecommendationPanel
+              patientId={selectedPatient?.patient_id || null}
+              privacyMode={privacyMode}
+              setPrivacyMode={setPrivacyMode}
+            />
           </div>
         </div>
       </main>

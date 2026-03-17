@@ -64,6 +64,10 @@ class OrchestrationManager:
             # Post-process: Rehydration (Restore PII values for Frontend display)
             logger.info("Rehydrating AI output for frontend")
             rehydrator = PIIRehydrator(context.rehydration_map)
+            
+            # Keep a copy of the raw AI output (still masked) for demo purposes
+            masked_ai_output = context.ai_output.copy()
+            
             rehydrated_output = rehydrator.rehydrate(context.ai_output)
 
             # Expose raw data for visualization/HUDs
@@ -71,9 +75,14 @@ class OrchestrationManager:
                 **rehydrated_output,
                 "biomarker_trends": context.masked_context.get("get_biomarker_trends", {}),
                 "clinical_signals": context.masked_context.get("get_clinical_signals", {}),
+                "security_metadata": {
+                    "rehydration_map": context.rehydration_map,
+                    "masked_ai_output": masked_ai_output,
+                    "is_poc_demo": True
+                }
             }
 
-            # Final rehydration pass on everything for the frontend
+            # Final rehydration pass on the main results
             return rehydrator.rehydrate(result)
 
     async def record_decision(

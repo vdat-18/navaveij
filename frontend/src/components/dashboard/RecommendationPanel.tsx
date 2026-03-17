@@ -14,9 +14,15 @@ import {
     Heart,
     Stethoscope,
     ChevronDown,
-    MessageSquare
+    MessageSquare,
+    Lock,
+    Unlock,
+    Eye,
+    EyeOff,
+    Search
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import { clinicalService } from "@/services/api";
 import { cn } from "@/shared/utils";
 import { BiomarkerCharts } from "./BiomarkerCharts";
@@ -25,6 +31,8 @@ import { CLINICAL_DICTIONARY } from "@/shared/clinical-dictionary";
 
 interface RecommendationPanelProps {
     patientId: string | null;
+    privacyMode: boolean;
+    setPrivacyMode: (val: boolean) => void;
 }
 
 const renderBoldText = (text: any) => {
@@ -112,7 +120,7 @@ const ClinicalRiskGauge = ({ value }: { value: string }) => {
     );
 };
 
-export function RecommendationPanel({ patientId }: RecommendationPanelProps) {
+export function RecommendationPanel({ patientId, privacyMode, setPrivacyMode }: RecommendationPanelProps) {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
@@ -205,6 +213,34 @@ export function RecommendationPanel({ patientId }: RecommendationPanelProps) {
                 animate={{ opacity: 1, scale: 1 }}
                 className="space-y-10"
             >
+                {/* Security HUD - PoC Control */}
+                <div className="flex justify-between items-center mb-6">
+                    <div className="flex items-center gap-3">
+                        <div className={cn(
+                            "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-500 shadow-lg",
+                            privacyMode ? "bg-navavej-red text-white" : "bg-emerald-500 text-white"
+                        )}>
+                            {privacyMode ? <Lock className="w-5 h-5 animate-pulse" /> : <Unlock className="w-5 h-5" />}
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-black text-navavej-gray-dark uppercase tracking-tight">Security Context: <span className={privacyMode ? "text-navavej-red" : "text-emerald-500"}>{privacyMode ? "AI MASKED" : "PHYSICIAN REHYDRATED"}</span></h3>
+                            <p className="text-[9px] font-bold text-navavej-gray-med uppercase tracking-widest mt-1">PoC Proof of Privacy Demonstration</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setPrivacyMode(!privacyMode)}
+                        className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest transition-all shadow-md active:scale-95",
+                            privacyMode
+                                ? "bg-navavej-red text-white hover:bg-navavej-red/90"
+                                : "bg-navavej-gray-light text-navavej-gray-dark hover:bg-navavej-border"
+                        )}
+                    >
+                        {privacyMode ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                        {privacyMode ? "Switch to Physician View" : "Switch to Raw AI View"}
+                    </button>
+                </div>
+
                 {/* Intelligence HUD Panels */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
 
@@ -295,13 +331,19 @@ export function RecommendationPanel({ patientId }: RecommendationPanelProps) {
 
                         <div className="relative z-10 bg-navavej-gray-light/30 rounded-[24px] p-8 border border-navavej-border/50">
                             <div className="space-y-4">
-                                {data.reasoning_trace.split('\n').map((line: string, idx: number) => {
+                                {((privacyMode ? data.security_metadata?.masked_ai_output?.reasoning_trace : data.reasoning_trace) || "").split('\n').map((line: string, idx: number) => {
                                     const cleanLine = line.replace(/^[*-]\s*/, '').trim();
                                     if (!cleanLine) return null;
                                     return (
                                         <div key={idx} className="flex gap-4">
-                                            <div className="mt-2 w-2 h-2 rounded-full bg-navavej-teal shrink-0 shadow-[0_0_8px_rgba(45,161,162,0.4)]" />
-                                            <p className="text-sm font-medium text-navavej-gray-dark leading-relaxed text-justify flex-1">
+                                            <div className={cn(
+                                                "mt-2 w-2 h-2 rounded-full shrink-0 shadow-[0_0_8px_rgba(45,161,162,0.4)]",
+                                                privacyMode ? "bg-navavej-red" : "bg-navavej-teal"
+                                            )} />
+                                            <p className={cn(
+                                                "text-sm font-medium leading-relaxed text-justify flex-1",
+                                                privacyMode ? "font-mono text-[11px] text-navavej-red/80" : "text-navavej-gray-dark"
+                                            )}>
                                                 {renderBoldText(cleanLine)}
                                             </p>
                                         </div>
@@ -497,6 +539,3 @@ export function RecommendationPanel({ patientId }: RecommendationPanelProps) {
         </AnimatePresence>
     );
 }
-
-// Logic helper for extra visual flare
-import { Search } from "lucide-react";
