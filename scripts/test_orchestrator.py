@@ -3,7 +3,7 @@
 import asyncio
 from dotenv import load_dotenv
 from loguru import logger
-from src.orchestrator.core.manager import OrchestrationManager
+from src.services.orchestrator import OrchestrationManager
 
 load_dotenv()
 

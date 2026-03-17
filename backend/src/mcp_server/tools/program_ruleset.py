@@ -17,19 +17,19 @@ from src.mcp_server.utils import (
 
 
 
-def get_program_ruleset(patient_token: str) -> dict:
+def get_program_ruleset(patient_id: str) -> dict:
     """Retrieve complete program ruleset applicable to this patient.
 
     Returns tier selection rules, filtered add-on library, package resolution map,
     and resolved package according to Ruleset Store Contract.
 
     Args:
-        patient_token: HMAC-SHA256 pseudonymous patient identifier
+        patient_id: Stable patient identifier
 
     Returns:
         Program ruleset dict matching Ruleset Store Contract format:
         {
-            "patient_token": str,
+            "patient_id": str,
             "ruleset_version": str,
             "admin_last_updated": str,
             "computed_at": str,
@@ -45,14 +45,14 @@ def get_program_ruleset(patient_token: str) -> dict:
             "_add_on_library_excluded_items": [...]
         }
     """
-    logger.info(f"Retrieving program ruleset for patient_token: {patient_token}")
+    logger.info(f"Retrieving program ruleset for patient_id: {patient_id}")
 
     # Load Signal Store record to get patient demographics and signals_fired
-    record = load_signal_store_record(patient_token)
+    record = load_signal_store_record(patient_id)
     if not record:
-        logger.error(f"Signal Store record not found for patient_token: {patient_token}")
+        logger.error(f"Signal Store record not found for patient_id: {patient_id}")
         return {
-            "patient_token": patient_token,
+            "patient_id": patient_id,
             "ruleset_version": "v2026.03.1",
             "admin_last_updated": "",
             "computed_at": get_current_timestamp(),
@@ -97,7 +97,7 @@ def get_program_ruleset(patient_token: str) -> dict:
     resolved_package = resolve_package(rule_preliminary_tier, gender, age, package_resolution_map)
 
     return {
-        "patient_token": patient_token,
+        "patient_id": patient_id,
         "ruleset_version": ruleset_version,
         "admin_last_updated": admin_last_updated,
         "computed_at": get_current_timestamp(),

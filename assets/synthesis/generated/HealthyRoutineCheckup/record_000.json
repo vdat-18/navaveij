@@ -11,7 +11,8 @@
       "age": 35,
       "date_of_birth_token": "dob_tok_19910301",
       "ethnicity": "asian",
-      "bmi_threshold_profile": "asian_adjusted"
+      "bmi_threshold_profile": "asian_adjusted",
+      "name": "Kanya Prasert"
     },
     "eligibility_exclusions": [
       {
@@ -34,7 +35,8 @@
     "active_safety_flags": [],
     "tier_ceiling": null,
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "patient_id": "id_1aa1b504"
   },
   "clinical_signals": {
     "patient_token": "tok_hmac_1aa1b504",
@@ -471,5 +473,6 @@
       "fibroscan_indication",
       "sleep_apnea_screen_result"
     ]
-  }
+  },
+  "patient_id": "id_1aa1b504"
 }

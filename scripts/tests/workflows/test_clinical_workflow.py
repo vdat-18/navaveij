@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.orchestrator.workflows.base import WorkflowContext
-from src.orchestrator.workflows.clinical import ClinicalReasoningWorkflow
+from src.services.workflows.base import WorkflowContext
+from src.services.workflows.clinical import ClinicalReasoningWorkflow
 
 
 @pytest.fixture

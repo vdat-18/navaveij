@@ -19,11 +19,11 @@ PACKAGE_RESOLUTION_PATH = Path(
 )
 
 
-def load_signal_store_record(patient_token: str) -> dict | None:
-    """Load Signal Store record by patient_token from JSON files.
+def load_signal_store_record(patient_id: str) -> dict | None:
+    """Load Signal Store record by patient_id from JSON files.
 
     Args:
-        patient_token: HMAC-SHA256 pseudonymous patient identifier
+        patient_id: Stable patient identifier
 
     Returns:
         Complete Signal Store record dict, or None if not found
@@ -35,12 +35,19 @@ def load_signal_store_record(patient_token: str) -> dict | None:
     # Search recursively for record_*.json in all scenario subdirectories
     for file_path in SIGNAL_STORE_DIR.glob("**/record_*.json"):
         with open(file_path, encoding="utf-8") as f:
-            record = json.load(f)
-            if record.get("patient_token") == patient_token:
-                logger.debug(f"Found Signal Store record: {file_path.parent.name}/{file_path.name}")
-                return record
+            try:
+                record = json.load(f)
+                # Check both top-level and inside hard_constraints
+                actual_id = record.get("patient_id") or record.get("hard_constraints", {}).get("patient_id")
+                
+                if actual_id == patient_id:
+                    logger.debug(f"Found Signal Store record: {file_path.parent.name}/{file_path.name}")
+                    return record
+            except Exception as e:
+                logger.error(f"Error reading {file_path}: {e}")
+                continue
 
-    logger.warning(f"Record not found for token: {patient_token}")
+    logger.warning(f"Record not found for ID: {patient_id}")
     return None
 
 

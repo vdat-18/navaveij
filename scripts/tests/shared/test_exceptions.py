@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.shared.exceptions import (
+from shared.exceptions import (
     ClinicalProcessError,
     DataIntegrityError,
     InfrastructureError,

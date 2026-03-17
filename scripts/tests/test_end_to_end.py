@@ -5,7 +5,7 @@ import json
 
 from loguru import logger
 
-from src.orchestrator.core.manager import OrchestrationManager
+from src.services.orchestrator import OrchestrationManager
 
 
 async def test_with_synthesized_data():

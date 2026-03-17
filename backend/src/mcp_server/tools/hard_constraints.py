@@ -5,14 +5,14 @@ from loguru import logger
 from src.mcp_server.utils import extract_hard_constraints, load_signal_store_record
 
 
-def get_hard_constraints(patient_token: str) -> dict:
+def get_hard_constraints(patient_id: str) -> dict:
     """Retrieve non-negotiable medical constraints for a specific patient.
 
     Returns hard constraints including patient demographics, eligibility exclusions,
     active safety flags, and tier ceiling according to Signal Store Contract.
 
     Args:
-        patient_token: HMAC-SHA256 pseudonymous patient identifier
+        patient_id: Stable patient identifier
 
     Returns:
         Hard constraints dict matching Signal Store Contract format:
@@ -26,13 +26,13 @@ def get_hard_constraints(patient_token: str) -> dict:
             "pipeline_run_id": str
         }
     """
-    logger.info(f"Retrieving hard constraints for patient_token: {patient_token}")
+    logger.info(f"Retrieving hard constraints for patient_id: {patient_id}")
 
-    record = load_signal_store_record(patient_token)
+    record = load_signal_store_record(patient_id)
     if not record:
-        logger.error(f"Signal Store record not found for patient_token: {patient_token}")
+        logger.error(f"Signal Store record not found for patient_id: {patient_id}")
         return {
-            "patient_token": patient_token,
+            "patient_id": patient_id,
             "patient_demographics": {},
             "eligibility_exclusions": [],
             "active_safety_flags": [],

@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from loguru import logger
 
-from src.orchestrator.core.manager import OrchestrationManager
+from src.services.orchestrator import OrchestrationManager
 from src.api.routes.patients import load_registry
 
 router = APIRouter()
@@ -26,8 +26,11 @@ async def get_recommendation(request: RecommendationRequest):
         raise HTTPException(status_code=404, detail="Patient not found")
 
     try:
-        # 2. Call the Orchestrator (Backend AI Logic)
-        result = await orchestrator.generate_recommendation(request.patient_id)
+        # 2. Call the Orchestrator (Backend AI Logic) with the correct token from registry
+        result = await orchestrator.generate_recommendation(
+            patient_id=request.patient_id, 
+            patient_token=patient.get("patient_token")
+        )
         
         # 3. PII Rehydration
         result["patient_name"] = patient["patient_name"]

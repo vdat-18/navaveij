@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.orchestrator.infrastructure.mcp_factory import MCPClientFactory
+from src.services.mcp_client import MCPClientFactory
 
 
 @pytest.mark.asyncio
@@ -19,8 +19,8 @@ async def test_mcp_factory_lifecycle():
     mock_session.initialize = AsyncMock()
 
     with (
-        patch("src.orchestrator.infrastructure.mcp_factory.stdio_client", return_value=mock_stdio_client),
-        patch("src.orchestrator.infrastructure.mcp_factory.ClientSession", return_value=mock_session),
+        patch("src.services.mcp_client.stdio_client", return_value=mock_stdio_client),
+        patch("src.services.mcp_client.ClientSession", return_value=mock_session),
     ):
         async with MCPClientFactory.get_client() as session:
             assert session == mock_session
