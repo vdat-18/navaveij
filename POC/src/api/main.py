@@ -1,15 +1,20 @@
 """FastAPI Entry point for the Navaveij Clinical Recommendation Engine."""
 
-import uvicorn
+# load_dotenv() MUST run before any baml_client import.
+# baml_client/globals.py calls os.environ.copy() at module-import time to
+# snapshot env vars into the BAML runtime. If load_dotenv() runs after that
+# import, LLM_API_KEY / LLM_BASE_URL / LLM_MODEL will be empty and BAML will
+# fall back to shell-level ANTHROPIC_* vars, sending a wrong model name to the
+# proxy (e.g. the literal string "$ANTHROPIC_DEFAULT_SONNET_MODEL").
 from dotenv import load_dotenv
+load_dotenv()
+
+import uvicorn
 from fastapi import FastAPI
 from loguru import logger
 from pydantic import BaseModel
 
 from src.orchestrator.core.manager import OrchestrationManager
-
-# Load environment variables
-load_dotenv()
 
 app = FastAPI(
     title="Navaveij Clinical API",

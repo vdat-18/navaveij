@@ -182,3 +182,5 @@ cython_debug/
 .vscode
 external/
 baml_client/
+.agents/*
+.claude/*

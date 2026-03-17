@@ -27,19 +27,14 @@ class AuditLogger:
         if not self.log_file_jsonl.exists() or self.log_file_jsonl.stat().st_size == 0:
             return "0" * 64
 
-        with open(self.log_file_jsonl, "rb") as f:
-            f.seek(0, 2)
-            file_size = f.tell()
-            read_size = min(file_size, 8192)
-            f.seek(file_size - read_size)
-            content = f.read().decode("utf-8", errors="ignore")
+        with open(self.log_file_jsonl, encoding="utf-8") as f:
+            lines = [line.strip() for line in f if line.strip()]
 
-            lines = [line.strip() for line in content.split("\n") if line.strip()]
-            if not lines:
-                return "0" * 64
+        if not lines:
+            return "0" * 64
 
-            last_line = json.loads(lines[-1])
-            return last_line.get("current_hash", "0" * 64)
+        last_line = json.loads(lines[-1])
+        return last_line.get("current_hash", "0" * 64)
 
     def _write_json_array(self, payload: dict[str, Any]) -> None:
         """Update the JSON array file by appending the new entry."""

@@ -47,6 +47,7 @@ function GenerateRecommendation(
   client NavaveijClient
 
   prompt #"
+    {{ _.role("system") }}
     You are a clinical decision-support AI integrated into a health checkup recommendation
     platform at a Thai international hospital. Your role is to reason over pre-computed
     patient health signals and produce a structured, evidence-based health checkup
@@ -126,6 +127,9 @@ function GenerateRecommendation(
         next_steps               — how to book, what to do before leaving today
 
     ── OUTPUT FORMAT ──────────────────────────────────────────────────────────
+
+    {{ _.role("user") }}
+    Generate the recommendation now. Respond with valid JSON only.
 
     {{ ctx.output_format }}
 
