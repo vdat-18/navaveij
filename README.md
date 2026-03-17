@@ -41,12 +41,18 @@ This platform empowers physicians to provide personalized, data-driven health ch
 
 ## 🛠️ Getting Started
 
-### Prerequisites
-- Python 3.10+ and `uv` package manager.
-- Node.js 18+ and `npm`.
-- OpenAI or compatible LLM API Key (configured in `.env`).
+### 0. Run with Docker (Recommended for PoC) 🐳
+The easiest way to launch the entire ecosystem is using Docker Compose. Ensure you have Docker and Docker Compose installed.
 
-### 1. Backend Setup & Run
+```bash
+# Build and start all services
+docker-compose up --build
+```
+*   **Backend**: `http://localhost:8000`
+*   **Frontend**: `http://localhost:3000`
+*   **Persistence**: Data in `assets/` and `logs/` is preserved across restarts via volumes.
+
+### 1. Backend Setup & Run (Manual)
 ```bash
 # Install dependencies
 uv sync
@@ -59,7 +65,16 @@ PYTHONPATH=.:./backend uv run python -m src.api.main
 ```
 *API will be available at `http://localhost:8000`*
 
-### 2. Frontend Setup & Run
+### 2. MCP Inspector (PoC & Debugging) 🛡️
+To visualize how the AI retrieves data through the secure MCP layer:
+```bash
+# From the backend directory
+cd backend
+npx @modelcontextprotocol/inspector uv run python -m src.mcp_server.server
+```
+*This opens a web interface at `http://localhost:6274` to interact with clinical tools.*
+
+### 3. Frontend Setup & Run
 ```bash
 cd frontend
 
