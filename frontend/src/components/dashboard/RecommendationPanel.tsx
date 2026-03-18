@@ -309,11 +309,15 @@ export function RecommendationPanel({ patientId, privacyMode, setPrivacyMode, on
                             <div className="flex items-center justify-between w-full mb-8">
                                 <div className="flex flex-col">
                                     <span className="text-[9px] font-black text-navavej-gray-med uppercase tracking-[0.2em] mb-1">Recommended Package</span>
-                                    <span className="text-xl font-black text-navavej-gray-dark uppercase tracking-wide">Diamond Plus Center</span>
+                                    <span className="text-xl font-black text-navavej-gray-dark uppercase tracking-wide">
+                                        {data.package_name || "Diagnostic Program"}
+                                    </span>
                                 </div>
                                 <div className="flex flex-col items-end">
                                     <span className="text-[9px] font-black text-navavej-gray-med uppercase tracking-[0.2em] mb-1">Program Value</span>
-                                    <span className="text-3xl font-black text-navavej-teal italic">฿15,000</span>
+                                    <span className="text-3xl font-black text-navavej-teal italic">
+                                        ฿{data.price_thb ? data.price_thb.toLocaleString() : "TBD"}
+                                    </span>
                                 </div>
                             </div>
 

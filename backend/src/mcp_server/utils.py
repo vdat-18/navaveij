@@ -213,32 +213,36 @@ def resolve_package(
     tier_map = package_resolution_map.get(tier, {})
     gender_map = tier_map.get(gender, {})
 
-    # Determine age band
+    # Determine age band dynamically by parsing JSON keys
     age_band = None
-    age_band_keys = [
-        "age_15_to_35",
-        "age_35_plus",
-        "age_36_plus",
-        "age_40_plus",
-    ]
-    for band_key in age_band_keys:
-        if band_key in gender_map:
-            # Simple age band matching (can be enhanced)
-            if "15_to_35" in band_key and 15 <= age <= 35:
-                age_band = band_key
-                break
-            elif "35_plus" in band_key and age >= 35:
-                age_band = band_key
-                break
-            elif "36_plus" in band_key and age >= 36:
-                age_band = band_key
-                break
-            elif "40_plus" in band_key and age >= 40:
-                age_band = band_key
-                break
+    
+    # 1. Check for 'age_any' (highest priority for Advanced/Premium tiers)
+    if "age_any" in gender_map:
+        age_band = "age_any"
+    else:
+        # 2. Match against specific age bands defined in JSON (e.g., age_15_to_20, age_40_plus)
+        for band_key in gender_map.keys():
+            try:
+                if "_to_" in band_key:
+                    # Format: age_MIN_to_MAX (e.g., age_15_to_20)
+                    parts = band_key.split("_")
+                    age_min = int(parts[1])
+                    age_max = int(parts[3])
+                    if age_min <= age <= age_max:
+                        age_band = band_key
+                        break
+                elif "_plus" in band_key:
+                    # Format: age_MIN_plus (e.g., age_40_plus)
+                    parts = band_key.split("_")
+                    age_min = int(parts[1])
+                    if age >= age_min:
+                        age_band = band_key
+                        break
+            except (ValueError, IndexError):
+                continue
 
     if not age_band:
-        # Fallback to first available age band
+        # Fallback to the first available key in the list as a safe default
         age_band = next(iter(gender_map.keys()), None)
 
     if not age_band:
