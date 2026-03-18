@@ -1,0 +1,89 @@
+{
+    "Standard": {
+        "male": {
+            "age_15_to_20": {
+                "package_name": "Basic",
+                "package_code": "BASIC_ANY",
+                "price_thb": 3500,
+                "source": "Recommendation_Rule_based.csv §Line 2"
+            },
+            "age_20_to_35": {
+                "package_name": "Gold",
+                "package_code": "GOLD_ANY",
+                "price_thb": 5900,
+                "source": "Recommendation_Rule_based.csv §Line 4"
+            },
+            "age_35_to_40": {
+                "package_name": "Platinum — Men",
+                "package_code": "PLAT_M",
+                "price_thb": 8700,
+                "source": "Recommendation_Rule_based.csv §Line 5"
+            },
+            "age_40_plus": {
+                "package_name": "Diamond — Men",
+                "package_code": "DIAM_M",
+                "price_thb": 15000,
+                "source": "Recommendation_Rule_based.csv §Line 9"
+            }
+        },
+        "female": {
+            "age_15_to_20": {
+                "package_name": "Basic",
+                "package_code": "BASIC_ANY",
+                "price_thb": 3500,
+                "source": "Recommendation_Rule_based.csv §Line 2"
+            },
+            "age_20_to_35": {
+                "package_name": "Gold",
+                "package_code": "GOLD_ANY",
+                "price_thb": 5900,
+                "source": "Recommendation_Rule_based.csv §Line 4"
+            },
+            "age_35_to_40": {
+                "package_name": "Platinum — Women",
+                "package_code": "PLAT_W",
+                "price_thb": 13500,
+                "source": "Recommendation_Rule_based.csv §Line 7"
+            },
+            "age_40_plus": {
+                "package_name": "Diamond — Women",
+                "package_code": "DIAM_W",
+                "price_thb": 19000,
+                "source": "Recommendation_Rule_based.csv §Line 11"
+            }
+        }
+    },
+    "Advanced": {
+        "male": {
+            "age_any": {
+                "package_name": "Platinum — Men",
+                "package_code": "PLAT_M",
+                "price_thb": 8700,
+                "note": "Advanced tier defaults to Platinum or higher based on clinician discretion"
+            }
+        },
+        "female": {
+            "age_any": {
+                "package_name": "Platinum — Women",
+                "package_code": "PLAT_F",
+                "price_thb": 13500
+            }
+        }
+    },
+    "Premium": {
+        "male": {
+            "age_any": {
+                "package_name": "Diamond — Men",
+                "package_code": "DIAM_M",
+                "price_thb": 15000
+            }
+        },
+        "female": {
+            "age_any": {
+                "package_name": "Diamond — Women",
+                "package_code": "DIAM_F",
+                "price_thb": 19000
+            }
+        }
+    }
+}

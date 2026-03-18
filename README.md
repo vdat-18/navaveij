@@ -50,6 +50,21 @@ We use modern and professional tools:
 
 ## 🔬 Scientific Logic (The 5-Phase Workflow)
 
+### 0. Run with Docker (Recommended for PoC) 🐳
+The easiest way to launch the entire ecosystem is using Docker Compose. Ensure you have Docker and Docker Compose installed.
+
+```bash
+# Build and start all services
+docker-compose up --build
+```
+*   **Backend**: `http://localhost:8000`
+*   **Frontend**: `http://localhost:3000`
+*   **Persistence**: Data in `assets/` and `logs/` is preserved across restarts via volumes.
+
+### 1. Backend Setup & Run (Manual)
+```bash
+# Install dependencies
+uv sync
 When the system analyzes a patient, it follows these 5 steps:
 
 1.  **Baseline**: Get the basic profile (age, gender, history).
@@ -62,6 +77,18 @@ When the system analyzes a patient, it follows these 5 steps:
 
 ## 🧪 How to Test and Run
 
+### 2. MCP Inspector (PoC & Debugging) 🛡️
+Visualizes the secure clinical data layer and AI tool orchestration:
+```bash
+# Run from the project root
+npx @modelcontextprotocol/inspector uv run python -m src.mcp_server.server
+```
+*   **Interface**: `http://localhost:6274`
+*   **Example Tool**: `get_clinical_signals`
+*   **Example Patient ID**: `id_2bb52ad3` (Metabolic Syndrome case) or `id_7d5e2a4b` (Cancer screening case).
+
+
+### 3. Frontend Setup & Run
 ### 1. Generating Test Data
 You can create fake patients to test the system:
 ```bash
