@@ -1,8 +1,10 @@
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 
 def _read(path: str) -> str:
-    return Path(path).read_text(encoding="utf-8")
+    return (PROJECT_ROOT / path).read_text(encoding="utf-8")
 
 
 def test_dashboard_primary_nav_has_real_routes():
@@ -33,3 +35,11 @@ def test_screen_bootstrap_guards_async_failures():
     assert "try {" in monitoring_source
     assert "catch (error)" in monitoring_source
     assert "setErrorMessage" in monitoring_source
+
+
+def test_recommendation_panel_normalizes_patient_high_alert_shape():
+    source = _read("frontend/src/components/dashboard/RecommendationPanel.tsx")
+    assert "normalizeCriticalAlerts" in source
+    assert "Array.isArray(patientHighAlert?.critical_signals)" in source
+    assert "const criticalAlerts = normalizeCriticalAlerts(data.patient_high_alert)" in source
+    assert "criticalAlerts.map" in source

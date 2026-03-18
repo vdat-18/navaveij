@@ -58,6 +58,12 @@ class ProjectSettings(LLMSettings, MCPSettings):
     recommendation_required_scopes: str = "recommendation:read"
     monitoring_allowed_roles: str = "admin,dpo"
     monitoring_required_scopes: str = "monitoring:read"
+    cache_enabled: bool = True
+    cache_ttl_seconds: int = 300
+    cache_registry_ttl_seconds: int = 300
+    cache_ruleset_ttl_seconds: int = 300
+    cache_signal_store_ttl_seconds: int = 120
+    cache_recommendation_ttl_seconds: int = 300
 
 
 settings = ProjectSettings()

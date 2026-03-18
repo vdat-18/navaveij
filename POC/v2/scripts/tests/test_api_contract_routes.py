@@ -31,6 +31,7 @@ def _first_patient_id() -> str:
 
 
 def test_recommend_contract_route_success():
+    contracts.cache_service.clear()
     token = _first_patient_token()
     mock_result = {
         "ai_recommended_tier": "Advanced",
@@ -103,6 +104,76 @@ def test_recommend_contract_route_success():
     assert payload["add_ons"][0]["label"] == "Sample Add-on"
     assert payload["metadata"]["patient_token"] == token
     assert "request_id" in payload["metadata"]
+    assert payload["metadata"]["cache_status"] in {"miss", "hit"}
+
+
+def test_recommend_contract_route_cache_hit_skips_second_llm_call():
+    contracts.cache_service.clear()
+    token = _first_patient_token()
+    mock_result = {
+        "ai_recommended_tier": "Advanced",
+        "tier_deviation_justification": None,
+        "reasoning_trace": "Cache route test trace",
+        "add_ons": [{"item_code": "A001", "priority_level": "Yellow", "rationale": "Test rationale"}],
+        "supporting_signals": ["signal_1"],
+        "missing_signals": [],
+        "communication_script": {
+            "clinical_conclusion": "Clinical summary.",
+            "health_summary": "Health summary.",
+            "recommendation_explanation": "Recommendation explanation.",
+            "add_on_highlights": ["Highlight"],
+            "next_steps": "Next steps.",
+        },
+        "clinical_signals": {
+            "rule_preliminary_tier": "Advanced",
+            "applicable_signals": ["signal_1"],
+            "signals_fired": ["signal_1"],
+            "missing_signals": [],
+            "risk_flags": [],
+            "pipeline_run_id": "pipe_cache_001",
+        },
+    }
+    contracts.get_clinical_signals = lambda _patient_token, patient_id=None: {
+        "pipeline_run_id": "pipe_cache_001",
+        "signals_fired": ["signal_1"],
+        "missing_signals": [],
+        "risk_flags": [],
+    }
+    contracts.get_program_ruleset = lambda _patient_token, patient_id=None: {
+        "ruleset_version": "v2026.03.1",
+        "rule_preliminary_tier": "Advanced",
+        "resolved_package": {
+            "tier": "Advanced",
+            "package_name": "Platinum — Men",
+            "package_code": "PLAT_M",
+            "price_thb": 8700,
+            "age_band": "age_35_plus",
+            "gender": "male",
+        },
+        "add_on_library": [
+            {
+                "item_code": "A001",
+                "label": "Sample Add-on",
+                "category": "cardiac",
+                "trigger_signals": ["signal_1"],
+                "navavej_product": {
+                    "product_name": "Product A",
+                    "product_code": "PROD_A",
+                    "price_thb": 1200,
+                },
+            }
+        ],
+    }
+    contracts.orchestrator.generate_recommendation = AsyncMock(return_value=mock_result)
+
+    first = client.post("/api/recommend", json={"patient_token": token}, headers=_auth_headers(scopes="recommendation:read"))
+    second = client.post("/api/recommend", json={"patient_token": token}, headers=_auth_headers(scopes="recommendation:read"))
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["metadata"]["cache_status"] == "miss"
+    assert second.json()["metadata"]["cache_status"] == "hit"
+    assert contracts.orchestrator.generate_recommendation.await_count == 1
 
 
 def test_recommend_contract_route_invalid_token():

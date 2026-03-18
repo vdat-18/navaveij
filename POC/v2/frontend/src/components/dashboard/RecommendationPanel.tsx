@@ -113,6 +113,30 @@ const ClinicalRiskGauge = ({ value }: { value: string }) => {
     );
 };
 
+const DEFAULT_CRITICAL_ALERTS = [
+    { label: "Hypertensive Crisis", sub: "SBP > 180 mmHg detected", value: "URGENT" },
+    { label: "High ASCVD Risk", sub: "Score ≥ 20.0%", value: "MONITOR" },
+];
+
+const normalizeCriticalAlerts = (patientHighAlert: any) => {
+    if (Array.isArray(patientHighAlert)) {
+        return patientHighAlert;
+    }
+    if (Array.isArray(patientHighAlert?.critical_signals)) {
+        const mapped = patientHighAlert.critical_signals
+            .filter((signal: any) => signal && typeof signal === "object")
+            .map((signal: any) => ({
+                label: signal.label || signal.signal_id || "Clinical Signal",
+                sub: signal.clinical_note || "Immediate clinical review recommended",
+                value: signal.severity === "Critical" ? "URGENT" : signal.severity || "MONITOR",
+            }));
+        if (mapped.length > 0) {
+            return mapped;
+        }
+    }
+    return DEFAULT_CRITICAL_ALERTS;
+};
+
 export function RecommendationPanel({ patientId, patientToken }: RecommendationPanelProps) {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
@@ -197,6 +221,7 @@ export function RecommendationPanel({ patientId, patientToken }: RecommendationP
     }
 
     if (!data) return null;
+    const criticalAlerts = normalizeCriticalAlerts(data.patient_high_alert);
 
     return (
         <AnimatePresence mode="wait">
@@ -367,10 +392,7 @@ export function RecommendationPanel({ patientId, patientToken }: RecommendationP
                                 </div>
 
                                 <div className="space-y-3">
-                                    {(data.patient_high_alert || [
-                                        { label: "Hypertensive Crisis", sub: "SBP > 180 mmHg detected", value: "URGENT" },
-                                        { label: "High ASCVD Risk", sub: "Score ≥ 20.0%", value: "MONITOR" }
-                                    ]).map((alert: any, i: number) => (
+                                    {criticalAlerts.map((alert: any, i: number) => (
                                         <div key={i} className="flex items-center justify-between p-4 bg-white rounded-xl border border-navavej-border group hover:border-navavej-red/40 transition-colors shadow-sm">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-1.5 h-1.5 bg-navavej-red rounded-full" />

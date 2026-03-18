@@ -6,28 +6,82 @@ from pathlib import Path
 
 from loguru import logger
 
-# Constants
-SIGNAL_STORE_DIR = Path("assets/synthesis/generated")
-RULESET_TIER_CONFIG_PATH = Path(
-    "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_ruleset_tier_config.json"
+from src.services.cache import cache_service
+from shared.settings import settings
+
+V2_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[5]
+
+
+def _resolve_existing_path(candidates: list[Path], default_path: Path) -> Path:
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return default_path
+
+
+SIGNAL_STORE_DIR = V2_ROOT / "assets/synthesis/generated"
+RULESET_TIER_CONFIG_PATH = _resolve_existing_path(
+    candidates=[
+        V2_ROOT / "assets/synthesis/rulesets/sample_ruleset_tier_config.json",
+        REPO_ROOT / "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_ruleset_tier_config.json",
+        REPO_ROOT / "POC/v3/assets/synthesis/rulesets/sample_ruleset_tier_config.json",
+    ],
+    default_path=V2_ROOT / "assets/synthesis/rulesets/sample_ruleset_tier_config.json",
 )
-RULESET_ADD_ON_ITEMS_PATH = Path(
-    "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_add_on_items.json"
+RULESET_ADD_ON_ITEMS_PATH = _resolve_existing_path(
+    candidates=[
+        V2_ROOT / "assets/synthesis/rulesets/sample_add_on_items.json",
+        REPO_ROOT / "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_add_on_items.json",
+        REPO_ROOT / "POC/v3/assets/synthesis/rulesets/sample_add_on_items.json",
+    ],
+    default_path=V2_ROOT / "assets/synthesis/rulesets/sample_add_on_items.json",
 )
-PACKAGE_RESOLUTION_PATH = Path(
-    "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_package_resolution.json"
+PACKAGE_RESOLUTION_PATH = _resolve_existing_path(
+    candidates=[
+        V2_ROOT / "assets/synthesis/rulesets/sample_package_resolution.json",
+        REPO_ROOT / "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_package_resolution.json",
+        REPO_ROOT / "POC/v3/assets/synthesis/rulesets/sample_package_resolution.json",
+    ],
+    default_path=V2_ROOT / "assets/synthesis/rulesets/sample_package_resolution.json",
 )
-TIMELINE_SAMPLE_PATH = Path(
-    "doc_outputs/architecture/AI/Recommendation Engine/v3/demo/backend/data/timeline.json"
+TIMELINE_SAMPLE_PATH = _resolve_existing_path(
+    candidates=[
+        V2_ROOT / "assets/synthesis/timeline.json",
+        REPO_ROOT / "doc_outputs/architecture/AI/Recommendation Engine/v3/demo/backend/data/timeline.json",
+    ],
+    default_path=V2_ROOT / "assets/synthesis/timeline.json",
 )
-PATIENT_REGISTRY_PATH = Path("assets/patient_registry.json")
+PATIENT_REGISTRY_PATH = V2_ROOT / "assets/patient_registry.json"
+
+
+def _resolve_ttl(ttl_seconds: int) -> int:
+    if ttl_seconds > 0:
+        return ttl_seconds
+    return settings.cache_ttl_seconds
+
+
+def _cache_key_for_path(prefix: str, path: Path) -> str:
+    if path.exists():
+        return f"{prefix}:{path}:{path.stat().st_mtime_ns}"
+    return f"{prefix}:{path}:missing"
 
 
 def load_patient_registry() -> list[dict]:
+    cache_key = _cache_key_for_path("registry", PATIENT_REGISTRY_PATH)
+    if settings.cache_enabled:
+        hit, cached = cache_service.get(cache_key)
+        if hit:
+            return cached
     if not PATIENT_REGISTRY_PATH.exists():
+        if settings.cache_enabled:
+            cache_service.set(cache_key, [], _resolve_ttl(settings.cache_registry_ttl_seconds))
         return []
     with open(PATIENT_REGISTRY_PATH, encoding="utf-8") as f:
-        return json.load(f)
+        registry = json.load(f)
+    if settings.cache_enabled:
+        cache_service.set(cache_key, registry, _resolve_ttl(settings.cache_registry_ttl_seconds))
+    return registry
 
 
 def resolve_patient_id(patient_token: str) -> str | None:
@@ -58,9 +112,16 @@ def load_signal_store_record(patient_token: str | None = None, patient_id: str |
     if not resolved_id:
         logger.warning("Signal Store lookup skipped: missing patient_token/patient_id")
         return None
+    cache_key = f"signal_store:{resolved_id}"
+    if settings.cache_enabled:
+        hit, cached = cache_service.get(cache_key)
+        if hit:
+            return cached
 
     if not SIGNAL_STORE_DIR.exists():
         logger.warning(f"Signal Store directory not found: {SIGNAL_STORE_DIR}")
+        if settings.cache_enabled:
+            cache_service.set(cache_key, None, _resolve_ttl(settings.cache_signal_store_ttl_seconds))
         return None
 
     # Search recursively for record_*.json in all scenario subdirectories
@@ -73,12 +134,16 @@ def load_signal_store_record(patient_token: str | None = None, patient_id: str |
                 
                 if actual_id == resolved_id:
                     logger.debug(f"Found Signal Store record: {file_path.parent.name}/{file_path.name}")
+                    if settings.cache_enabled:
+                        cache_service.set(cache_key, record, _resolve_ttl(settings.cache_signal_store_ttl_seconds))
                     return record
             except Exception as e:
                 logger.error(f"Error reading {file_path}: {e}")
                 continue
 
     logger.warning(f"Record not found for ID: {resolved_id}")
+    if settings.cache_enabled:
+        cache_service.set(cache_key, None, _resolve_ttl(settings.cache_signal_store_ttl_seconds))
     return None
 
 
@@ -124,13 +189,23 @@ def load_ruleset_tier_config() -> dict:
     Returns:
         Ruleset tier config dict with tier_selection_rules array
     """
+    cache_key = _cache_key_for_path("ruleset_tier", RULESET_TIER_CONFIG_PATH)
+    if settings.cache_enabled:
+        hit, cached = cache_service.get(cache_key)
+        if hit:
+            return cached
     if not RULESET_TIER_CONFIG_PATH.exists():
         logger.error(f"Ruleset tier config not found: {RULESET_TIER_CONFIG_PATH}")
-        return {"tier_selection_rules": []}
+        fallback = {"tier_selection_rules": []}
+        if settings.cache_enabled:
+            cache_service.set(cache_key, fallback, _resolve_ttl(settings.cache_ruleset_ttl_seconds))
+        return fallback
 
     with open(RULESET_TIER_CONFIG_PATH, encoding="utf-8") as f:
         config = json.load(f)
-        return config
+    if settings.cache_enabled:
+        cache_service.set(cache_key, config, _resolve_ttl(settings.cache_ruleset_ttl_seconds))
+    return config
 
 
 def load_ruleset_add_on_items() -> list[dict]:
@@ -139,13 +214,23 @@ def load_ruleset_add_on_items() -> list[dict]:
     Returns:
         List of add-on item dicts
     """
+    cache_key = _cache_key_for_path("ruleset_add_ons", RULESET_ADD_ON_ITEMS_PATH)
+    if settings.cache_enabled:
+        hit, cached = cache_service.get(cache_key)
+        if hit:
+            return cached
     if not RULESET_ADD_ON_ITEMS_PATH.exists():
         logger.error(f"Ruleset add-on items not found: {RULESET_ADD_ON_ITEMS_PATH}")
+        if settings.cache_enabled:
+            cache_service.set(cache_key, [], _resolve_ttl(settings.cache_ruleset_ttl_seconds))
         return []
 
     with open(RULESET_ADD_ON_ITEMS_PATH, encoding="utf-8") as f:
         data = json.load(f)
-        return data.get("items", [])
+    items = data.get("items", [])
+    if settings.cache_enabled:
+        cache_service.set(cache_key, items, _resolve_ttl(settings.cache_ruleset_ttl_seconds))
+    return items
 
 
 def load_package_resolution_map() -> dict:
@@ -154,12 +239,22 @@ def load_package_resolution_map() -> dict:
     Returns:
         Package resolution map dict
     """
+    cache_key = _cache_key_for_path("ruleset_package_map", PACKAGE_RESOLUTION_PATH)
+    if settings.cache_enabled:
+        hit, cached = cache_service.get(cache_key)
+        if hit:
+            return cached
     if not PACKAGE_RESOLUTION_PATH.exists():
         logger.error(f"Package resolution map not found: {PACKAGE_RESOLUTION_PATH}")
+        if settings.cache_enabled:
+            cache_service.set(cache_key, {}, _resolve_ttl(settings.cache_ruleset_ttl_seconds))
         return {}
 
     with open(PACKAGE_RESOLUTION_PATH, encoding="utf-8") as f:
-        return json.load(f)
+        package_map = json.load(f)
+    if settings.cache_enabled:
+        cache_service.set(cache_key, package_map, _resolve_ttl(settings.cache_ruleset_ttl_seconds))
+    return package_map
 
 
 def filter_add_ons_by_demographics(

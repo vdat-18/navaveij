@@ -15,6 +15,7 @@ from src.mcp_server.tools.biomarker_trends import get_biomarker_trends
 from src.mcp_server.tools.clinical_signals import get_clinical_signals
 from src.mcp_server.tools.patient_event_timeline import get_patient_event_timeline
 from src.mcp_server.tools.program_ruleset import get_program_ruleset
+from src.services.cache import cache_service
 from src.services.orchestrator import OrchestrationManager
 from shared.settings import settings
 
@@ -454,23 +455,72 @@ def _normalize_stage2(
     }
 
 
+def _recommendation_cache_key(
+    *,
+    patient_token: str,
+    signal_store_pipeline_run_id: str,
+    ruleset_version: str,
+) -> str:
+    raw = json.dumps(
+        {
+            "patient_token": patient_token,
+            "signal_store_pipeline_run_id": signal_store_pipeline_run_id,
+            "ruleset_version": ruleset_version,
+            "model_id": settings.llm_model,
+            "template_version": "poc-v2-stage2-v1",
+            "api_auth_mode": settings.api_auth_mode,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return f"recommendation:{hashlib.sha256(raw.encode('utf-8')).hexdigest()}"
+
+
 @router.post("/recommend", response_model=RecommendResponse)
 async def recommend(request: RecommendRequest, _auth: AuthContext = Depends(require_recommendation_access)):
     patient = _resolve_patient_by_token(request.patient_token)
     patient_id = patient["patient_id"]
+    signals = get_clinical_signals(request.patient_token, patient_id=patient_id)
+    pipeline_run_id = signals.get("pipeline_run_id", "")
+    ruleset = get_program_ruleset(request.patient_token, patient_id=patient_id)
+    cache_key = _recommendation_cache_key(
+        patient_token=request.patient_token,
+        signal_store_pipeline_run_id=pipeline_run_id,
+        ruleset_version=ruleset.get("ruleset_version", "v2026.03.1"),
+    )
+    cache_ttl = settings.cache_recommendation_ttl_seconds or settings.cache_ttl_seconds
+    cache_key_hash = cache_key.split(":", 1)[-1][:16]
+    if settings.cache_enabled:
+        hit, cached_payload = cache_service.get(cache_key)
+        if hit:
+            payload = json.loads(json.dumps(cached_payload))
+            metadata = payload.get("metadata", {})
+            metadata["request_id"] = f"req_{uuid.uuid4().hex[:12]}"
+            metadata["generated_at"] = datetime.now(timezone.utc).isoformat()
+            metadata["latency_ms"] = 0
+            metadata["cache_status"] = "hit"
+            metadata["cache_key_hash"] = cache_key_hash
+            metadata["cache_ttl_seconds"] = cache_ttl
+            payload["metadata"] = metadata
+            return payload
     started_at = time.time()
     ai_output = await orchestrator.generate_recommendation(
         patient_id=patient_id,
         patient_token=request.patient_token,
     )
     latency_ms = int((time.time() - started_at) * 1000)
-    ruleset = get_program_ruleset(request.patient_token, patient_id=patient_id)
-    return _normalize_stage2(
+    payload = _normalize_stage2(
         patient_token=request.patient_token,
         ai_output=ai_output,
         ruleset=ruleset,
         latency_ms=latency_ms,
     )
+    payload["metadata"]["cache_status"] = "miss"
+    payload["metadata"]["cache_key_hash"] = cache_key_hash
+    payload["metadata"]["cache_ttl_seconds"] = cache_ttl
+    if settings.cache_enabled:
+        cache_service.set(cache_key, payload, cache_ttl)
+    return payload
 
 
 @router.get("/timeline/{patient_token}", response_model=TimelineResponse)
