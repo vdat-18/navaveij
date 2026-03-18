@@ -2,10 +2,10 @@
   "_schema_note": "Ruleset Store DB records — record_type: add_on_item. Each entry is a separate DB record. The MCP Server filters this catalog by patient gender and age at query time before returning add_on_library[] in get_program_ruleset().",
   "_version_note": "Partial v2026.03.1-partial — prices filled from navavej-checkup-package-discovery.md (Expo 2026 promo rates). 5 items still have price_thb: null pending client confirmation. Status will advance to 'active' after MAT validation and all OQs resolved.",
   "_framework_reference": "rule-synthesis-framework.md §6 (Derivation Ledger). All signal_ids trace to signal-store-contract.md Field Dictionary. All clinical claims trace to clinical-guidelines-reference.md.",
-  "_option_a_symptom_signals": "Signals prefixed symptom_ (symptom_palpitations, symptom_chronic_back_pain, symptom_unexplained_weight_loss, symptom_chest_pain, symptom_dyspnea_on_exertion) are first-class signal IDs per Option A. They must be added to signal-store-contract.md Field Dictionary and populated by the Clinical Signal Engine from symptom_tags[].",
+  "_option_a_symptom_signals": "Signals prefixed symptom_ (symptom_palpitations, symptom_chronic_back_pain, symptom_hematochezia, symptom_melena, symptom_dyspepsia, symptom_hematemesis) are first-class signal IDs per Option A.",
   "_expert_review_instructions": "For each item please verify: (1) trigger_signals — are these the right clinical signals to activate this add-on? (2) priority_level_default — is this the right urgency level? (3) age_min / age_max — do these match current guideline age eligibility? (4) gender_constraint — is this correctly restricted or open? (5) Are there any missing add-ons for the Thai/Navavej patient population not covered here?",
   "_open_questions_pending": [
-    "OQ-7: Confirm whether standalone colonoscopy (lower GI) exists as a separate product — current mapping uses Upper GI Endoscopy (ENDO_UPPER, ฿9,500) as placeholder",
+    "OQ-7: Resolved — Split into Colonoscopy (Lower) and Upper GI Endoscopy.",
     "OQ-10: Confirm standalone PSA product code and price with client — price_thb is null on psa_sdm",
     "OQ-hepatitis_b_vaccine: Confirm per-dose price for Hepatitis B vaccine — price_thb is null",
     "OQ-pneumococcal: Confirm product code and price for Pneumococcal vaccine (PCV20 vs PCV15+PPSV23) — price_thb is null, product_code is TBD",
@@ -14,7 +14,7 @@
     "OQ-weight_loss_workup: Confirm composite product code for unexplained weight loss workup (Tumor Markers + Thyroid Pro 2) — price_thb is null, product_code is TBD_WEIGHT_LOSS_PANEL"
   ],
   "_pricing_note": "All price_thb values reflect 5th Anniversary Wellbeing Expo 2026 promotional rates, valid through 2026-03-31. Standard (post-Expo) prices must be confirmed with Navavej before production deployment.",
-  "record_count": 29,
+  "record_count": 33,
 
   "items": [
 
@@ -23,28 +23,56 @@
       "item_code": "colonoscopy",
       "version": "v2026.03.1-draft",
       "status": "partial",
-      "label": "Colonoscopy — Colorectal Cancer Screening",
+      "label": "Colonoscopy — Colorectal Cancer Screening (Lower GI)",
       "category": "cancer_screening",
-      "trigger_signals": ["colonoscopy_screening_gap"],
+      "trigger_signals": ["colonoscopy_screening_gap", "symptom_hematochezia"],
       "match_logic": "ANY_OF_TRIGGER_SIGNALS",
       "priority_level_default": "Red",
       "priority_override_signals": {
         "family_hx_colon_ca_first_degree": "Red",
-        "_note": "Red regardless of overdue days when first-degree relative had CRC. Default Red because screening interval is 10 years — any overdue = ≥ 10yr gap."
+        "symptom_hematochezia": "Red",
+        "_note": "Red regardless of overdue days when first-degree relative had CRC or active bleeding symptom."
       },
       "safety_contraindication_signals": [],
       "navavej_product": {
-        "product_name": "Endoscopy Package (Upper GI)",
-        "product_code": "ENDO_UPPER",
-        "price_thb": 9500,
-        "note": "OQ-7: Standalone colonoscopy (lower GI) availability unconfirmed — may require separate product code. Upper GI endoscopy used as placeholder."
+        "product_name": "Colonoscopy (Lower GI)",
+        "product_code": "TBD_COLONOSCOPY",
+        "price_thb": null,
+        "note": "OQ-7: Standalone colonoscopy price TBD. Requires separate code from Upper GI."
       },
       "gender_constraint": null,
       "age_min": 45,
       "age_max": 85,
-      "guideline": "USPSTF Colorectal Cancer Screening 2021 — Grade A (age 45–75), SDM 76–85, not recommended > 85",
-      "_guideline_age_note": "USPSTF 2021 lowered start age from 50 → 45. Verify hospital has adopted this update.",
+      "guideline": "USPSTF Colorectal Cancer Screening 2021 — Grade A (age 45–75); Red-flag symptom (hematochezia)",
+      "_guideline_age_note": "USPSTF 2021 lowered start age from 50 → 45.",
       "admin_configurable_fields": ["price_thb", "age_min", "age_max", "priority_level_default"],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+
+    {
+      "record_type": "add_on_item",
+      "item_code": "upper_gi_endoscopy",
+      "version": "v2026.03.1-draft",
+      "status": "partial",
+      "label": "Esophagogastroduodenoscopy (EGD) — Upper GI Screening",
+      "category": "gi_liver",
+      "trigger_signals": ["symptom_dyspepsia", "symptom_hematemesis", "symptom_melena"],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Red",
+      "_priority_rationale": "Red: symptomatic presentation (vomiting blood, black stool) requires urgent evaluation.",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Endoscopy Package (Upper GI)",
+        "product_code": "ENDO_UPPER",
+        "price_thb": 9500
+      },
+      "gender_constraint": null,
+      "age_min": 18,
+      "age_max": null,
+      "guideline": "Clinical practice — dyspepsia / GI bleeding workup",
+      "admin_configurable_fields": ["price_thb", "priority_level_default"],
       "last_updated_by": "system_initial_seed",
       "last_updated_at": "2026-03-13T00:00:00Z"
     },
@@ -141,7 +169,7 @@
       "status": "partial",
       "label": "48-Hour Cardiac Patch Monitor (Arrhythmia Screening)",
       "category": "cardiac",
-      "trigger_signals": ["symptom_palpitations", "symptom_chest_pain", "symptom_dyspnea_on_exertion"],
+      "trigger_signals": ["symptom_palpitations", "symptom_chest_pain", "symptom_dyspnea_on_exertion", "history_syncope", "family_hx_sudden_cardiac_death"],
       "match_logic": "ANY_OF_TRIGGER_SIGNALS",
       "priority_level_default": "Yellow",
       "priority_override_signals": {},
@@ -168,7 +196,7 @@
       "status": "partial",
       "label": "Low-Dose CT Chest — Lung Cancer Annual Screening",
       "category": "cancer_screening",
-      "trigger_signals": ["lung_ct_threshold_met"],
+      "trigger_signals": ["lung_ct_threshold_met", "family_hx_lung_ca"],
       "match_logic": "ANY_OF_TRIGGER_SIGNALS",
       "priority_level_default": "Red",
       "_priority_rationale": "Red: USPSTF Grade B — annual screening indicated for eligible patients. High-severity oncologic risk. Never-screened eligible patient = highest urgency.",
@@ -312,7 +340,7 @@
       "status": "partial",
       "label": "Diabetes Screening Pro 1 — HbA1c, Insulin, HOMA-IR (12 items)",
       "category": "endocrine",
-      "trigger_signals": ["prediabetes_confirmed", "diabetes_confirmation_required", "bmi_obese_asian"],
+      "trigger_signals": ["prediabetes_confirmed", "diabetes_confirmation_required", "bmi_obese_asian", "fbs_upward_trend"],
       "match_logic": "ANY_OF_TRIGGER_SIGNALS",
       "priority_level_default": "Yellow",
       "priority_override_signals": {
@@ -398,7 +426,7 @@
       "status": "partial",
       "label": "FibroTouch — Liver Fibrosis & Fat Assessment (Non-Invasive)",
       "category": "gi_liver",
-      "trigger_signals": ["fibroscan_indication", "liver_enzyme_elevation_significant", "high_triglycerides"],
+      "trigger_signals": ["fibroscan_indication", "liver_enzyme_elevation_significant", "high_triglycerides", "diagnosis_fatty_liver"],
       "match_logic": "ANY_OF_TRIGGER_SIGNALS",
       "priority_level_default": "Yellow",
       "priority_override_signals": {
@@ -800,7 +828,7 @@
         "price_thb": 7900
       },
       "gender_constraint": "female",
-      "age_min": 45,
+      "age_min": 40,
       "age_max": 60,
       "guideline": "Clinical practice — perimenopausal hormonal assessment; ATA 2014 (thyroid function in menopause); endocrine evaluation for hormonal status",
       "admin_configurable_fields": ["price_thb", "age_min", "age_max", "priority_level_default"],
@@ -834,6 +862,110 @@
       "guideline": "TOR §3.1 Symptom Mapping — unexplained weight loss → Tumor Marker + Thyroid Function Test; clinical practice for red-flag symptom workup",
       "_expert_review_note": "Should this be a single bundled add-on, or separate add-on items for Tumor Markers and Thyroid Pro 2? A bundle is simpler for SalesAdmin but a split allows individual items to be ordered or declined.",
       "admin_configurable_fields": ["price_thb", "priority_level_default"],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+
+    {
+      "record_type": "add_on_item",
+      "item_code": "dementia_screening",
+      "version": "v2026.03.1-draft",
+      "status": "partial",
+      "label": "Dementia / Cognitive Decline Screening",
+      "category": "neurology",
+      "trigger_signals": ["family_hx_dementia"],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Dementia Screening",
+        "product_code": "TBD_DEMENTIA",
+        "price_thb": null
+      },
+      "gender_constraint": null,
+      "age_min": 65,
+      "age_max": null,
+      "guideline": "Clinical practice — family history or age-related cognitive concern",
+      "admin_configurable_fields": ["price_thb", "age_min", "priority_level_default"],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+
+    {
+      "record_type": "add_on_item",
+      "item_code": "allergy_food_panel",
+      "version": "v2026.03.1-draft",
+      "status": "partial",
+      "label": "Food Allergy Test (20 items)",
+      "category": "allergy",
+      "trigger_signals": ["symptom_food_intolerance"],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Green",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Food Allergy Test (20 items)",
+        "product_code": "ALLERGY_FOOD_20",
+        "price_thb": null
+      },
+      "gender_constraint": null,
+      "age_min": 18,
+      "age_max": null,
+      "guideline": "Clinical practice — patient-reported food intolerance investigation",
+      "admin_configurable_fields": ["price_thb", "priority_level_default"],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+
+    {
+      "record_type": "add_on_item",
+      "item_code": "allergy_airborne_panel",
+      "version": "v2026.03.1-draft",
+      "status": "partial",
+      "label": "Airborne Allergy Test (20 items)",
+      "category": "allergy",
+      "trigger_signals": ["occupational_exposure_risk"],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Green",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Airborne Allergy Test (20 items)",
+        "product_code": "ALLERGY_AIR_20",
+        "price_thb": null
+      },
+      "gender_constraint": null,
+      "age_min": 18,
+      "age_max": null,
+      "guideline": "Clinical practice — environmental/occupational exposure investigation",
+      "admin_configurable_fields": ["price_thb", "priority_level_default"],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+
+    {
+      "record_type": "add_on_item",
+      "item_code": "dengue_vaccine",
+      "version": "v2026.03.1-draft",
+      "status": "partial",
+      "label": "Dengue Vaccine (Qdenga) — 2 Doses",
+      "category": "vaccination",
+      "trigger_signals": ["dengue_vaccination_gap"],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Green",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Dengue Vaccine (Qdenga)",
+        "product_code": "VAX_DENGUE",
+        "price_thb": null
+      },
+      "gender_constraint": null,
+      "age_min": 4,
+      "age_max": 60,
+      "guideline": "Tropical medicine / Thai clinical practice — endemic protection; Qdenga approved for ages 4–60",
+      "admin_configurable_fields": ["price_thb", "age_min", "age_max", "priority_level_default"],
       "last_updated_by": "system_initial_seed",
       "last_updated_at": "2026-03-13T00:00:00Z"
     }

@@ -198,3 +198,7 @@ frontend/.pnp*
 frontend/.yarn/
 .agents/*
 .claude/*
+**/.agents/skills/
+**/.claude/skills/
+**/backend/**/__pycache__/
+**/frontend/node_modules/
