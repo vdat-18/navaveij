@@ -1,82 +1,67 @@
-# GAP-0 — Baseline Run: POC as-is
+# GAP-0 — Baseline Run: POC v2 As-Is
 
-**Severity:** N/A — observation only, no code changes
-**Execution order:** Step 0 — before any gap-closure work begins
-**Estimated effort:** 30–60 minutes
+**Severity:** N/A — observation only, no code changes  
+**Execution order:** Step 0 — before any gap-closure implementation  
 **Category:** Baseline / Diagnostics
 
 ---
 
 ## Purpose
 
-Run the POC in its current state, capture what works and what breaks, and record the baseline so that every subsequent gap closure can be verified as a measurable improvement against this starting point.
+Run `POC/v2` in the current state, capture exactly what works and what fails, and lock a baseline for measurable progress in later gaps.
 
-This step produces no code changes. All output goes into the three checkpoint files in this folder:
-- `_discovery.md` — environment setup notes, what was tried, what the codebase looks like on first contact
-- `_lastest_test_results.md` — raw output from every test run in this step
-- `_development_summary.md` — interpreted summary: what passes, what fails, and why
+All findings for this step must be written into:
+- `_discovery.md`
+- `_lastest_test_results.md`
+- `_development_summary.md`
 
 ---
 
 ## Dependencies
 
-- **Depends on:** Nothing — this is the starting point
-- **Unblocks:** All gap-closure steps (establishes the baseline they improve from)
+- **Depends on:** nothing
+- **Unblocks:** GAP-1 through GAP-9
 
 ---
 
-## Context Discovery
+## Context Discovery (Read First)
 
-Before running anything, read these files to understand the system:
+Review these files before running tests:
 
-| File | What to look for |
+| File | Why |
 |---|---|
-| `POC/README.md` | How to set up and run the POC — follow these instructions first |
-| `POC/.env.example` | Required environment variables — copy to `.env` and fill in your API key |
-| `POC/pyproject.toml` | Python version and dependency list |
-| `POC/src/api/main.py` | The only API endpoint: `POST /recommend` |
-| `POC/src/orchestrator/core/manager.py` | The canonical execution path called by the API |
-| `POC/src/orchestrator/agents/orchestrator.py` | A second, richer orchestrator — note it is **not** called by the API |
-| `POC/test_orchestrator.py` | Root-level integration test script |
-| `project_management/POC-Gap-Closure/gap-discovery.md` | The full gap analysis — read this to know what to expect to fail |
+| `POC/v2/README.md` | Setup and local run instructions |
+| `POC/v2/.env.example` | Required environment variables |
+| `POC/v2/pyproject.toml` | Python and dependency configuration |
+| `POC/v2/backend/src/api/main.py` | API entrypoint and mounted routes |
+| `POC/v2/backend/src/api/routes/clinical.py` | Clinical endpoints in current contract |
+| `POC/v2/backend/src/services/orchestrator.py` | Runtime recommendation orchestration path |
+| `POC/v2/backend/src/services/workflows/clinical.py` | MCP/LLM workflow behavior |
+| `POC/v2/_project_management/POC-Gap-Closure/gap-discovery.md` | Expected gaps and risk areas |
 
 ---
 
 ## Setup Instructions
 
-### 1. Install dependencies
+### 1) Install backend dependencies
 
 ```bash
-cd POC
-uv sync          # or: pip install -r requirements.txt
+cd /Users/nguyen.tran/Documents/GitHub/navavej/navaveij/POC/v2
+uv sync
 ```
 
-### 2. Configure environment
+### 2) Configure environment
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and set a working LLM key. Two options:
+Set required keys in `.env` based on the selected model provider.
 
-**Option A — Google Gemini (recommended for first run):**
-```
-GOOGLE_API_KEY=<your_google_ai_studio_key>
-LLM_MODEL=gemini-1.5-flash
-```
-
-**Option B — Local LLM via LM Studio:**
-```
-LLM_API_KEY=
-LLM_BASE_URL=http://127.0.0.1:1234/v1/
-LLM_MODEL=<your-local-model-name>
-```
-
-> Note: `baml_src/clients.baml` uses `provider google-ai` and reads `GOOGLE_API_KEY`. Option A is the path of least resistance for a first run. Option B requires updating `clients.baml` (which is GAP-9 work — skip for now).
-
-### 3. Generate BAML client (if `baml_client/` is absent or stale)
+### 3) Generate BAML client
 
 ```bash
+cd /Users/nguyen.tran/Documents/GitHub/navavej/navaveij/POC/v2
 baml-cli generate
 ```
 
@@ -84,123 +69,127 @@ baml-cli generate
 
 ## What to Run and Capture
 
-Run each of the following. Copy all output verbatim into `_lastest_test_results.md`.
+Copy full outputs and logs into `_lastest_test_results.md`, labeled Test 1..10.
 
-### Test 1 — Start the API server
+### Test 1 — Start API server
 
 ```bash
-cd POC
-uv run uvicorn src.api.main:app --reload --port 8000
+cd /Users/nguyen.tran/Documents/GitHub/navavej/navaveij/POC/v2
+PYTHONPATH=.:./backend uv run python -m src.api.main
 ```
 
-Record: Does it start cleanly? Any import errors? Any warnings on startup?
+Record:
+- startup success/failure
+- import errors/warnings
+- bound host/port
 
-### Test 2 — Health check
+### Test 2 — Health check endpoint
 
 ```bash
-curl http://localhost:8000/
+curl -i http://localhost:8000/health
 ```
 
-Expected: `{"status": "ok"}` or similar. Record actual response.
+Expected: HTTP 200 with healthy status payload.
 
-### Test 3 — Recommend with the canonical demo patient token
+### Test 3 — List patients
 
 ```bash
-curl -X POST http://localhost:8000/recommend \
+curl -i http://localhost:8000/api/v1/patients/
+```
+
+Expected: HTTP 200 with patient list.
+
+### Test 4 — Recommendation with known patient ID
+
+```bash
+curl -i -X POST http://localhost:8000/api/v1/clinical/recommend \
   -H "Content-Type: application/json" \
-  -d '{"patient_id": "tok_hmac_56291047"}'
+  -d '{"patient_id":"P001"}'
 ```
 
-> Note: the endpoint is `/recommend` (not `/api/recommend`) and accepts `patient_id` (not `patient_token`) in the current state.
+Record:
+- status code
+- full response JSON
+- whether response includes core fields: `ai_recommended_tier`, `reasoning_trace`, `add_ons`
 
-Record: full JSON response, HTTP status code, any server-side errors from the uvicorn log.
-
-**Expected failures** (per gap-discovery.md):
-- Response will not contain `confidence_score`, `confidence_tier`, `rule_preliminary_tier`, `resolved_package`, add-on `label`/`price` fields → GAP-2
-- Response may contain UUID tokens instead of patient name/DOB → GAP-2 (PIIRehydrator not wired)
-- `patient_high_alert` will be a boolean instead of an object → GAP-2
-
-### Test 4 — Recommend with a known-bad patient token
+### Test 5 — Recommendation with invalid patient ID
 
 ```bash
-curl -X POST http://localhost:8000/recommend \
+curl -i -X POST http://localhost:8000/api/v1/clinical/recommend \
   -H "Content-Type: application/json" \
-  -d '{"patient_id": "tok_hmac_DOESNOTEXIST"}'
+  -d '{"patient_id":"DOES_NOT_EXIST"}'
 ```
 
-Record: does the server return an error gracefully or crash?
+Expected: graceful non-200 response (not server crash).
 
-### Test 5 — Safety validator (mammogram test)
-
-This is hard to trigger directly without injecting into the AI output. Instead, just inspect whether `mammogram` is absent from the response for Somchai W. (Test 3) — it should be absent because the AI was given constraints, but this is not deterministic.
-
-Note in `_lastest_test_results.md` whether `mammogram` appears anywhere in the Test 3 response.
-
-### Test 6 — Check audit log output
+### Test 6 — Approve flow API
 
 ```bash
-cat POC/logs/audit.jsonl | tail -1 | python -m json.tool
+curl -i -X POST http://localhost:8000/api/v1/clinical/approve \
+  -H "Content-Type: application/json" \
+  -d '{"patient_id":"P001","recommendation_hash":"baseline-hash","decision":"Approve","physician_id":"dr-baseline","notes":"baseline check"}'
 ```
 
-Record the full pretty-printed JSON. Note which top-level keys are present (`who`, `when`, `where`, `what`, `why`, `how`, `timestamp`, etc.) — this captures the GAP-4 baseline.
+Record whether decision logging path is functional.
 
-### Test 7 — Run the existing test suite
+### Test 7 — Audit retrieval API
 
 ```bash
-cd POC
-uv run pytest tests/ -v 2>&1
+curl -i http://localhost:8000/api/v1/clinical/audit
 ```
 
-Record: full pytest output — which tests pass, which fail, any errors.
+Record response size and top-level field structure of returned entries.
 
-### Test 8 — Run `test_orchestrator.py`
+### Test 8 — Run automated tests
 
 ```bash
-cd POC
-uv run python test_orchestrator.py 2>&1
+cd /Users/nguyen.tran/Documents/GitHub/navavej/navaveij/POC/v2
+uv run pytest scripts/tests -v 2>&1
 ```
 
-Record: does it run? Does it crash (expected — it calls the deprecated `get_patient_context` MCP tool)? Full traceback if it errors.
+Record full test output, pass/fail/error counts.
 
-### Test 9 — Check for security issues
+### Test 9 — Run integration scripts
 
 ```bash
-grep -r "AIzaSy" POC/
-grep "secret-salt" POC/src/shared/settings.py
+cd /Users/nguyen.tran/Documents/GitHub/navavej/navaveij/POC/v2
+uv run python scripts/test_orchestrator.py 2>&1
+uv run python scripts/test_api.py 2>&1
+uv run python scripts/tests/test_end_to_end.py 2>&1
 ```
 
-Record: the matching lines (expected to find both per GAP-1).
+Record all outputs and stack traces if any.
 
-### Test 10 — Verify missing endpoints
+### Test 10 — Validate missing v3 endpoints (contract-gap evidence)
 
 ```bash
-curl http://localhost:8000/api/timeline/tok_hmac_56291047
-curl http://localhost:8000/api/monitoring-snapshot
-curl "http://localhost:8000/api/audit-logs"
+curl -i -X POST http://localhost:8000/api/recommend -H "Content-Type: application/json" -d '{"patient_token":"tok_hmac_56291047"}'
+curl -i http://localhost:8000/api/timeline/tok_hmac_56291047
+curl -i http://localhost:8000/api/monitoring-snapshot
+curl -i http://localhost:8000/api/audit-logs
 ```
 
-Record: all three should return 404 (per GAP-6).
+Expected baseline evidence: these routes are absent or contract-misaligned in current POC.
 
 ---
 
 ## What to Record in Each Checkpoint File
 
 ### `_discovery.md`
-- Python version used (`python --version`)
-- `uv sync` / install outcome — any dependency conflicts?
-- BAML generation outcome (`baml-cli generate`)
-- Notes on first contact with the codebase: anything surprising, anything that differs from what `gap-discovery.md` predicted
-- Any setup steps that required deviation from the README
+- machine/OS info and Python version
+- dependency installation results
+- environment setup notes
+- BAML generation status
+- deviations from README/setup assumptions
 
 ### `_lastest_test_results.md`
-- Raw output from Tests 1–10 above, labelled by test number
-- HTTP status codes and full response bodies
-- Server logs for any errors
-- Pytest output verbatim
+- raw command output for Tests 1–10
+- HTTP status codes and payloads
+- server/runtime error logs
+- pytest output without summarization loss
 
 ### `_development_summary.md`
-- **What works:** list each test that passed as expected
-- **What fails:** list each test that failed, with a one-line diagnosis pointing to the relevant GAP-N
-- **Surprises:** anything that behaved differently from what `gap-discovery.md` predicted
-- **Environment notes:** OS, Python version, LLM provider used
-- **Readiness assessment:** based on this run, confirm or update the execution order for GAP-1 through GAP-10
+- what works reliably in baseline
+- what fails and why (map to GAP-1..GAP-9)
+- surprises vs expected from `gap-discovery.md`
+- readiness implications for next execution order
