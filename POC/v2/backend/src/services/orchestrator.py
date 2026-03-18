@@ -4,6 +4,7 @@ from typing import Any
 
 from loguru import logger
 
+from src.api.routes.patients import resolve_patient_token
 from src.services.mcp_client import MCPClientFactory
 from src.services.audit import AuditLogger
 from src.services.privacy import PIIRehydrator
@@ -36,6 +37,9 @@ class OrchestrationManager:
         Returns:
             A dictionary containing the recommendation and safety checks.
         """
+        resolved_patient_token = patient_token or resolve_patient_token(patient_id)
+        if not resolved_patient_token:
+            raise ValueError(f"Patient token not found for patient_id: {patient_id}")
         logger.info(f"Manager received request for patient: {patient_id}")
 
         async with MCPClientFactory.get_client() as session:
@@ -43,7 +47,7 @@ class OrchestrationManager:
             workflow = ClinicalReasoningWorkflow(session)
 
             # Execute Workflow
-            context = await workflow.execute(patient_id, patient_token=patient_token)
+            context = await workflow.execute(patient_id, patient_token=resolved_patient_token)
 
             # Post-process: Safety Validation
             logger.info("Performing safety validation")

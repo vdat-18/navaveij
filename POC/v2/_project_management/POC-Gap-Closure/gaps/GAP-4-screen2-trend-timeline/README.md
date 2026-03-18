@@ -1,7 +1,7 @@
 # GAP — 4-SCREEN2-TREND-TIMELINE
 
 **Title:** Screen 2 Trend and Timeline Contract Not Implemented
-**Status:** Not started
+**Status:** Complete
 
 ---
 
@@ -21,3 +21,11 @@ Document the implementation work needed to close this gap.
 - `_lastest_test_results.md`
 - `_development_summary.md`
 
+## Execution Notes
+
+- Screen 2 route implemented at `/trend-timeline`.
+- Timeline endpoint contract aligned at `/api/timeline/{patient_token}`.
+- Supporting screen data endpoints added:
+  - `/api/biomarker-trends/{patient_token}`
+  - `/api/screening-gaps/{patient_token}`
+- Manual testing workflow is documented in `_development_summary.md`.

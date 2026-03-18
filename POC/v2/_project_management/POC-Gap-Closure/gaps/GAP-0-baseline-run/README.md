@@ -75,6 +75,8 @@ Copy full outputs and logs into `_lastest_test_results.md`, labeled Test 1..10.
 
 ```bash
 cd /Users/nguyen.tran/Documents/GitHub/navavej/navaveij/POC/v2
+PORT=8000
+lsof -nP -iTCP:${PORT} -sTCP:LISTEN
 PYTHONPATH=.:./backend uv run python -m src.api.main
 ```
 
@@ -99,12 +101,13 @@ curl -i http://localhost:8000/api/v1/patients/
 
 Expected: HTTP 200 with patient list.
 
-### Test 4 — Recommendation with known patient ID
+### Test 4 — Recommendation with known patient ID from registry
 
 ```bash
+PATIENT_ID=$(curl -s http://localhost:8000/api/v1/patients/ | uv run python -c 'import json,sys; print(json.load(sys.stdin)[0]["patient_id"])')
 curl -i -X POST http://localhost:8000/api/v1/clinical/recommend \
   -H "Content-Type: application/json" \
-  -d '{"patient_id":"P001"}'
+  -d "{\"patient_id\":\"${PATIENT_ID}\"}"
 ```
 
 Record:
@@ -127,7 +130,7 @@ Expected: graceful non-200 response (not server crash).
 ```bash
 curl -i -X POST http://localhost:8000/api/v1/clinical/approve \
   -H "Content-Type: application/json" \
-  -d '{"patient_id":"P001","recommendation_hash":"baseline-hash","decision":"Approve","physician_id":"dr-baseline","notes":"baseline check"}'
+  -d "{\"patient_id\":\"${PATIENT_ID}\",\"recommendation_hash\":\"baseline-hash\",\"decision\":\"Approve\",\"physician_id\":\"dr-baseline\",\"notes\":\"baseline check\"}"
 ```
 
 Record whether decision logging path is functional.

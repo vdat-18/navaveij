@@ -1,24 +1,27 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
     LayoutDashboard,
-    Users,
     LineChart,
-    Settings,
+    ShieldCheck,
     HelpCircle,
-    Stethoscope
+    FileSearch
 } from "lucide-react";
 import { cn } from "@/shared/utils";
 
 const menuItems = [
-    { icon: LayoutDashboard, label: "Dashboard", id: "dashboard", active: false },
-    { icon: Users, label: "Patients", id: "patients", active: true },
-    { icon: LineChart, label: "Insights", id: "insights", active: false },
-    { icon: Settings, label: "Settings", id: "settings", active: false },
+    { icon: LayoutDashboard, label: "Screen 1", id: "dashboard", href: "/" },
+    { icon: LineChart, label: "Screen 2", id: "timeline", href: "/trend-timeline" },
+    { icon: ShieldCheck, label: "Screen 3", id: "monitoring", href: "/access-monitoring" },
+    { icon: FileSearch, label: "Governance", id: "audit", href: "/audit" },
 ];
 
 export function Sidebar() {
+    const pathname = usePathname();
+
     return (
         <aside className="w-64 glass-sidebar h-screen flex flex-col p-6 fixed left-0 top-0 z-50">
             <div className="flex flex-col mb-12">
@@ -40,26 +43,27 @@ export function Sidebar() {
                     Management
                 </p>
                 {menuItems.map((item) => (
-                    <button
+                    <Link
                         key={item.id}
+                        href={item.href}
                         className={cn(
                             "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group",
-                            item.active
+                            pathname === item.href
                                 ? "bg-teal-accent/10 text-teal-accent"
                                 : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
                         )}
                     >
-                        <item.icon className={cn("w-5 h-5", item.active ? "text-teal-accent" : "text-slate-500 group-hover:text-slate-300")} />
+                        <item.icon className={cn("w-5 h-5", pathname === item.href ? "text-teal-accent" : "text-slate-500 group-hover:text-slate-300")} />
                         <span className="font-medium">{item.label}</span>
-                    </button>
+                    </Link>
                 ))}
             </nav>
 
             <div className="mt-auto space-y-2">
-                <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition-all">
+                <Link href="/audit" className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition-all">
                     <HelpCircle className="w-5 h-5 text-slate-500" />
                     <span className="font-medium">Support</span>
-                </button>
+                </Link>
             </div>
         </aside>
     );

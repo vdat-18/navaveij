@@ -49,6 +49,15 @@ class ProjectSettings(LLMSettings, MCPSettings):
     log_level: LogLevel = LogLevel.INFO
     audit_log_path: str = "logs/audit.jsonl"
     patient_token_secret_salt: str = "navavej-clinical-recommendation-engine-secret-salt-2026"
+    cors_allowed_origins: str = "http://localhost:3000,http://localhost:3001"
+    api_auth_mode: str = "poc_claims"
+    api_auth_default_user_id: str = "usr-admin-00001"
+    api_auth_default_role: str = "admin"
+    api_auth_default_scopes: str = "recommendation:read,recommendation:write,monitoring:read"
+    recommendation_allowed_roles: str = "physician,nurse,pharmacist,admin,dpo"
+    recommendation_required_scopes: str = "recommendation:read"
+    monitoring_allowed_roles: str = "admin,dpo"
+    monitoring_required_scopes: str = "monitoring:read"
 
 
 settings = ProjectSettings()

@@ -2,20 +2,58 @@
 
 import asyncio
 import json
+import os
+from pathlib import Path
+import sys
 
+import pytest
+from dotenv import load_dotenv
 from loguru import logger
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+BACKEND_ROOT = PROJECT_ROOT / "backend"
+
+for path in (str(PROJECT_ROOT), str(BACKEND_ROOT)):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 from src.services.orchestrator import OrchestrationManager
 
+load_dotenv(PROJECT_ROOT / ".env")
 
+
+def _llm_env_ready() -> bool:
+    api_key = (os.getenv("LLM_API_KEY") or "").strip()
+    base_url = (os.getenv("LLM_BASE_URL") or "").strip()
+    model = (os.getenv("LLM_MODEL") or "").strip()
+    if not api_key or not base_url or not model:
+        return False
+    if api_key.startswith("sk-..."):
+        return False
+    return True
+
+
+def _is_external_service_error(error: Exception) -> bool:
+    message = str(error).lower()
+    return "503" in message or "service unavailable" in message or "connection" in message
+
+
+def _load_patient_ids(limit: int = 2) -> list[str]:
+    registry = Path("assets/patient_registry.json")
+    data = json.loads(registry.read_text(encoding="utf-8"))
+    return [item["patient_id"] for item in data[:limit]]
+
+
+@pytest.mark.asyncio
 async def test_with_synthesized_data():
     """Test end-to-end flow with synthesized Signal Store data."""
+    if not _llm_env_ready():
+        pytest.skip("LLM environment is not configured for deterministic end-to-end verification")
     logger.info("Starting end-to-end test with synthesized data")
 
     manager = OrchestrationManager()
 
-    # Use a test patient_id
-    test_patient_id = "pt-001"
+    test_patient_id = _load_patient_ids(1)[0]
 
     logger.info(f"Testing Orchestration for patient_id: {test_patient_id}")
 
@@ -42,20 +80,21 @@ async def test_with_synthesized_data():
         return result
         
     except Exception as e:
+        if _is_external_service_error(e):
+            pytest.xfail(f"External LLM dependency unavailable: {e}")
         logger.error(f"Test failed: {e}")
-        return None
+        raise
 
 
+@pytest.mark.asyncio
 async def test_multiple_scenarios():
     """Test multiple clinical scenarios."""
+    if not _llm_env_ready():
+        pytest.skip("LLM environment is not configured for deterministic end-to-end verification")
     logger.info("Testing multiple clinical scenarios")
 
     manager = OrchestrationManager()
-    # Scenarios available in our synthesis seeds
-    scenarios = [
-        "pt-001", # Healthy
-        "pt-002", # Hypertension
-    ]
+    scenarios = _load_patient_ids(2)
 
     results = {}
     for patient_id in scenarios:
@@ -70,6 +109,8 @@ async def test_multiple_scenarios():
                 "is_safe": result.get("safety_check", {}).get("is_safe")
             }
         except Exception as e:
+            if _is_external_service_error(e):
+                pytest.xfail(f"External LLM dependency unavailable: {e}")
             logger.error(f"Scenario {patient_id} failed: {e}")
 
     logger.success(f"Completed testing {len(results)} scenarios")

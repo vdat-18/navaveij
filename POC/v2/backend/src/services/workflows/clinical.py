@@ -10,8 +10,6 @@ from baml_client.async_client import b
 from src.services.privacy import PIIMasker
 from src.services.workflows.base import BaseWorkflow, WorkflowContext
 from shared.exceptions import DataIntegrityError
-from shared.settings import settings
-from shared.utils import generate_patient_token
 
 
 class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
@@ -30,22 +28,25 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         self.session = session
         self.masker = PIIMasker()
 
-    async def execute(self, patient_id: str, patient_token: str | None = None) -> WorkflowContext:
+    async def execute(self, patient_id: str, patient_token: str) -> WorkflowContext:
         """Execute the full clinical reasoning loop."""
         logger.info(f"Executing Clinical Workflow for patient: {patient_id}")
         context = WorkflowContext(patient_id=patient_id)
 
         # Phase 1: Baseline
-        await self._fetch_baseline(context, patient_id)
+        await self._fetch_baseline(context, patient_id, patient_token)
 
         # Phase 2: Signals
-        await self._analyze_signals(context, patient_id)
+        await self._analyze_signals(context, patient_id, patient_token)
 
         # Phase 3: Trends
-        await self._evaluate_trends(context, patient_id)
+        await self._evaluate_trends(context, patient_id, patient_token)
 
         # Get program ruleset (Part of Phase 4 preparation)
-        ruleset = await self._call_mcp_tool("get_program_ruleset", {"patient_id": patient_id})
+        ruleset = await self._call_mcp_tool(
+            "get_program_ruleset",
+            {"patient_token": patient_token, "patient_id": patient_id},
+        )
         context.raw_context["get_program_ruleset"] = ruleset
 
         # Mask data before sending to LLM
@@ -59,12 +60,15 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         context.rehydration_map = self.masker.get_rehydration_map()
         return context
 
-    async def _fetch_baseline(self, context: WorkflowContext, patient_id: str) -> None:
+    async def _fetch_baseline(self, context: WorkflowContext, patient_id: str, patient_token: str) -> None:
         """Phase 1: Get patient profile and history."""
         logger.debug(f"Phase 1: Fetching baseline data for patient: {patient_id}")
 
         # Tools: get_hard_constraints
-        constraints = await self._call_mcp_tool("get_hard_constraints", {"patient_id": patient_id})
+        constraints = await self._call_mcp_tool(
+            "get_hard_constraints",
+            {"patient_token": patient_token, "patient_id": patient_id},
+        )
         context.raw_context["get_hard_constraints"] = constraints
 
         # Extract demographic context from hard constraints
@@ -75,16 +79,22 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             "ethnicity": demographics.get("ethnicity"),
         }
 
-    async def _analyze_signals(self, context: WorkflowContext, patient_id: str) -> None:
+    async def _analyze_signals(self, context: WorkflowContext, patient_id: str, patient_token: str) -> None:
         """Phase 2: Detect clinical alerts."""
         logger.debug(f"Phase 2: Analyzing clinical signals for: {patient_id}")
-        signals = await self._call_mcp_tool("get_clinical_signals", {"patient_id": patient_id})
+        signals = await self._call_mcp_tool(
+            "get_clinical_signals",
+            {"patient_token": patient_token, "patient_id": patient_id},
+        )
         context.raw_context["get_clinical_signals"] = signals
 
-    async def _evaluate_trends(self, context: WorkflowContext, patient_id: str) -> None:
+    async def _evaluate_trends(self, context: WorkflowContext, patient_id: str, patient_token: str) -> None:
         """Phase 3: Assess biomarker velocity for: {patient_id}"""
         logger.debug(f"Phase 3: Evaluating biomarker trends for: {patient_id}")
-        trends = await self._call_mcp_tool("get_biomarker_trends", {"patient_id": patient_id})
+        trends = await self._call_mcp_tool(
+            "get_biomarker_trends",
+            {"patient_token": patient_token, "patient_id": patient_id},
+        )
         context.raw_context["get_biomarker_trends"] = trends
 
     async def _generate_recommendation(self, context: WorkflowContext) -> None:

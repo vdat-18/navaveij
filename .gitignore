@@ -202,3 +202,4 @@ frontend/.yarn/
 **/.claude/skills/
 **/backend/**/__pycache__/
 **/frontend/node_modules/
+**/frontend/.next/

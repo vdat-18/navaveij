@@ -1,7 +1,7 @@
 # GAP — 3-MCP-TOKEN-ALIGNMENT
 
 **Title:** MCP Tool Parameter and Token Contract Inconsistency
-**Status:** Not started
+**Status:** Complete
 
 ---
 
@@ -21,3 +21,8 @@ Document the implementation work needed to close this gap.
 - `_lastest_test_results.md`
 - `_development_summary.md`
 
+## Downstream Notes from GAP-0
+
+- Token continuity is now aligned for `/api/recommend` through workflow and MCP tool calls.
+- `/api/v1` compatibility remains active via adapter and should be removed in a later deprecation step.
+- Preserve token-trace verification in GAP-9 evidence pack.

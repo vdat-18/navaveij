@@ -25,6 +25,7 @@ import { CLINICAL_DICTIONARY } from "@/shared/clinical-dictionary";
 
 interface RecommendationPanelProps {
     patientId: string | null;
+    patientToken: string | null;
 }
 
 const renderBoldText = (text: any) => {
@@ -112,7 +113,7 @@ const ClinicalRiskGauge = ({ value }: { value: string }) => {
     );
 };
 
-export function RecommendationPanel({ patientId }: RecommendationPanelProps) {
+export function RecommendationPanel({ patientId, patientToken }: RecommendationPanelProps) {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
@@ -120,13 +121,13 @@ export function RecommendationPanel({ patientId }: RecommendationPanelProps) {
     const [notes, setNotes] = useState("");
 
     useEffect(() => {
-        if (!patientId) return;
+        if (!patientToken) return;
         const fetchRecommendation = async () => {
             setLoading(true);
             setDecided(false);
             setNotes("");
             try {
-                const result = await clinicalService.getRecommendation(patientId);
+                const result = await clinicalService.getRecommendation(patientToken);
                 setData(result);
             } catch (error) {
                 console.error("Failed to fetch recommendation:", error);
@@ -135,7 +136,7 @@ export function RecommendationPanel({ patientId }: RecommendationPanelProps) {
             }
         };
         fetchRecommendation();
-    }, [patientId]);
+    }, [patientToken]);
 
     const handleApprove = async () => {
         if (!data?.recommendation_hash || !patientId) return;
@@ -200,7 +201,7 @@ export function RecommendationPanel({ patientId }: RecommendationPanelProps) {
     return (
         <AnimatePresence mode="wait">
             <motion.div
-                key={patientId}
+                key={patientToken}
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="space-y-10"
@@ -435,7 +436,7 @@ export function RecommendationPanel({ patientId }: RecommendationPanelProps) {
                             <div>
                                 <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Clinical Conclusion</h4>
                                 <p className="text-sm font-black text-navavej-teal leading-relaxed italic text-justify">
-                                    {renderBoldText(data.communication_script?.clinical_conclusion)}
+                                    {renderBoldText(data.communication_script?.opening || data.communication_script?.clinical_conclusion)}
                                 </p>
                             </div>
                             <div>

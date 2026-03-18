@@ -21,3 +21,8 @@ Document the implementation work needed to close this gap.
 - `_lastest_test_results.md`
 - `_development_summary.md`
 
+## Downstream Notes from GAP-0
+
+- API recommendation path now runs when environment is loaded correctly; use this as schema-validation baseline.
+- Validate Stage-2 fields against real responses from valid `id_*` patients, not stale `P001` assumptions.
+- Keep explicit evidence of schema pass/fail in this gap's checkpoint files.

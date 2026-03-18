@@ -21,3 +21,8 @@ Document the implementation work needed to close this gap.
 - `_lastest_test_results.md`
 - `_development_summary.md`
 
+## Downstream Notes from GAP-0
+
+- Stabilization gate must be completed before starting route migration.
+- Keep API runs isolated on the designated POC port to avoid false contract results.
+- Baseline confirmed v3 endpoints are missing (404); implement contract changes only after baseline scripts are stable.

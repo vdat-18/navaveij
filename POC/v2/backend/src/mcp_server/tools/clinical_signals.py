@@ -2,10 +2,10 @@
 
 from loguru import logger
 
-from src.mcp_server.utils import extract_clinical_signals, load_signal_store_record
+from src.mcp_server.utils import extract_clinical_signals, load_signal_store_record, resolve_patient_token
 
 
-def get_clinical_signals(patient_id: str) -> dict:
+def get_clinical_signals(patient_token: str, patient_id: str | None = None) -> dict:
     """Retrieve pre-computed clinical risk signals and abnormality triggers.
 
     Returns clinical signals including risk flags, screening gaps, vaccination gaps,
@@ -13,7 +13,8 @@ def get_clinical_signals(patient_id: str) -> dict:
     and symptom tags according to Signal Store Contract.
 
     Args:
-        patient_id: Stable patient identifier
+        patient_token: Canonical patient token
+        patient_id: Optional legacy stable patient identifier
 
     Returns:
         Clinical signals dict matching Signal Store Contract format:
@@ -36,13 +37,14 @@ def get_clinical_signals(patient_id: str) -> dict:
             "pipeline_run_id": str
         }
     """
-    logger.info(f"Retrieving clinical signals for patient_id: {patient_id}")
+    logger.info(f"Retrieving clinical signals for patient_token: {patient_token}")
 
-    record = load_signal_store_record(patient_id)
+    resolved_patient_id = patient_id or resolve_patient_token(patient_token)
+    record = load_signal_store_record(patient_token=patient_token, patient_id=resolved_patient_id)
     if not record:
-        logger.error(f"Signal Store record not found for patient_id: {patient_id}")
+        logger.error(f"Signal Store record not found for patient_token: {patient_token}")
         return {
-            "patient_id": patient_id,
+            "patient_token": patient_token,
             "rule_preliminary_tier": "Standard",
             "overall_risk_level": "Low",
             "applicable_signals": [],

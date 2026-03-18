@@ -1,17 +1,11 @@
-from openai import OpenAI
+import httpx
 
-client = OpenAI(
-    # api_key="AIzaSyBWKGlVTGseZFyfgzjeuo4-Lra_sYJhrnA",
-    api_key="AIzaSyAcgGGUvybk7xww0Yuk1uoiiKcU0MfQwW0",
-    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-)
 
-response = client.chat.completions.create(
-    model="gemini-2.5-flash-lite",
-    messages=[
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Explain LLMs in simple terms"},
-    ],
-)
+def run_health_check(base_url: str = "http://localhost:8000") -> None:
+    response = httpx.get(f"{base_url}/health", timeout=10.0)
+    response.raise_for_status()
+    print(response.json())
 
-print(response.choices[0].message.content)
+
+if __name__ == "__main__":
+    run_health_check()

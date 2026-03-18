@@ -8,7 +8,8 @@ from loguru import logger
 
 load_dotenv()
 
-from src.api.routes import clinical, patients
+from src.api.routes import clinical, contracts, patients
+from shared.settings import settings
 
 app = FastAPI(
     title="Navaveij Clinical AI API",
@@ -19,7 +20,7 @@ app = FastAPI(
 # Configure CORS for Frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust in production
+    allow_origins=[origin.strip() for origin in settings.cors_allowed_origins.split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,6 +29,7 @@ app.add_middleware(
 # Include routers
 app.include_router(patients.router, prefix="/api/v1/patients", tags=["Patients"])
 app.include_router(clinical.router, prefix="/api/v1/clinical", tags=["Clinical AI"])
+app.include_router(contracts.router, prefix="/api", tags=["Contract API"])
 
 
 @app.get("/health")

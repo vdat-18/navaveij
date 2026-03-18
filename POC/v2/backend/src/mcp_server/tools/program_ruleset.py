@@ -12,19 +12,21 @@ from src.mcp_server.utils import (
     load_ruleset_tier_config,
     load_signal_store_record,
     resolve_package,
+    resolve_patient_token,
 )
 
 
 
 
-def get_program_ruleset(patient_id: str) -> dict:
+def get_program_ruleset(patient_token: str, patient_id: str | None = None) -> dict:
     """Retrieve complete program ruleset applicable to this patient.
 
     Returns tier selection rules, filtered add-on library, package resolution map,
     and resolved package according to Ruleset Store Contract.
 
     Args:
-        patient_id: Stable patient identifier
+        patient_token: Canonical patient token
+        patient_id: Optional legacy stable patient identifier
 
     Returns:
         Program ruleset dict matching Ruleset Store Contract format:
@@ -45,14 +47,15 @@ def get_program_ruleset(patient_id: str) -> dict:
             "_add_on_library_excluded_items": [...]
         }
     """
-    logger.info(f"Retrieving program ruleset for patient_id: {patient_id}")
+    logger.info(f"Retrieving program ruleset for patient_token: {patient_token}")
+    resolved_patient_id = patient_id or resolve_patient_token(patient_token)
 
     # Load Signal Store record to get patient demographics and signals_fired
-    record = load_signal_store_record(patient_id)
+    record = load_signal_store_record(patient_token=patient_token, patient_id=resolved_patient_id)
     if not record:
-        logger.error(f"Signal Store record not found for patient_id: {patient_id}")
+        logger.error(f"Signal Store record not found for patient_token: {patient_token}")
         return {
-            "patient_id": patient_id,
+            "patient_token": patient_token,
             "ruleset_version": "v2026.03.1",
             "admin_last_updated": "",
             "computed_at": get_current_timestamp(),
@@ -97,7 +100,7 @@ def get_program_ruleset(patient_id: str) -> dict:
     resolved_package = resolve_package(rule_preliminary_tier, gender, age, package_resolution_map)
 
     return {
-        "patient_id": patient_id,
+        "patient_token": patient_token,
         "ruleset_version": ruleset_version,
         "admin_last_updated": admin_last_updated,
         "computed_at": get_current_timestamp(),

@@ -17,17 +17,48 @@ RULESET_ADD_ON_ITEMS_PATH = Path(
 PACKAGE_RESOLUTION_PATH = Path(
     "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_package_resolution.json"
 )
+TIMELINE_SAMPLE_PATH = Path(
+    "doc_outputs/architecture/AI/Recommendation Engine/v3/demo/backend/data/timeline.json"
+)
+PATIENT_REGISTRY_PATH = Path("assets/patient_registry.json")
 
 
-def load_signal_store_record(patient_id: str) -> dict | None:
-    """Load Signal Store record by patient_id from JSON files.
+def load_patient_registry() -> list[dict]:
+    if not PATIENT_REGISTRY_PATH.exists():
+        return []
+    with open(PATIENT_REGISTRY_PATH, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def resolve_patient_id(patient_token: str) -> str | None:
+    registry = load_patient_registry()
+    patient = next((item for item in registry if item.get("patient_token") == patient_token), None)
+    return patient.get("patient_id") if patient else None
+
+
+def resolve_patient_token(patient_id: str) -> str | None:
+    registry = load_patient_registry()
+    patient = next((item for item in registry if item.get("patient_id") == patient_id), None)
+    return patient.get("patient_token") if patient else None
+
+
+def load_signal_store_record(patient_token: str | None = None, patient_id: str | None = None) -> dict | None:
+    """Load Signal Store record by patient_token (preferred) or patient_id.
 
     Args:
-        patient_id: Stable patient identifier
+        patient_token: Canonical patient token
+        patient_id: Legacy stable patient identifier
 
     Returns:
         Complete Signal Store record dict, or None if not found
     """
+    resolved_id = patient_id
+    if not resolved_id and patient_token:
+        resolved_id = resolve_patient_id(patient_token)
+    if not resolved_id:
+        logger.warning("Signal Store lookup skipped: missing patient_token/patient_id")
+        return None
+
     if not SIGNAL_STORE_DIR.exists():
         logger.warning(f"Signal Store directory not found: {SIGNAL_STORE_DIR}")
         return None
@@ -40,14 +71,14 @@ def load_signal_store_record(patient_id: str) -> dict | None:
                 # Check both top-level and inside hard_constraints
                 actual_id = record.get("patient_id") or record.get("hard_constraints", {}).get("patient_id")
                 
-                if actual_id == patient_id:
+                if actual_id == resolved_id:
                     logger.debug(f"Found Signal Store record: {file_path.parent.name}/{file_path.name}")
                     return record
             except Exception as e:
                 logger.error(f"Error reading {file_path}: {e}")
                 continue
 
-    logger.warning(f"Record not found for ID: {patient_id}")
+    logger.warning(f"Record not found for ID: {resolved_id}")
     return None
 
 
@@ -268,3 +299,156 @@ def get_current_timestamp() -> str:
         ISO 8601 formatted timestamp string
     """
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def load_timeline_sample() -> dict | None:
+    if not TIMELINE_SAMPLE_PATH.exists():
+        return None
+    with open(TIMELINE_SAMPLE_PATH, encoding="utf-8") as f:
+        return json.load(f)
+
+
+DIAGNOSIS_TERMINOLOGY = {
+    "dyslipidemia": {"icd10_code": "E78.5", "snomed_code": "13644009"},
+    "hyperlipidaemia / dyslipidaemia": {"icd10_code": "E78.5", "snomed_code": "13644009"},
+    "pre-diabetes": {"icd10_code": "R73.03", "snomed_code": "714628002"},
+    "prediabetes": {"icd10_code": "R73.03", "snomed_code": "714628002"},
+    "essential hypertension": {"icd10_code": "I10", "snomed_code": "59621000"},
+    "hypertension": {"icd10_code": "I10", "snomed_code": "59621000"},
+    "diabetes mellitus type 2": {"icd10_code": "E11.9", "snomed_code": "44054006"},
+    "type 2 diabetes mellitus": {"icd10_code": "E11.9", "snomed_code": "44054006"},
+    "chronic kidney disease": {"icd10_code": "N18.9", "snomed_code": "709044004"},
+    "gout": {"icd10_code": "M10.9", "snomed_code": "90560007"},
+}
+
+SCREENING_TERMINOLOGY = {
+    "colonoscopy": {"cpt_code": "45378", "snomed_code": "73761001"},
+    "mammogram": {"cpt_code": "77067", "snomed_code": "71651007"},
+    "pap_smear": {"cpt_code": "88175", "snomed_code": "171149006"},
+    "fit_test": {"cpt_code": "82274", "snomed_code": "252437004"},
+    "ldct": {"cpt_code": "71271", "snomed_code": "169069000"},
+}
+
+
+def _resolve_diagnosis_codes(tag: dict) -> tuple[str, str]:
+    icd10_code = str(tag.get("icd10_code", "") or "")
+    snomed_code = str(tag.get("snomed_code", "") or "")
+    if icd10_code or snomed_code:
+        return icd10_code, snomed_code
+    lookup_keys = [
+        str(tag.get("tag", "")).strip().lower(),
+        str(tag.get("label", "")).strip().lower(),
+    ]
+    for key in lookup_keys:
+        if not key:
+            continue
+        matched = DIAGNOSIS_TERMINOLOGY.get(key)
+        if matched:
+            return matched.get("icd10_code", ""), matched.get("snomed_code", "")
+    return "", ""
+
+
+def _resolve_screening_codes(gap: dict) -> tuple[str, str]:
+    cpt_code = str(gap.get("cpt_code", "") or "")
+    snomed_code = str(gap.get("snomed_code", "") or "")
+    if cpt_code or snomed_code:
+        return cpt_code, snomed_code
+    key = str(gap.get("screening_id", "")).strip().lower()
+    matched = SCREENING_TERMINOLOGY.get(key)
+    if matched:
+        return matched.get("cpt_code", ""), matched.get("snomed_code", "")
+    return "", ""
+
+
+def build_timeline_from_signal_store(record: dict, patient_token: str) -> dict:
+    clinical_signals = record.get("clinical_signals", {})
+    biomarker_trends = record.get("biomarker_trends", {})
+    computed_at = record.get("computed_at", get_current_timestamp())
+    pipeline_run_id = record.get("pipeline_run_id", "")
+    dates: list[str] = []
+    diagnoses = []
+    for i, tag in enumerate(clinical_signals.get("comorbidity_tags", []), start=1):
+        onset_year = tag.get("onset_year")
+        if onset_year:
+            date = f"{int(onset_year)}-01-01"
+            dates.append(date)
+        else:
+            date = computed_at[:10]
+            dates.append(date)
+        icd10_code, snomed_code = _resolve_diagnosis_codes(tag)
+        diagnoses.append(
+            {
+                "event_id": f"dx-{i:03d}",
+                "date": date,
+                "onset_year": onset_year or int(date[:4]),
+                "onset_type": "chronic",
+                "icd10_code": icd10_code,
+                "snomed_code": snomed_code,
+                "label": tag.get("label", tag.get("tag", "Condition")),
+                "clinical_status": "active",
+                "fhir_condition_id": "",
+            }
+        )
+    significant_lab_events = []
+    lab_counter = 1
+    for lab in biomarker_trends.get("labs", []):
+        history = lab.get("history", [])
+        if not history:
+            continue
+        latest = history[-1]
+        date = latest.get("date", computed_at[:10])
+        dates.append(date)
+        significant_lab_events.append(
+            {
+                "event_id": f"lab-{lab_counter:03d}",
+                "date": date,
+                "loinc_code": lab.get("loinc_code", ""),
+                "label": lab.get("label", ""),
+                "value": latest.get("value", lab.get("current_value")),
+                "unit": lab.get("unit", ""),
+                "interpretation": lab.get("interpretation", ""),
+                "interpretation_label": lab.get("category", ""),
+                "threshold_crossed": "",
+                "normal_range": "",
+            }
+        )
+        lab_counter += 1
+    screening_procedure_history = []
+    for i, gap in enumerate(clinical_signals.get("screening_gaps", []), start=1):
+        performed = gap.get("last_performed_date")
+        if not performed:
+            continue
+        dates.append(performed)
+        cpt_code, snomed_code = _resolve_screening_codes(gap)
+        screening_procedure_history.append(
+            {
+                "event_id": f"proc-{i:03d}",
+                "date": performed,
+                "days_ago": gap.get("overdue_days") or 0,
+                "procedure_code": gap.get("screening_id", ""),
+                "cpt_code": cpt_code,
+                "snomed_code": snomed_code,
+                "label": gap.get("label", ""),
+                "status": "completed",
+                "result_summary": "Completed",
+                "fhir_procedure_id": "",
+            }
+        )
+    earliest = min(dates) if dates else computed_at[:10]
+    latest = max(dates) if dates else computed_at[:10]
+    total_years_covered = round((int(latest[:4]) - int(earliest[:4])) + 1, 1)
+    return {
+        "patient_token": patient_token,
+        "timeline_span": {
+            "earliest_event_date": earliest,
+            "latest_event_date": latest,
+            "total_years_covered": total_years_covered,
+        },
+        "diagnoses": diagnoses,
+        "hospitalizations": [],
+        "significant_lab_events": significant_lab_events,
+        "screening_procedure_history": screening_procedure_history,
+        "medication_changes": [],
+        "pipeline_run_id": pipeline_run_id,
+        "computed_at": computed_at,
+    }

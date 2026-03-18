@@ -1,35 +1,42 @@
 """Routes for clinical AI recommendations."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from loguru import logger
 
+from src.api.security import AuthContext, parse_roles, require_access
 from src.services.orchestrator import OrchestrationManager
-from src.api.routes.patients import load_registry
+from src.api.routes.patients import find_patient_by_id, resolve_patient_token
+from shared.settings import settings
 
 router = APIRouter()
 orchestrator = OrchestrationManager()
+require_recommendation_access = require_access(
+    allowed_roles=parse_roles(settings.recommendation_allowed_roles),
+    required_scopes={scope.strip().lower() for scope in settings.recommendation_required_scopes.split(",") if scope.strip()},
+)
 
 class RecommendationRequest(BaseModel):
     patient_id: str
 
 @router.post("/recommend")
-async def get_recommendation(request: RecommendationRequest):
+async def get_recommendation(request: RecommendationRequest, _auth: AuthContext = Depends(require_recommendation_access)):
     """Trigger AI reasoning for a specific patient."""
     logger.info(f"Received recommendation request for patient: {request.patient_id}")
     
     # 1. Verify patient exists in registry
-    registry = load_registry()
-    patient = next((p for p in registry if p["patient_id"] == request.patient_id), None)
+    patient = find_patient_by_id(request.patient_id)
     if not patient:
         logger.warning(f"Patient {request.patient_id} not found in registry")
         raise HTTPException(status_code=404, detail="Patient not found")
+    patient_token = resolve_patient_token(request.patient_id)
+    if not patient_token:
+        raise HTTPException(status_code=404, detail="Patient token not found")
 
     try:
-        # 2. Call the Orchestrator (Backend AI Logic) with the correct token from registry
         result = await orchestrator.generate_recommendation(
             patient_id=request.patient_id, 
-            patient_token=patient.get("patient_token")
+            patient_token=patient_token,
         )
         
         # 3. PII Rehydration
@@ -48,7 +55,7 @@ class DecisionRequest(BaseModel):
     notes: str = ""
 
 @router.post("/approve")
-async def approve_recommendation(request: DecisionRequest):
+async def approve_recommendation(request: DecisionRequest, _auth: AuthContext = Depends(require_recommendation_access)):
     """Record physician's approval/rejection."""
     logger.info(f"Physician {request.physician_id} recording {request.decision} for {request.patient_id}")
     
@@ -65,7 +72,7 @@ async def approve_recommendation(request: DecisionRequest):
         logger.error(f"Error recording decision: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 @router.get("/audit")
-async def get_audit_logs():
+async def get_audit_logs(_auth: AuthContext = Depends(require_recommendation_access)):
     """Retrieve all clinical decision logs."""
     try:
         return orchestrator.audit_logger.get_logs()

@@ -266,3 +266,114 @@ Observed for all 4:
 HTTP/1.1 404 Not Found
 {"detail":"Not Found"}
 ```
+
+---
+
+## Rerun (after `.env` update)
+
+### API checks
+
+```bash
+curl -sS -D /tmp/retry_health.h -o /tmp/retry_health.b http://localhost:8010/health
+curl -sS -D /tmp/retry_patients.h -o /tmp/retry_patients.b http://localhost:8010/api/v1/patients/
+curl -sS -D /tmp/retry_recommend.h -o /tmp/retry_recommend.b \
+  -X POST http://localhost:8010/api/v1/clinical/recommend \
+  -H "Content-Type: application/json" \
+  -d '{"patient_id":"id_1aa1b504"}'
+```
+
+Observed:
+
+```text
+/health => HTTP/1.1 200 OK
+/api/v1/patients/ => HTTP/1.1 200 OK (patients_count=23)
+/api/v1/clinical/recommend (id_1aa1b504) => HTTP/1.1 200 OK
+```
+
+### Contract-gap check (unchanged)
+
+```bash
+curl -sS -D /tmp/retry_v3.h -o /tmp/retry_v3.b \
+  -X POST http://localhost:8010/api/recommend \
+  -H "Content-Type: application/json" \
+  -d '{"patient_token":"tok_hmac_56291047"}'
+```
+
+Observed:
+
+```http
+HTTP/1.1 404 Not Found
+{"detail":"Not Found"}
+```
+
+### Test harness rerun
+
+```bash
+PYTHONPATH=.:./backend uv run pytest scripts/tests -v
+PYTHONPATH=.:./backend uv run python scripts/test_orchestrator.py
+PYTHONPATH=.:./backend uv run python scripts/tests/test_end_to_end.py
+```
+
+Observed summary:
+
+```text
+pytest: 4 passed, 2 failed (async test execution issue remains)
+test_orchestrator.py: success (full orchestration path returned output)
+test_end_to_end.py: still fails; logs report missing LLM_* and pt-001/pt-002 data mismatch
+```
+
+---
+
+## Stabilization Rerun (Step 0.5 complete)
+
+### API baseline on canonical port 8000
+
+```bash
+lsof -nP -iTCP:8000 -sTCP:LISTEN
+PYTHONPATH=.:./backend uv run uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --log-level info
+```
+
+Observed:
+
+```text
+preflight: no existing listener on 8000
+server start: success on http://0.0.0.0:8000
+```
+
+```bash
+PATIENT_ID=$(curl -s http://localhost:8000/api/v1/patients/ | uv run python -c 'import json,sys; print(json.load(sys.stdin)[0]["patient_id"])')
+curl -i http://localhost:8000/health
+curl -i -X POST http://localhost:8000/api/v1/clinical/recommend -H "Content-Type: application/json" -d "{\"patient_id\":\"${PATIENT_ID}\"}"
+curl -i -X POST http://localhost:8000/api/v1/clinical/recommend -H "Content-Type: application/json" -d '{"patient_id":"DOES_NOT_EXIST"}'
+curl -i -X POST http://localhost:8000/api/v1/clinical/approve -H "Content-Type: application/json" -d "{\"patient_id\":\"${PATIENT_ID}\",\"recommendation_hash\":\"baseline-hash\",\"decision\":\"Approve\",\"physician_id\":\"dr-baseline\",\"notes\":\"baseline check\"}"
+curl -i -X POST http://localhost:8000/api/recommend -H "Content-Type: application/json" -d '{"patient_token":"tok_hmac_56291047"}'
+```
+
+Observed summary:
+
+```text
+PATIENT_ID=id_1aa1b504
+/health => 200
+/api/v1/clinical/recommend valid => 200
+/api/v1/clinical/recommend invalid => 404
+/api/v1/clinical/approve => 200
+/api/recommend => 404
+```
+
+### Stabilized test harness
+
+```bash
+uv run pytest scripts/tests -v
+uv run python scripts/test_orchestrator.py
+uv run python scripts/tests/test_end_to_end.py
+uv run python scripts/test_api.py
+```
+
+Observed summary:
+
+```text
+pytest: 6 passed
+test_orchestrator.py: exit 0
+test_end_to_end.py: exit 0
+test_api.py: {'status': 'healthy', 'version': '1.0.0'}
+```

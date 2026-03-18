@@ -20,6 +20,9 @@
 4. **Low-risk migration**
    - Add compatibility shims only when needed; avoid uncontrolled rewrites.
 
+5. **Runtime-stable baseline before gap closure**
+   - Resolve startup/config/test harness blockers in current POC before GAP-1 implementation work.
+
 ---
 
 ## 2) Target End State
@@ -110,6 +113,44 @@ Acceptance checks:
 - Re-run baseline checks from `gaps/GAP-0-baseline-run/README.md`.
 - Capture current failures in `gaps/_lastest_test_results.md`.
 - Confirm starting point before edits.
+
+## Step 0.5 — POC Stabilization Gate (must pass before GAP-1)
+
+### Objective
+
+Ensure `POC/v2` runs reliably in current architecture without introducing v3 gap-closure changes yet.
+
+### Required fixes
+
+1. **Environment loading consistency**
+   - Ensure runtime and all test entrypoints load `.env` in a consistent way.
+   - Remove mismatch where one script succeeds (`load_dotenv`) and another fails due missing `LLM_*`.
+
+2. **Port/run isolation**
+   - Standardize dev execution to use an explicit port for this POC workspace.
+   - Prevent collisions with other local Navaveij services.
+
+3. **Test harness alignment**
+   - Normalize Python module path behavior for tests/scripts.
+   - Eliminate collection/runtime failures caused by missing module paths.
+   - Convert async test execution into a consistent runnable mode in CI/local.
+
+4. **Fixture and identifier alignment**
+   - Align test patient IDs and script assumptions with actual dataset shape (`id_*` registry IDs or mapped test fixtures).
+   - Remove stale assumptions such as hardcoded `P001` in health checks used as success criteria.
+
+5. **Safety and script hygiene**
+   - Remove/replace non-baseline scripts that call external model endpoints with hardcoded credentials.
+   - Keep only local POC verification scripts in baseline execution path.
+
+### Stabilization acceptance gate
+
+- API start and smoke tests pass on designated POC port.
+- Recommendation endpoint succeeds for at least one valid in-repo patient fixture.
+- Baseline test command set runs without environment-path surprises.
+- Remaining failures, if any, are deterministic and documented with owner and next action.
+
+Only after this gate is met should GAP-1/GAP-2 contract changes begin.
 
 ## Step 1 — Backend Contract Lock (WS-A)
 

@@ -7,6 +7,13 @@ import { Bell, Search, User, Globe, Phone, ShoppingCart, Menu, Info, Activity, S
 import { motion } from "framer-motion";
 import Link from "next/link";
 
+const primaryNavLinks = [
+  { label: "Screen 1 Summary", href: "/" },
+  { label: "Trend & Timeline", href: "/trend-timeline" },
+  { label: "Access Monitoring", href: "/access-monitoring" },
+  { label: "Governance", href: "/audit" },
+];
+
 const NavavejBrand = () => (
   <div className="flex items-center gap-3">
     <img
@@ -45,14 +52,26 @@ export default function DashboardPage() {
         <NavavejBrand />
 
         <nav className="hidden lg:flex items-center gap-10">
-          {['Packages', 'Services', 'Find Doctors', 'Wellness'].map((item) => (
-            <a key={item} href="#" className="font-bold text-sm text-navavej-gray-dark hover:text-navavej-teal transition-colors uppercase tracking-wider">
-              {item}
-            </a>
+          {primaryNavLinks.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              className="font-bold text-sm text-navavej-gray-dark hover:text-navavej-teal transition-colors uppercase tracking-wider"
+            >
+              {item.label}
+            </Link>
           ))}
           <Link href="/audit" className="font-bold text-sm text-navavej-teal hover:opacity-80 transition-opacity uppercase tracking-wider border-l border-navavej-border pl-6 flex items-center gap-2">
             <ShieldCheck className="w-4 h-4" />
             Governance
+          </Link>
+          <Link href="/trend-timeline" className="font-bold text-sm text-navavej-teal hover:opacity-80 transition-opacity uppercase tracking-wider border-l border-navavej-border pl-6 flex items-center gap-2">
+            <Activity className="w-4 h-4" />
+            Trend & Timeline
+          </Link>
+          <Link href="/access-monitoring" className="font-bold text-sm text-navavej-teal hover:opacity-80 transition-opacity uppercase tracking-wider border-l border-navavej-border pl-6 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4" />
+            Access Monitoring
           </Link>
         </nav>
 
@@ -146,7 +165,10 @@ export default function DashboardPage() {
               </motion.div>
             )}
 
-            <RecommendationPanel patientId={selectedPatient?.patient_id || null} />
+            <RecommendationPanel
+              patientId={selectedPatient?.patient_id || null}
+              patientToken={selectedPatient?.patient_token || null}
+            />
           </div>
         </div>
       </main>

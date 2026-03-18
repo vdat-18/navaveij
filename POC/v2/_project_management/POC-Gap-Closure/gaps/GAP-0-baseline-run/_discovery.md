@@ -62,3 +62,28 @@
 - Port isolation is required in this environment to avoid cross-project listener conflict on `:8000`.
 - README sample patient ID (`P001`) is stale relative to actual `assets/patient_registry.json`.
 - Environment prerequisite is currently unmet (`.env` absent), which blocks meaningful recommendation-path baseline for success criteria.
+
+## Rerun Discovery (after `.env` update)
+
+- `.env` is now present and includes required LLM runtime variables.
+- API recommendation path now succeeds for a valid registry patient ID (`id_1aa1b504`) with HTTP 200.
+- v3 contract endpoints are still absent (`/api/recommend`, `/api/timeline/*`, `/api/monitoring-snapshot`, `/api/audit-logs` still 404).
+- `scripts/test_orchestrator.py` now succeeds because it explicitly calls `load_dotenv()`.
+- `scripts/tests/test_end_to_end.py` still reports missing `LLM_*` env vars because it does not load `.env`.
+
+## Stabilization Gate Update (Step 0.5)
+
+- Added environment/path bootstrap for tests via `scripts/tests/conftest.py`:
+  - project + backend paths injected for imports
+  - `.env` loaded from project root
+- Updated `scripts/tests/test_end_to_end.py`:
+  - now loads `.env` explicitly
+  - now marks async tests with `pytest.mark.asyncio`
+  - now uses real registry patient IDs (`id_*`) instead of `pt-*`
+  - now supports direct script execution by path bootstrapping
+- Updated `scripts/test_orchestrator.py`:
+  - now supports direct script execution without manual `PYTHONPATH`
+  - now uses first registry patient ID dynamically
+- Replaced `scripts/test_api.py` external credential usage with local `/health` smoke check.
+- Updated GAP-0 README commands to use dynamic registry patient IDs for recommendation and approve tests.
+- Port 8000 is now used as canonical baseline port after preflight confirmed no active listener.
