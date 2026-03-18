@@ -1,18 +1,20 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_6e9b2a3d",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_6e9b2a3d",
     "patient_demographics": {
       "gender": "female",
       "age": 45,
-      "date_of_birth_token": "dob_tok_19810310",
       "ethnicity": "asian",
       "bmi_threshold_profile": "asian_adjusted",
-      "name": "Ganya Siriwat"
+      "name": "Ganya Siriwat",
+      "birth_date": "1981-06-15",
+      "phone": "+66 859893422",
+      "email": "ganya.siriwat.22@example.com",
+      "address": "132 Navavej Rd, Bueng Kum, Bangkok 10230",
+      "mrn": "MRN-5893422"
     },
     "eligibility_exclusions": [],
     "active_safety_flags": [],
@@ -22,7 +24,6 @@
     "patient_id": "id_6e9b2a3d"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_6e9b2a3d",
     "rule_preliminary_tier": "Advanced",
     "overall_risk_level": "Moderate",
     "applicable_signals": [
@@ -188,6 +189,40 @@
         "guideline": "CDC ACIP 2017",
         "note": "Age < 50; not yet indicated.",
         "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "pneumococcal",
+        "label": "Pneumococcal polysaccharide vaccine (PPSV23)",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": null,
+        "doses_required": 1,
+        "eligible_since_age": 45,
+        "age_at_evaluation": 45,
+        "years_until_due": null,
+        "priority_color": "Yellow",
+        "guideline": "CDC ACIP 2024",
+        "note": "Suggested for metabolic syndrome-related risk factors.",
+        "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "hepatitis_b",
+        "label": "Hepatitis B",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 3,
+        "eligible_since_age": null,
+        "age_at_evaluation": 45,
+        "years_until_due": null,
+        "priority_color": "Yellow",
+        "guideline": "CDC ACIP 2024",
+        "note": "Recommended for all adults lacking a documented series.",
+        "anti_hbs_checked": false
       }
     ],
     "abnormal_triggers": [
@@ -224,7 +259,8 @@
         "audit_c_score": 2.0,
         "risk_level": "low",
         "fibroscan_indicated": false,
-        "note": null
+        "note": null,
+        "units_per_week": 2.0
       },
       "occupational": {
         "tags": [
@@ -232,7 +268,11 @@
         ],
         "add_ons_triggered": [
           "msk_assessment"
-        ]
+        ],
+        "computer_hours_per_day": 9.0,
+        "night_shift_worker": false,
+        "factory_chemical_exposure": false,
+        "stress_level": "Moderate"
       },
       "physical_activity": {
         "days_per_week": 2,
@@ -243,10 +283,19 @@
       }
     },
     "symptom_tags": [
-      "mild_headache"
+      "mild_headache",
+      "snoring"
     ],
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "chief_complaint": "Concerns about fatigue and weight gain in the abdominal area",
+    "reproductive_history_detail": {
+      "age_at_menarche": 12,
+      "age_at_menopause": null,
+      "num_children": 2,
+      "hormonal_contraception": true
+    },
+    "history_of_gdm": true
   },
   "biomarker_trends": {
     "patient_token": "tok_hmac_6e9b2a3d",

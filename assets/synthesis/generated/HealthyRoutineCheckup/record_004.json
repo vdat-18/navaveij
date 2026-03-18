@@ -1,17 +1,20 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_33cc44dd",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_33cc44dd",
     "patient_demographics": {
       "gender": "male",
       "age": 35,
-      "date_of_birth_token": "dob_tok_19910301",
       "ethnicity": "asian",
-      "bmi_threshold_profile": "asian_adjusted"
+      "bmi_threshold_profile": "asian_adjusted",
+      "name": "Fah-Sai Siriwat",
+      "birth_date": "1991-06-15",
+      "phone": "+66 840715958",
+      "email": "unknown.patient.58@example.com",
+      "address": "768 Navavej Rd, Bueng Kum, Bangkok 10230",
+      "mrn": "MRN-4715958"
     },
     "eligibility_exclusions": [
       {
@@ -50,10 +53,10 @@
     "active_safety_flags": [],
     "tier_ceiling": null,
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "patient_id": "id_b2c1a0e9"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_33cc44dd",
     "rule_preliminary_tier": "Standard",
     "overall_risk_level": "Low",
     "applicable_signals": [
@@ -165,6 +168,40 @@
         "guideline": "CDC ACIP 2024",
         "note": "Last seasonal flu vaccine ~5 months ago; due for annual shot later this year.",
         "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "hpv",
+        "label": "Human Papillomavirus (HPV)",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": null,
+        "doses_received": null,
+        "doses_required": 3,
+        "eligible_since_age": 9,
+        "age_at_evaluation": 35,
+        "years_until_due": null,
+        "priority_color": "Yellow",
+        "guideline": "CDC ACIP 2024",
+        "note": "Consider completing the HPV vaccination series as it can still provide benefits at age 35.",
+        "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "hepatitis_a",
+        "label": "Hepatitis A",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 2,
+        "eligible_since_age": 1,
+        "age_at_evaluation": 35,
+        "years_until_due": null,
+        "priority_color": "Yellow",
+        "guideline": "CDC ACIP 2024",
+        "note": "Consider starting or completing an adult Hepatitis A vaccination series.",
+        "anti_hbs_checked": false
       }
     ],
     "abnormal_triggers": [],
@@ -187,11 +224,19 @@
         "audit_c_score": 2.0,
         "risk_level": "none",
         "fibroscan_indicated": false,
-        "note": "Drinks socially, within low-risk limits."
+        "note": "Drinks socially, within low-risk limits.",
+        "units_per_week": 4.0
       },
       "occupational": {
-        "tags": [],
-        "add_ons_triggered": []
+        "tags": [
+          "office_environment",
+          "desk_job",
+          "sedentary_work"
+        ],
+        "add_ons_triggered": [],
+        "computer_hours_per_day": 9.0,
+        "night_shift_worker": false,
+        "factory_chemical_exposure": false
       },
       "physical_activity": {
         "days_per_week": 4,
@@ -201,7 +246,8 @@
     },
     "symptom_tags": [],
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "chief_complaint": "Wellness check"
   },
   "biomarker_trends": {
     "patient_token": "tok_hmac_33cc44dd",
@@ -576,5 +622,6 @@
       "dm_organ_complication_screening",
       "fibroscan_indication"
     ]
-  }
+  },
+  "patient_id": "id_b2c1a0e9"
 }

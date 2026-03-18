@@ -184,6 +184,7 @@ cython_debug/
 .claude/
 
 logs/
+/logs/
 external/
 baml_client/
 # Web / Frontend stuff

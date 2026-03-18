@@ -1,18 +1,20 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_1a2b3c4d",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_1a2b3c4d",
     "patient_demographics": {
       "gender": "female",
       "age": 51,
-      "date_of_birth_token": "dob_tok_19750822",
       "ethnicity": "asian",
       "bmi_threshold_profile": "asian_adjusted",
-      "name": "Fai Siriwat"
+      "name": "Fai Siriwat",
+      "birth_date": "1975-06-15",
+      "phone": "+66 826765253",
+      "email": "fai.siriwat.53@example.com",
+      "address": "63 Navavej Rd, Bueng Kum, Bangkok 10230",
+      "mrn": "MRN-8765253"
     },
     "eligibility_exclusions": [],
     "active_safety_flags": [],
@@ -22,7 +24,6 @@
     "patient_id": "id_1a2b3c4d"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_1a2b3c4d",
     "rule_preliminary_tier": "Advanced",
     "overall_risk_level": "High",
     "applicable_signals": [
@@ -273,6 +274,23 @@
         "guideline": "CDC ACIP 2017",
         "note": "Age >= 50; recommended, not yet administered.",
         "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "pneumococcal",
+        "label": "Pneumococcal (PCV/PPV)",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 1,
+        "eligible_since_age": 50,
+        "age_at_evaluation": 51,
+        "years_until_due": 0,
+        "priority_color": "Yellow",
+        "guideline": "CDC ACIP 2022",
+        "note": "Recommended for adults with cardiometabolic risks such as prediabetes and hypertension.",
+        "anti_hbs_checked": null
       }
     ],
     "abnormal_triggers": [
@@ -301,7 +319,7 @@
     "behavioral_flags": {
       "smoking": {
         "status": "never",
-        "pack_years": null,
+        "pack_years": 0.0,
         "quit_years_ago": null,
         "lung_ct_threshold_met": false
       },
@@ -309,7 +327,8 @@
         "audit_c_score": 2.0,
         "risk_level": "low",
         "fibroscan_indicated": false,
-        "note": null
+        "note": null,
+        "units_per_week": 2.0
       },
       "occupational": {
         "tags": [
@@ -317,7 +336,11 @@
         ],
         "add_ons_triggered": [
           "msk_assessment"
-        ]
+        ],
+        "computer_hours_per_day": 9.0,
+        "night_shift_worker": false,
+        "factory_chemical_exposure": false,
+        "stress_level": "Moderate"
       },
       "physical_activity": {
         "days_per_week": 2,
@@ -330,10 +353,18 @@
     "symptom_tags": [
       "fatigue",
       "joint_pain",
-      "mild_headaches"
+      "mild_headaches",
+      "snoring"
     ],
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "chief_complaint": "Concerns about fatigue and weight gain in the abdominal area.",
+    "reproductive_history_detail": {
+      "age_at_menarche": 12,
+      "age_at_menopause": 51,
+      "num_children": 2,
+      "hormonal_contraception": true
+    }
   },
   "biomarker_trends": {
     "patient_token": "tok_hmac_1a2b3c4d",

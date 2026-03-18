@@ -1,18 +1,20 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_d5b8a2e3",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_d5b8a2e3",
     "patient_demographics": {
       "gender": "female",
       "age": 51,
-      "date_of_birth_token": "dob_tok_19750422",
       "ethnicity": "asian",
       "bmi_threshold_profile": "asian_adjusted",
-      "name": "Ananda Prasert"
+      "name": "Ananda Prasert",
+      "birth_date": "1975-06-15",
+      "phone": "+66 847785491",
+      "email": "ananda.prasert.91@example.com",
+      "address": "801 Navavej Rd, Bueng Kum, Bangkok 10230",
+      "mrn": "MRN-2785491"
     },
     "eligibility_exclusions": [],
     "active_safety_flags": [],
@@ -22,7 +24,6 @@
     "patient_id": "id_d5b8a2e3"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_d5b8a2e3",
     "rule_preliminary_tier": "Premium",
     "overall_risk_level": "Moderate",
     "applicable_signals": [
@@ -211,6 +212,23 @@
         "guideline": "CDC ACIP 2017",
         "note": "Eligible for Shingrix since age 50.",
         "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "pneumococcal",
+        "label": "Pneumococcal",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 1,
+        "eligible_since_age": null,
+        "age_at_evaluation": 51,
+        "years_until_due": null,
+        "priority_color": "Yellow",
+        "guideline": "CDC ACIP 2022",
+        "note": "Recommended based on metabolic disorder risks.",
+        "anti_hbs_checked": null
       }
     ],
     "abnormal_triggers": [
@@ -239,7 +257,7 @@
     "behavioral_flags": {
       "smoking": {
         "status": "never",
-        "pack_years": null,
+        "pack_years": 0.0,
         "quit_years_ago": null,
         "lung_ct_threshold_met": false
       },
@@ -247,7 +265,8 @@
         "audit_c_score": 2.1,
         "risk_level": "low",
         "fibroscan_indicated": false,
-        "note": null
+        "note": null,
+        "units_per_week": 2.1
       },
       "occupational": {
         "tags": [
@@ -255,7 +274,11 @@
         ],
         "add_ons_triggered": [
           "msk_assessment"
-        ]
+        ],
+        "computer_hours_per_day": 9.0,
+        "night_shift_worker": false,
+        "factory_chemical_exposure": false,
+        "stress_level": "Moderate"
       },
       "physical_activity": {
         "days_per_week": 2,
@@ -266,10 +289,19 @@
       }
     },
     "symptom_tags": [
-      "daytime sleepiness"
+      "daytime sleepiness",
+      "snoring"
     ],
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "chief_complaint": "Concerns about fatigue and weight gain in the abdominal area",
+    "reproductive_history_detail": {
+      "age_at_menarche": 12,
+      "age_at_menopause": 48,
+      "num_children": 2,
+      "hormonal_contraception": true
+    },
+    "history_of_gdm": true
   },
   "biomarker_trends": {
     "patient_token": "tok_hmac_d5b8a2e3",

@@ -1,5 +1,5 @@
-// Recommendation Output Schema — Stage 1 AI Output Only
-// Based on recommendation-output-schema.md v1.0
+// Multi-Agent Clinical Recommendation System
+// Based on 3-Agent Architecture: Risk Analysis -> Rule Matching -> Communication Composition
 
 enum Tier {
   Standard
@@ -14,11 +14,100 @@ enum PriorityLevel {
   Green
 }
 
+// ── AGENT 1: CLINICAL RISK ANALYZER ────────────────────────────────────────
+
+class ClinicalRiskProfile {
+  primary_risks string[]
+  severity_assessment string
+  biomarker_interpretation string
+  clinical_summary_bullets string[]
+  suggested_tier Tier? // AI-led preliminary tiering based on medical risk
+  supporting_signal_ids string[]
+  missing_signal_ids string[]
+}
+
+function AnalyzeClinicalRisks(
+  clinical_signals: string,
+  biomarker_trends: string,
+  hard_constraints: string,
+  program_ruleset: string
+) -> ClinicalRiskProfile {
+  client NavaveijClient
+  prompt #"
+    You are a Senior Medical Consultant AI. Your task is to analyze raw patient data 
+    and produce a high-level clinical risk profile. Do NOT consider hospital prices or 
+    package names yet. FOCUS ONLY ON MEDICAL RISK.
+
+    ── INPUT DATA ─────────────────────────────────────────────────────────────
+    HARD CONSTRAINTS: {{ hard_constraints }}
+    CLINICAL SIGNALS: {{ clinical_signals }}
+    BIOMARKER TRENDS: {{ biomarker_trends }}
+    HOSPITAL PROGRAM RULESET: {{ program_ruleset }}
+
+    ── INSTRUCTIONS ───────────────────────────────────────────────────────────
+    1. Identify the top 3-5 primary clinical risks (e.g., "**Active Hypertension**", "**Obesity**").
+    2. Provide a severity assessment (Low/Moderate/High) and justify it medically.
+    3. Determine a 'suggested_tier' (Standard, Advanced, or Premium) by evaluating
+       the clinical findings against the 'tier_selection_rules' in the hospital ruleset.
+       Use these rules as a baseline for clinical severity at Navavej hospital.
+    4. Interpret biomarker trends (e.g., "**eGFR is declining** at a rate of 5.5 mL/min/year").
+    5. Create a concise list of clinical findings for a physician.
+    6. List relevant signal IDs that support your findings in supporting_signal_ids.
+
+    ── FORMATTING ─────────────────────────────────────────────────────────────
+    - Use Markdown bolding (**text**) ONLY for important clinical terms, biomarkers, and key diagnoses.
+    - Write as a natural paragraph for the summary.
+    - Be concise and professional.
+    - NO greetings or conversational filler.
+
+    {{ ctx.output_format }}
+  "#
+}
+
+// ── AGENT 2: POLICY & PACKAGE RESOLVER ─────────────────────────────────────
+
 class AddOnItem {
   item_code string
   priority_level PriorityLevel
   rationale string
 }
+
+class RecommendationPlan {
+  ai_recommended_tier Tier
+  tier_deviation_justification string?
+  selected_add_ons AddOnItem[]
+  policy_reasoning string
+}
+
+function MatchProgramRules(
+  risk_profile: ClinicalRiskProfile,
+  program_ruleset: string
+) -> RecommendationPlan {
+  client NavaveijClient
+  prompt #"
+    You are a Hospital Program Director AI. Your task is to match a patient's 
+    Clinical Risk Profile with the hospital's specific Program Ruleset.
+
+    ── INPUT DATA ─────────────────────────────────────────────────────────────
+    CLINICAL RISK PROFILE: {{ risk_profile }}
+    PROGRAM RULESET: {{ program_ruleset }}
+
+    ── INSTRUCTIONS ───────────────────────────────────────────────────────────
+    1. Determine the optimal Final Tier (Standard, Advanced, or Premium).
+       - Evaluate the 'suggested_tier' from the Risk Profile.
+       - Compare it against the 'tier_selection_rules' and 'rule_preliminary_tier' in the ruleset.
+       - You have the authority to OVERRIDE the rule-based preliminary tier if the 
+         Clinical Risk Profile shows medical complexity that the rules missed.
+    2. Select Add-on Items from the 'add_on_library' in the ruleset.
+       - Trigger an add-on ONLY if the patient's supporting_signal_ids intersect with the trigger_signals in the library.
+       - Assign Priority: Red (Urgent/Overdue), Orange (Moderate), Yellow (Indicated), Green (Optional).
+    3. Write 'policy_reasoning' explaining why this specific package combination was chosen.
+
+    {{ ctx.output_format }}
+  "#
+}
+
+// ── AGENT 3: CLINICAL COMMUNICATOR ──────────────────────────────────────────
 
 class CommunicationScript {
   clinical_conclusion string
@@ -28,128 +117,39 @@ class CommunicationScript {
   next_steps string
 }
 
-class RecommendationOutput {
-  ai_recommended_tier Tier
-  tier_deviation_justification string?
-  add_ons AddOnItem[]
-  reasoning_trace string
-  supporting_signals string[]
-  missing_signals string[]
-  communication_script CommunicationScript
+class FinalRecommendation {
+  plan RecommendationPlan
+  script CommunicationScript
 }
 
-function GenerateRecommendation(
-  hard_constraints: string,
-  clinical_signals: string,
-  biomarker_trends: string,
-  program_ruleset: string
-) -> RecommendationOutput {
+function ComposeRecommendation(
+  risk_profile: ClinicalRiskProfile,
+  recommendation_plan: RecommendationPlan
+) -> FinalRecommendation {
   client NavaveijClient
-
   prompt #"
-    You are a clinical decision-support AI integrated into a health checkup recommendation
-    platform at a Thai international hospital. Your role is to reason over pre-computed
-    patient health signals and produce a structured, evidence-based health checkup
-    recommendation.
+    You are a Patient Communication Specialist AI. Your task is to draft 
+    a professional consultation script based on the Clinical Risk Profile 
+    and the finalized Recommendation Plan.
 
-    You operate under a Hybrid Rule + AI model:
-    - A rule-based Clinical Signal Engine has already produced a rule_preliminary_tier
-      from the patient's signals. This is your baseline.
-    - You may confirm or deviate from this baseline, but if you deviate you MUST
-      provide an explicit clinical justification in tier_deviation_justification.
-    - Hard constraints (gender/age eligibility, active safety flags) are
-      NON-NEGOTIABLE and must never be overridden. They appear in hard_constraints.
-
-    ── PATIENT DATA (PII-MASKED) ──────────────────────────────────────────────
-
-    HARD CONSTRAINTS (eligibility exclusions + active safety flags):
-    {{ hard_constraints }}
-
-    CLINICAL SIGNALS (risk flags, screening gaps, vaccination gaps, comorbidities,
-    family history, behavioral flags, symptom tags):
-    {{ clinical_signals }}
-
-    BIOMARKER TRENDS (current lab values, trend directions, velocities, eGFR slope,
-    BMI trend, BP history, ASCVD 10-year risk):
-    {{ biomarker_trends }}
-
-    PROGRAM RULESET (tier selection rules, resolved package, add-on library):
-    {{ program_ruleset }}
+    ── INPUT DATA ─────────────────────────────────────────────────────────────
+    RISK PROFILE: {{ risk_profile }}
+    RECOMMENDATION PLAN: {{ recommendation_plan }}
 
     ── INSTRUCTIONS ───────────────────────────────────────────────────────────
+    1. Draft a 'clinical_conclusion' (1 sentence high-level summary, use **bolding** for the main diagnosis).
+    2. Write a 'health_summary' (concise paragraph) starting directly with the most significant findings.
+    3. Explain the reasoning for the chosen Tier and selected Add-ons.
+    4. Provide actionable 'next_steps' (concise paragraph).
 
-    Step 1 — Tier determination
-      Read the rule_preliminary_tier and the tier_selection_rules from program_ruleset.
-      Evaluate whether the rule-assigned tier is clinically appropriate given the full
-      signal picture. Confirm or provide a justified deviation.
-      The resolved_package in program_ruleset shows the specific Navavej package
-      (name + price) for the preliminary tier — reference this in your reasoning.
+    ── CONSTRAINTS (MANDATORY) ───────────────────────────────────────────────
+    1. NO greetings like "Hello" or "Dear patient".
+    2. NO conversational filler or small talk.
+    3. Use Markdown bolding (**text**) ONLY for important clinical terms, medications, and key risk factors.
+    4. Write as clean paragraphs (prose). 
+    5. STRICTLY FORBIDDEN: Do NOT use bullet markers ('-','*') or numbered lists ('1.', '2.', '(1)') anywhere in health_summary or next_steps. Write only full sentences.
+    6. Professional, direct, and empathetic medical English.
 
-    Step 2 — Add-on selection
-      From the add_on_library in program_ruleset, select add-ons where the patient's
-      signals_fired intersect with trigger_signals. Only select items present in the
-      pre-filtered add_on_library — items excluded by gender or age are already absent.
-      Assign priority_level based on clinical urgency:
-        Red    — significantly overdue, first-time never-done, or high-severity trigger
-        Orange — moderately overdue or approaching due date
-        Yellow — clinically indicated, routine scheduling
-        Green  — shared decision-making, low urgency
-      Write a patient-specific rationale for each add-on that cites the actual signal
-      values, trend data, overdue duration, and relevant guideline(s).
-      Order add-ons: Red first, then Orange, Yellow, Green.
-
-    Step 3 — Reasoning trace
-      Write a highly structured clinical summary for the physician.
-      - FORMAT: You MUST output this as a BULLETED LIST (using '*' or '-').
-      - Each bullet must be a single, concise clinical point.
-      - TOTAL SILENCE on raw tokens: Never, ever use raw identifiers like 'bmi_obese_asian' or 'htn_active'.
-      - Use Markdown bolding (**text**) for the translated clinical terms and values.
-      - Maximum 5-6 bullets.
-
-    ── CLINICAL VOCABULARY MAPPING (MANDATORY) ───────────────────────────────
-    Translate ALL technical tokens into professional medical English. 
-    Examples:
-    - 'office_syndrome'              => **Office Syndrome**
-    - 'night_shift_worker'           => **Night Shift Worker**
-    - 'bmi_obese_asian'              => **Obesity (Asian Criteria)**
-    - 'hypertensive_crisis'          => **Hypertensive Crisis**
-    - 'htn_active'                   => **Active Hypertension**
-    - 'ascvd_risk_intermediate'      => **Intermediate ASCVD Risk**
-    - 'family_hx_premature_cad'      => **Family History of Premature CAD**
-    - 'PREMIUM_MULTI_SIGNAL'         => **Multi-Signal Premium Rule**
-    - 'PREMIUM_SEVERE_SINGLE'        => **Severe Signal Premium Rule**
-    - 'dm_complication_screening'    => **Diabetes Complication Screening**
-    - 'urine_microalbumin_creatinine'=> **Urine Microalbumin/Creatinine Ratio**
-    Step 4 — Supporting and missing signals
-      List the signal IDs in supporting_signals and missing_signals fields.
-
-    Step 5 — Communication script
-      Write a patient-facing consultation guide in professional, direct English.
-      - NO GREETINGS: Avoid all "Hello", "Dear patient", "Welcome", or general pleasantries.
-      - NO SMALL TALK: Skip conversational filler and "I hope you are well".
-      - CLINICAL CONCLUSION: Use the clinical_conclusion field for a high-level summary of the patient's primary health status.
-      - START DIRECTLY: Begin the health_summary with the most significant clinical findings.
-      - CONCISE: Keep descriptions short and focused on clinical impact.
-
-    ── ULTRA-STRICT MAPPING & FORMATTING (CRITICAL) ──────────────────────────
-    - NO CONVERSATIONAL FILLER: Total prohibition on greetings, apologies, or personal address.
-    - TOTAL SILENCE on raw tokens: You are FORBIDDEN from using raw snake_case or SCREAMING_SNAKE_CASE identifiers (e.g., 'bmi_obese_asian', 'PREMIUM_MULTI_SIGNAL') in any visible text field.
-    - FORMAT: Reasoning trace MUST be a BULLETED LIST. Use '*' or '-' for each point.
-    - EMPHASIS (NON-NEGOTIABLE): You MUST wrap clinical terms in DOUBLE ASTERISKS ON BOTH SIDES.
-      * Pattern: **Your Text Here**
-      * FORBIDDEN: *Title:** or **Title*
-      * EXACT SYNTAX: The frontend will ONLY detect bold if you use exactly two stars on each side.
-    - DICTIONARY (Bold results required in output):
-        * 'bmi_obese_asian'         => **Obesity (Asian Criteria)**
-        * 'hypertensive_crisis'     => **Hypertensive Crisis**
-        * 'ascvd_risk_intermediate' => **Intermediate ASCVD Risk**
-        * 'office_syndrome'          => **Office Syndrome**
-        * 'dm_confirmation_required'=> **Diabetes Confirmation Required**
-        * 'PREMIUM_MULTI_SIGNAL'    => **Multi-Signal Premium Rule**
-        * 'PREMIUM_SEVERE_SINGLE'   => **Severe Signal Premium Rule**
-        * 'RESOLVED_BY_OFFLINE_ENGINE' => **Resolved by Offline Engine**
-
-    ── OUTPUT FORMAT ──────────────────────────────────────────────────────────
     {{ ctx.output_format }}
   "#
 }

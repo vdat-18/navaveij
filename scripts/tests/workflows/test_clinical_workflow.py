@@ -18,33 +18,51 @@ def mock_session():
 
 @pytest.mark.asyncio
 async def test_clinical_workflow_execution(mock_session):
-    """Verify the full execution loop of the clinical workflow."""
+    """Verify the full execution loop of the clinical workflow with Multi-Agent support."""
     patient_id = "pt-001"
 
     # Mock MCP tool responses
+    # 1. get_hard_constraints
+    # 2. get_clinical_signals
+    # 3. get_biomarker_trends
+    # 4. get_program_ruleset
     mock_session.call_tool.side_effect = [
-        # fetch_baseline (2 tools)
-        AsyncMock(content=[AsyncMock(text='{"name": "Test Patient"}')]),
-        AsyncMock(content=[AsyncMock(text='["Exclude mammogram"]')]),
-        # analyze_signals (1 tool)
-        AsyncMock(content=[AsyncMock(text='{"obesity": "High"}')]),
-        # evaluate_trends (1 tool)
-        AsyncMock(content=[AsyncMock(text='{"bmi_trend": "increasing"}')]),
+        AsyncMock(content=[AsyncMock(text='{"patient_demographics": {"gender": "female", "age": 65}}')]),
+        AsyncMock(content=[AsyncMock(text='{"signals_fired": ["htn_active"]}')]),
+        AsyncMock(content=[AsyncMock(text='{"bmi": {"trend": "increasing"}}')]),
+        AsyncMock(content=[AsyncMock(text='{"tier_selection_rules": [], "add_on_library": []}')]),
     ]
 
-    # Mock BAML GenerateRecommendation
-    mock_recommendation = AsyncMock()
-    mock_recommendation.ai_recommended_tier.value = "Advanced"
-    mock_recommendation.reasoning_trace = "Reasoning"
-    mock_recommendation.additional_tests = ["Test A"]
-    mock_recommendation.confidence_score = 0.95
-    mock_recommendation.follow_up_advice = "Advice"
+    # Mock Agent 1: Clinical Risk Analyzer
+    mock_risk_profile = AsyncMock()
+    mock_risk_profile.clinical_summary_bullets = ["High BP"]
+    mock_risk_profile.supporting_signal_ids = ["htn_active"]
+    mock_risk_profile.missing_signal_ids = []
 
-    with patch("baml_client.async_client.b.GenerateRecommendation", return_value=mock_recommendation):
+    # Mock Agent 2: Policy & Package Resolver
+    mock_plan = AsyncMock()
+    mock_plan.ai_recommended_tier.value = "Advanced"
+    mock_plan.tier_deviation_justification = "Testing"
+    mock_plan.selected_add_ons = []
+
+    # Mock Agent 3: Clinical Communicator
+    mock_final = AsyncMock()
+    mock_final.plan = mock_plan
+    mock_final.script.clinical_conclusion = "Conclusion"
+    mock_final.script.health_summary = "Summary"
+    mock_final.script.recommendation_explanation = "Explanation"
+    mock_final.script.add_on_highlights = []
+    mock_final.script.next_steps = "Next steps"
+
+    with patch("baml_client.async_client.b.AnalyzeClinicalRisks", return_value=mock_risk_profile), \
+         patch("baml_client.async_client.b.MatchProgramRules", return_value=mock_plan), \
+         patch("baml_client.async_client.b.ComposeRecommendation", return_value=mock_final):
+        
         workflow = ClinicalReasoningWorkflow(mock_session)
         result = await workflow.execute(patient_id)
 
         assert isinstance(result, WorkflowContext)
         assert result.patient_id == patient_id
         assert result.ai_output["ai_recommended_tier"] == "Advanced"
+        assert result.ai_output["communication_script"]["clinical_conclusion"] == "Conclusion"
         assert mock_session.call_tool.call_count == 4

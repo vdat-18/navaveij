@@ -1,18 +1,20 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_0a15be76",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_0a15be76",
     "patient_demographics": {
       "gender": "female",
       "age": 66,
-      "date_of_birth_token": "dob_tok_19600322",
       "ethnicity": "asian",
       "bmi_threshold_profile": "asian_adjusted",
-      "name": "Darika Prasert"
+      "name": "Darika Prasert",
+      "birth_date": "1960-06-15",
+      "phone": "+66 845194303",
+      "email": "darika.prasert.3@example.com",
+      "address": "713 Navavej Rd, Bueng Kum, Bangkok 10230",
+      "mrn": "MRN-9194303"
     },
     "eligibility_exclusions": [],
     "active_safety_flags": [],
@@ -22,7 +24,6 @@
     "patient_id": "id_0a15be76"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_0a15be76",
     "rule_preliminary_tier": "Advanced",
     "overall_risk_level": "Moderate",
     "applicable_signals": [
@@ -174,6 +175,23 @@
         "guideline": "CDC ACIP 2017",
         "note": "Second Shingrix dose overdue by >1 year.",
         "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "hepatitis_b",
+        "label": "Hepatitis B",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 3,
+        "eligible_since_age": null,
+        "age_at_evaluation": null,
+        "years_until_due": null,
+        "priority_color": "Red",
+        "guideline": "ACIP Hepatitis B 2022",
+        "note": "Hepatitis B vaccination recommended for adults; no documentation of prior vaccination.",
+        "anti_hbs_checked": false
       }
     ],
     "abnormal_triggers": [],
@@ -196,11 +214,18 @@
         "audit_c_score": 1.05,
         "risk_level": "none",
         "fibroscan_indicated": false,
-        "note": null
+        "note": null,
+        "units_per_week": 1.05
       },
       "occupational": {
-        "tags": [],
-        "add_ons_triggered": []
+        "tags": [
+          "retired",
+          "Retired"
+        ],
+        "add_ons_triggered": [],
+        "retired_status": true,
+        "computer_hours_per_day": 2.0,
+        "stress_level": "Low"
       },
       "physical_activity": {
         "days_per_week": 3,
@@ -214,7 +239,14 @@
       "mild_joint_ache"
     ],
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "chief_complaint": "Routine wellness check, addressing joint pain, colon/breast cancer screening updates.",
+    "reproductive_history_detail": {
+      "age_at_menarche": 13,
+      "age_at_menopause": 51,
+      "num_children": 2,
+      "hormonal_contraception": true
+    }
   },
   "biomarker_trends": {
     "patient_token": "tok_hmac_0a15be76",

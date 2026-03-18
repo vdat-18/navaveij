@@ -66,13 +66,15 @@ PYTHONPATH=.:./backend uv run python -m src.api.main
 *API will be available at `http://localhost:8000`*
 
 ### 2. MCP Inspector (PoC & Debugging) 🛡️
-To visualize how the AI retrieves data through the secure MCP layer:
+Visualizes the secure clinical data layer and AI tool orchestration:
 ```bash
-# From the backend directory
-cd backend
+# Run from the project root
 npx @modelcontextprotocol/inspector uv run python -m src.mcp_server.server
 ```
-*This opens a web interface at `http://localhost:6274` to interact with clinical tools.*
+*   **Interface**: `http://localhost:6274`
+*   **Example Tool**: `get_clinical_signals`
+*   **Example Patient ID**: `id_2bb52ad3` (Metabolic Syndrome case) or `id_7d5e2a4b` (Cancer screening case).
+
 
 ### 3. Frontend Setup & Run
 ```bash

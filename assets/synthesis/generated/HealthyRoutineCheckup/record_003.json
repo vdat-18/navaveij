@@ -1,18 +1,20 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_3ae7c41f",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_3ae7c41f",
     "patient_demographics": {
       "gender": "male",
       "age": 29,
-      "date_of_birth_token": "dob_tok_19970304",
       "ethnicity": "asian",
       "bmi_threshold_profile": "asian_adjusted",
-      "name": "Darika Siriwat"
+      "name": "Darika Siriwat",
+      "birth_date": "1997-06-15",
+      "phone": "+66 867483076",
+      "email": "darika.siriwat.76@example.com",
+      "address": "86 Navavej Rd, Bueng Kum, Bangkok 10230",
+      "mrn": "MRN-4483076"
     },
     "eligibility_exclusions": [
       {
@@ -39,7 +41,6 @@
     "patient_id": "id_3ae7c41f"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_3ae7c41f",
     "rule_preliminary_tier": "Standard",
     "overall_risk_level": "Low",
     "applicable_signals": [
@@ -110,6 +111,40 @@
         "guideline": "CDC ACIP 2024",
         "note": "Last flu vaccine ~6 months ago; due for seasonal update later this year.",
         "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "hepatitis_b",
+        "label": "Hepatitis B",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": null,
+        "doses_received": null,
+        "doses_required": 3,
+        "eligible_since_age": null,
+        "age_at_evaluation": 29,
+        "years_until_due": null,
+        "priority_color": "Yellow",
+        "guideline": "CDC ACIP 2024",
+        "note": "Recommend Hepatitis B vaccination series if not received in the past.",
+        "anti_hbs_checked": false
+      },
+      {
+        "vaccine_id": "hpv",
+        "label": "HPV",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": null,
+        "doses_received": null,
+        "doses_required": 3,
+        "eligible_since_age": 9,
+        "age_at_evaluation": 29,
+        "years_until_due": 16,
+        "priority_color": "Yellow",
+        "guideline": "CDC ACIP 2024",
+        "note": "Men up to age 45 should be considered for HPV vaccination if not previously vaccinated.",
+        "anti_hbs_checked": null
       }
     ],
     "abnormal_triggers": [],
@@ -132,11 +167,19 @@
         "audit_c_score": 0.0,
         "risk_level": "none",
         "fibroscan_indicated": false,
-        "note": "Does not consume alcohol."
+        "note": "Does not consume alcohol.",
+        "units_per_week": 0.0
       },
       "occupational": {
-        "tags": [],
-        "add_ons_triggered": []
+        "tags": [
+          "office_worker",
+          "low_physical_demand",
+          "desk_job"
+        ],
+        "add_ons_triggered": [],
+        "computer_hours_per_day": 9.0,
+        "night_shift_worker": false,
+        "factory_chemical_exposure": false
       },
       "physical_activity": {
         "days_per_week": 4,
@@ -146,7 +189,8 @@
     },
     "symptom_tags": [],
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "chief_complaint": "Wellness check and maintaining a healthy lifestyle."
   },
   "biomarker_trends": {
     "patient_token": "tok_hmac_3ae7c41f",

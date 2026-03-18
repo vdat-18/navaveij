@@ -26,28 +26,29 @@ class OrchestrationManager:
         self.safety_guard = ClinicalSafetyGuard()
         self.audit_logger = AuditLogger()
 
-    async def generate_recommendation(self, patient_id: str, patient_token: str | None = None) -> dict[str, Any]:
+    async def generate_recommendation(self, patient_id: str, patient_token: str | None = None, force_rule_based: bool = False) -> dict[str, Any]:
         """Coordinate the full recommendation generation process.
 
         Args:
             patient_id: The patient to generate a recommendation for.
             patient_token: Optional pre-existing token (useful for synthesized data).
+            force_rule_based: If True, bypass AI and use deterministic rules.
 
         Returns:
             A dictionary containing the recommendation and safety checks.
         """
-        logger.info(f"Manager received request for patient: {patient_id}")
+        logger.info(f"Manager received request for patient: {patient_id} (force_rule_based={force_rule_based})")
 
         async with MCPClientFactory.get_client() as session:
             # Initialize Workflow
             workflow = ClinicalReasoningWorkflow(session)
 
             # Execute Workflow
-            context = await workflow.execute(patient_id, patient_token=patient_token)
+            context = await workflow.execute(patient_id, patient_token=patient_token, force_rule_based=force_rule_based)
 
             # Post-process: Safety Validation
-            logger.info("Performing safety validation")
-            safety_result = await self.safety_guard.validate(context.ai_output, context.raw_context)
+            logger.info(f"Performing safety validation (force_rule_based={force_rule_based})")
+            safety_result = await self.safety_guard.validate(context.ai_output, context.raw_context, force_rule_based=force_rule_based)
             context.ai_output["safety_check"] = safety_result
 
             # Post-process: Audit Logging

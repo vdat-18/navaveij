@@ -1,18 +1,20 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_1be475a2",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_1be475a2",
     "patient_demographics": {
       "gender": "female",
       "age": 66,
-      "date_of_birth_token": "dob_tok_19591217",
       "ethnicity": "asian",
       "bmi_threshold_profile": "asian_adjusted",
-      "name": "Fai Prasert"
+      "name": "Fai Prasert",
+      "birth_date": "1960-06-15",
+      "phone": "+66 818182538",
+      "email": "fai.prasert.38@example.com",
+      "address": "648 Navavej Rd, Bueng Kum, Bangkok 10230",
+      "mrn": "MRN-9182538"
     },
     "eligibility_exclusions": [],
     "active_safety_flags": [],
@@ -22,7 +24,6 @@
     "patient_id": "id_1be475a2"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_1be475a2",
     "rule_preliminary_tier": "Advanced",
     "overall_risk_level": "Moderate",
     "applicable_signals": [
@@ -148,6 +149,23 @@
         "guideline": "CDC ACIP 2017",
         "note": "Second Shingrix dose overdue.",
         "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "hepatitis_b",
+        "label": "Hepatitis B",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 3,
+        "eligible_since_age": null,
+        "age_at_evaluation": 66,
+        "years_until_due": null,
+        "priority_color": "Yellow",
+        "guideline": "CDC ACIP 2022",
+        "note": "Hepatitis B vaccination is recommended for older adults at risk or not previously vaccinated.",
+        "anti_hbs_checked": false
       }
     ],
     "abnormal_triggers": [],
@@ -170,11 +188,18 @@
         "audit_c_score": 1.1,
         "risk_level": "none",
         "fibroscan_indicated": false,
-        "note": null
+        "note": null,
+        "units_per_week": 1.5
       },
       "occupational": {
-        "tags": [],
-        "add_ons_triggered": []
+        "tags": [
+          "retired",
+          "Retired"
+        ],
+        "add_ons_triggered": [],
+        "retired_status": true,
+        "computer_hours_per_day": 2.0,
+        "stress_level": "low"
       },
       "physical_activity": {
         "days_per_week": 3,
@@ -186,7 +211,14 @@
     },
     "symptom_tags": [],
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "chief_complaint": "General wellness visit with concerns about overdue cancer screenings and preventive care.",
+    "reproductive_history_detail": {
+      "age_at_menarche": 13,
+      "age_at_menopause": 51,
+      "num_children": 2,
+      "hormonal_contraception": true
+    }
   },
   "biomarker_trends": {
     "patient_token": "tok_hmac_1be475a2",

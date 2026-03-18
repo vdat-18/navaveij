@@ -6,17 +6,15 @@ from pathlib import Path
 
 from loguru import logger
 
+# Base directory resolution
+# backend/src/mcp_server/utils.py -> parent(3) is backend, parent(4) is root
+BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+
 # Constants
-SIGNAL_STORE_DIR = Path("assets/synthesis/generated")
-RULESET_TIER_CONFIG_PATH = Path(
-    "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_ruleset_tier_config.json"
-)
-RULESET_ADD_ON_ITEMS_PATH = Path(
-    "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_add_on_items.json"
-)
-PACKAGE_RESOLUTION_PATH = Path(
-    "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_package_resolution.json"
-)
+SIGNAL_STORE_DIR = BASE_DIR / "assets/synthesis/generated"
+RULESET_TIER_CONFIG_PATH = BASE_DIR / "assets/synthesis/rulesets/sample_ruleset_tier_config.json"
+RULESET_ADD_ON_ITEMS_PATH = BASE_DIR / "assets/synthesis/rulesets/sample_add_on_items.json"
+PACKAGE_RESOLUTION_PATH = BASE_DIR / "assets/synthesis/rulesets/sample_package_resolution.json"
 
 
 def load_signal_store_record(patient_id: str) -> dict | None:

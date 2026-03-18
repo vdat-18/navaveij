@@ -1,18 +1,20 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_9c73b62f",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_9c73b62f",
     "patient_demographics": {
       "gender": "female",
       "age": 71,
-      "date_of_birth_token": "dob_tok_19550319",
       "ethnicity": "asian",
       "bmi_threshold_profile": "asian_adjusted",
-      "name": "Hathai Prasert"
+      "name": "Hathai Prasert",
+      "birth_date": "1955-06-15",
+      "phone": "+66 823184953",
+      "email": "hathai.prasert.53@example.com",
+      "address": "863 Navavej Rd, Bueng Kum, Bangkok 10230",
+      "mrn": "MRN-5184953"
     },
     "eligibility_exclusions": [],
     "active_safety_flags": [],
@@ -22,7 +24,6 @@
     "patient_id": "id_9c73b62f"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_9c73b62f",
     "rule_preliminary_tier": "Advanced",
     "overall_risk_level": "Moderate",
     "applicable_signals": [
@@ -147,6 +148,40 @@
         "guideline": "CDC ACIP 2017",
         "note": "Second Shingrix dose overdue.",
         "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "hpv",
+        "label": "Human papillomavirus (HPV)",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": null,
+        "series_complete": null,
+        "doses_received": 0,
+        "doses_required": 3,
+        "eligible_since_age": 9,
+        "age_at_evaluation": null,
+        "years_until_due": 0,
+        "priority_color": "not_applicable",
+        "guideline": "CDC ACIP",
+        "note": "Not eligible due to age; HPV vaccines typically indicated ≤ 45 years.",
+        "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "hepatitis_b",
+        "label": "Hepatitis B",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": null,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 3,
+        "eligible_since_age": null,
+        "age_at_evaluation": 71,
+        "years_until_due": null,
+        "priority_color": "Yellow",
+        "guideline": "CDC ACIP",
+        "note": "Consider checking hepatitis B immunity (anti-HBs) and completing vaccination series if needed.",
+        "anti_hbs_checked": false
       }
     ],
     "abnormal_triggers": [],
@@ -169,11 +204,18 @@
         "audit_c_score": 1.1,
         "risk_level": "none",
         "fibroscan_indicated": false,
-        "note": null
+        "note": null,
+        "units_per_week": 0.5
       },
       "occupational": {
-        "tags": [],
-        "add_ons_triggered": []
+        "tags": [
+          "retired",
+          "Retired"
+        ],
+        "add_ons_triggered": [],
+        "retired_status": true,
+        "computer_hours_per_day": 2.0,
+        "stress_level": "low"
       },
       "physical_activity": {
         "days_per_week": 1,
@@ -185,7 +227,14 @@
     },
     "symptom_tags": [],
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "chief_complaint": "Wellness visit with concerns about overdue screenings and joint stiffness.",
+    "reproductive_history_detail": {
+      "age_at_menarche": 12,
+      "age_at_menopause": 51,
+      "num_children": 2,
+      "hormonal_contraception": true
+    }
   },
   "biomarker_trends": {
     "patient_token": "tok_hmac_9c73b62f",

@@ -21,8 +21,11 @@ export const patientService = {
 };
 
 export const clinicalService = {
-    getRecommendation: async (patientId: string) => {
-        const response = await api.post("/clinical/recommend", { patient_id: patientId });
+    getRecommendation: async (patientId: string, forceRuleBased: boolean = false) => {
+        const response = await api.post("/clinical/recommend", {
+            patient_id: patientId,
+            force_rule_based: forceRuleBased
+        });
         return response.data;
     },
     recordDecision: async (patientId: string, recommendationHash: string, decision: "Approve" | "Reject", notes: string = "") => {

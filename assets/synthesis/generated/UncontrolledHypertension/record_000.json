@@ -1,18 +1,20 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_d4f2b7e6",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_d4f2b7e6",
     "patient_demographics": {
       "gender": "male",
       "age": 57,
-      "date_of_birth_token": "dob_tok_19690315",
       "ethnicity": "asian",
       "bmi_threshold_profile": "asian_adjusted",
-      "name": "Jarat Prasert"
+      "name": "Jarat Prasert",
+      "birth_date": "1969-06-15",
+      "phone": "+66 899162518",
+      "email": "jarat.prasert.18@example.com",
+      "address": "428 Navavej Rd, Bueng Kum, Bangkok 10230",
+      "mrn": "MRN-9162518"
     },
     "eligibility_exclusions": [
       {
@@ -39,7 +41,6 @@
     "patient_id": "id_d4f2b7e6"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_d4f2b7e6",
     "rule_preliminary_tier": "Advanced",
     "overall_risk_level": "High",
     "applicable_signals": [
@@ -208,6 +209,57 @@
         "guideline": "CDC ACIP 2024",
         "note": "Missed the 2025–2026 season.",
         "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "pneumococcal",
+        "label": "Pneumococcal (PCV20)",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 1,
+        "eligible_since_age": 19,
+        "age_at_evaluation": 57,
+        "years_until_due": null,
+        "priority_color": "Red",
+        "guideline": "CDC ACIP 2024",
+        "note": "Elevated ASCVD and hypertension risk; administer PCV vaccination.",
+        "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "shingrix",
+        "label": "Shingles (Shingrix)",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 2,
+        "eligible_since_age": 50,
+        "age_at_evaluation": 57,
+        "years_until_due": null,
+        "priority_color": "Orange",
+        "guideline": "CDC ACIP 2024",
+        "note": "Eligible since age 50; recommend series completion.",
+        "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "hepatitis_b",
+        "label": "Hepatitis B",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 2,
+        "eligible_since_age": null,
+        "age_at_evaluation": 57,
+        "years_until_due": null,
+        "priority_color": "Yellow",
+        "guideline": "CDC ACIP 2024",
+        "note": "Vaccination history incomplete; check anti-HBs or start series.",
+        "anti_hbs_checked": false
       }
     ],
     "abnormal_triggers": [
@@ -243,16 +295,20 @@
         "audit_c_score": 2.85,
         "risk_level": "borderline",
         "fibroscan_indicated": false,
-        "note": "Borderline AUDIT-C; remind annual review."
+        "note": "Borderline AUDIT-C; remind annual review.",
+        "units_per_week": 7.0
       },
       "occupational": {
         "tags": [
+          "sedentary_lifestyle",
           "office_syndrome"
         ],
         "add_ons_triggered": [
           "msk_assessment",
           "vision_check_annual"
-        ]
+        ],
+        "computer_hours_per_day": 9.0,
+        "stress_level": "High"
       },
       "physical_activity": {
         "days_per_week": 2,
@@ -260,14 +316,18 @@
         "add_ons_triggered": [
           "exercise_counseling"
         ]
-      }
+      },
+      "dietary_salt_risk": true,
+      "medication_adherence_note": "Frequently misses doses on weekends or during travel.",
+      "home_bp_monitoring": true
     },
     "symptom_tags": [
       "headache",
       "dizziness_on_exertion"
     ],
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "chief_complaint": "Poorly controlled hypertension; morning headaches and dizziness on exertion"
   },
   "biomarker_trends": {
     "patient_token": "tok_hmac_d4f2b7e6",

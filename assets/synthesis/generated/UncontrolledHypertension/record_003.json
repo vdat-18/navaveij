@@ -1,18 +1,20 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_7f4e1c01",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300_v2",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_7f4e1c01",
     "patient_demographics": {
       "gender": "male",
       "age": 57,
-      "date_of_birth_token": "dob_tok_19690308",
       "ethnicity": "asian",
       "bmi_threshold_profile": "asian_adjusted",
-      "name": "Chaiyo Wichai"
+      "name": "Chaiyo Wichai",
+      "birth_date": "1969-06-15",
+      "phone": "+66 880963492",
+      "email": "chaiyo.wichai.92@example.com",
+      "address": "302 Navavej Rd, Bueng Kum, Bangkok 10230",
+      "mrn": "MRN-8963492"
     },
     "eligibility_exclusions": [
       {
@@ -39,7 +41,6 @@
     "patient_id": "id_7f4e1c01"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_7f4e1c01",
     "rule_preliminary_tier": "Advanced",
     "overall_risk_level": "High",
     "applicable_signals": [
@@ -202,6 +203,57 @@
         "guideline": "CDC ACIP 2024",
         "note": "Missed the 2025–2026 season.",
         "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "pneumococcal",
+        "label": "Pneumococcal (e.g., PCV20)",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 1,
+        "eligible_since_age": 19,
+        "age_at_evaluation": 57,
+        "years_until_due": null,
+        "priority_color": "Red",
+        "guideline": "CDC ACIP 2024",
+        "note": "Recommended for patients with hypertension and ASCVD risk markers.",
+        "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "shingrix",
+        "label": "Shingrix (Shingles)",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 2,
+        "eligible_since_age": 50,
+        "age_at_evaluation": 57,
+        "years_until_due": null,
+        "priority_color": "Orange",
+        "guideline": "CDC ACIP 2024",
+        "note": "Strongly recommended for adults aged 50 and older.",
+        "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "hepatitis_b",
+        "label": "Hepatitis B",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 3,
+        "eligible_since_age": null,
+        "age_at_evaluation": 57,
+        "years_until_due": null,
+        "priority_color": "Orange",
+        "guideline": "CDC ACIP 2022",
+        "note": "Consider vaccination; recommended for all adults without completed series.",
+        "anti_hbs_checked": false
       }
     ],
     "abnormal_triggers": [
@@ -237,16 +289,20 @@
         "audit_c_score": 3.2,
         "risk_level": "at_risk_alcohol_use",
         "fibroscan_indicated": false,
-        "note": "Slightly above AUDIT-C threshold; monitor."
+        "note": "Slightly above AUDIT-C threshold; monitor.",
+        "units_per_week": 5.5
       },
       "occupational": {
         "tags": [
+          "sedentary_lifestyle",
           "office_syndrome"
         ],
         "add_ons_triggered": [
           "msk_assessment",
           "vision_check_annual"
-        ]
+        ],
+        "computer_hours_per_day": 9.0,
+        "stress_level": "High"
       },
       "physical_activity": {
         "days_per_week": 2,
@@ -254,14 +310,18 @@
         "add_ons_triggered": [
           "exercise_counseling"
         ]
-      }
+      },
+      "dietary_salt_risk": true,
+      "medication_adherence_note": "Reports missed doses of antihypertensive medications on weekends.",
+      "home_bp_monitoring": true
     },
     "symptom_tags": [
       "headache",
       "occasional palpitations"
     ],
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300_v2"
+    "pipeline_run_id": "pipe_20260315_0300_v2",
+    "chief_complaint": "Morning headaches and fatigue related to hypertension and metabolic risk."
   },
   "biomarker_trends": {
     "patient_token": "tok_hmac_7f4e1c01",

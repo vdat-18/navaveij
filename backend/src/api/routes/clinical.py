@@ -12,6 +12,7 @@ orchestrator = OrchestrationManager()
 
 class RecommendationRequest(BaseModel):
     patient_id: str
+    force_rule_based: bool = False
 
 @router.post("/recommend")
 async def get_recommendation(request: RecommendationRequest):
@@ -29,7 +30,8 @@ async def get_recommendation(request: RecommendationRequest):
         # 2. Call the Orchestrator (Backend AI Logic) with the correct token from registry
         result = await orchestrator.generate_recommendation(
             patient_id=request.patient_id, 
-            patient_token=patient.get("patient_token")
+            patient_token=patient.get("patient_token"),
+            force_rule_based=request.force_rule_based
         )
         
         # 3. PII Rehydration

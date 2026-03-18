@@ -1,0 +1,1084 @@
+{
+  "_schema_note": "Ruleset Store DB records — record_type: add_on_item. Each entry is a separate DB record. The MCP Server filters this catalog by patient gender and age at query time before returning add_on_library[] in get_program_ruleset().",
+  "_version_note": "Draft v2026.03.1-draft — for clinical expert verification. All items require MAT validation before status is set to 'active'.",
+  "_framework_reference": "rule-synthesis-framework.md §6 (Derivation Ledger). All signal_ids trace to signal-store-contract.md Field Dictionary. All clinical claims trace to clinical-guidelines-reference.md.",
+  "_option_a_symptom_signals": "Signals prefixed symptom_ (symptom_palpitations, symptom_chronic_back_pain, symptom_unexplained_weight_loss, symptom_chest_pain, symptom_dyspnea_on_exertion) are first-class signal IDs per Option A. They must be added to signal-store-contract.md Field Dictionary and populated by the Clinical Signal Engine from symptom_tags[].",
+  "_expert_review_instructions": "For each item please verify: (1) trigger_signals — are these the right clinical signals to activate this add-on? (2) priority_level_default — is this the right urgency level? (3) age_min / age_max — do these match current guideline age eligibility? (4) gender_constraint — is this correctly restricted or open? (5) Are there any missing add-ons for the Thai/Navavej patient population not covered here?",
+  "_open_questions_pending": [
+    "OQ-7: Confirm standalone colonoscopy product code with client (navavej-checkup-package-discovery.md #7)",
+    "OQ-10: Confirm standalone PSA product code and price with client (#10)",
+    "OQ-hepatitis_b_vaccine: Confirm per-dose price for Hepatitis B vaccine",
+    "OQ-pneumococcal: Confirm product code and price for Pneumococcal vaccine",
+    "OQ-shingrix: Confirm per-dose price for Shingrix (RZV)",
+    "OQ-prices_post_expo: All prices currently reflect 5th Anniversary Expo promotional rates (valid through 2026-03-31) — update to standard pricing after expiry"
+  ],
+  "record_count": 28,
+  "items": [
+    {
+      "record_type": "add_on_item",
+      "item_code": "colonoscopy",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Colonoscopy — Colorectal Cancer Screening",
+      "category": "cancer_screening",
+      "trigger_signals": [
+        "colonoscopy_screening_gap"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Red",
+      "priority_override_signals": {
+        "family_hx_colon_ca_first_degree": "Red",
+        "_note": "Red regardless of overdue days when first-degree relative had CRC. Default Red because screening interval is 10 years — any overdue = ≥ 10yr gap."
+      },
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Endoscopy Package (Upper GI)",
+        "product_code": "ENDO_UPPER",
+        "price_thb": 9500,
+        "note": "OQ-7: Standalone colonoscopy (lower GI) availability unconfirmed — may require separate product code. Upper GI endoscopy used as placeholder."
+      },
+      "gender_constraint": null,
+      "age_min": 45,
+      "age_max": 85,
+      "guideline": "USPSTF Colorectal Cancer Screening 2021 — Grade A (age 45–75), SDM 76–85, not recommended > 85",
+      "_guideline_age_note": "USPSTF 2021 lowered start age from 50 → 45. Verify hospital has adopted this update.",
+      "admin_configurable_fields": [
+        "price_thb",
+        "age_min",
+        "age_max",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "exercise_stress_test",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Exercise Stress Test (EST) — Treadmill ECG",
+      "category": "cardiac",
+      "trigger_signals": [
+        "est_gap",
+        "est_consideration",
+        "ascvd_risk_intermediate",
+        "ascvd_high",
+        "symptom_chest_pain",
+        "high_fbs_risk"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "priority_override_signals": {
+        "symptom_chest_pain": "Red",
+        "ascvd_very_high": "Red",
+        "ascvd_high": "Red"
+      },
+      "safety_contraindication_signals": [
+        "hypertensive_crisis",
+        "hypoglycemia_active"
+      ],
+      "_safety_note": "EST is absolutely contraindicated during hypertensive crisis (SBP > 180 or DBP > 120) per AHA/ACC 2002. Also contraindicated during active hypoglycemia.",
+      "navavej_product": {
+        "product_name": "Exercise Stress Test (EST)",
+        "product_code": "EST_TREADMILL",
+        "price_thb": 2900
+      },
+      "gender_constraint": null,
+      "age_min": 30,
+      "age_max": null,
+      "guideline": "AHA/ACC Exercise Testing Guidelines 2002; ADA Standards of Medical Care 2024 — DM + age > 40 + ≥ 2 CV risk factors",
+      "admin_configurable_fields": [
+        "price_thb",
+        "age_min",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "echocardiogram",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Echocardiogram (ECHO) — Cardiac Ultrasound",
+      "category": "cardiac",
+      "trigger_signals": [
+        "echo_gap",
+        "dm_comorbidity",
+        "htn_active",
+        "symptom_chest_pain",
+        "family_hx_early_heart_attack"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "priority_override_signals": {
+        "symptom_chest_pain": "Red"
+      },
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Echocardiogram (ECHO)",
+        "product_code": "ECHO_CARD",
+        "price_thb": 2900
+      },
+      "gender_constraint": null,
+      "age_min": 35,
+      "age_max": null,
+      "guideline": "Clinical practice; ADA Standards 2024 — DM cardiovascular organ complication surveillance; ACC/AHA HTN guidelines",
+      "_expert_review_note": "Is age 35 the right lower bound for ECHO? Should it be higher (e.g., 40) or triggered only when DM/HTN comorbidity is active regardless of age?",
+      "admin_configurable_fields": [
+        "price_thb",
+        "age_min",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "ct_coronary_calcium",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "CT Coronary Artery Calcium Scoring (CAC)",
+      "category": "cardiac",
+      "trigger_signals": [
+        "family_hx_premature_cad",
+        "ascvd_risk_intermediate",
+        "high_ldl",
+        "male_40_plus",
+        "symptom_chest_pain",
+        "family_hx_early_heart_attack"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "priority_override_signals": {
+        "symptom_chest_pain": "Red"
+      },
+      "safety_contraindication_signals": [
+        "ckd_no_contrast"
+      ],
+      "_safety_note": "CT-CAC uses non-contrast CT; iodinated contrast not required. However, if hospital protocol uses contrast enhancement, apply eGFR < 30 restriction.",
+      "navavej_product": {
+        "product_name": "Coronary Artery Calcium Scoring (CT-CAC)",
+        "product_code": "CT_CAC",
+        "price_thb": 3900
+      },
+      "gender_constraint": null,
+      "age_min": 40,
+      "age_max": null,
+      "guideline": "ACC/AHA Cholesterol Guideline 2018 — CAC scoring as risk-decision aid when statin decision is uncertain in intermediate-risk patients",
+      "_expert_review_note": "ACC/AHA 2018 positions CAC as a risk-refinement tool when the decision to start statin therapy is uncertain (borderline-intermediate risk). Is it appropriate to recommend CAC for all patients with family_hx_premature_cad, or only when lipid treatment decision is unclear?",
+      "admin_configurable_fields": [
+        "price_thb",
+        "age_min",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "cardiac_patch_48h",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "48-Hour Cardiac Patch Monitor (Arrhythmia Screening)",
+      "category": "cardiac",
+      "trigger_signals": [
+        "symptom_palpitations",
+        "symptom_chest_pain",
+        "symptom_dyspnea_on_exertion"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "_symptom_signal_note": "Uses Option A symptom signals — must be in signal-store-contract.md Field Dictionary.",
+      "navavej_product": {
+        "product_name": "48-Hour Cardiac Patch Monitor (S-Patch EX)",
+        "product_code": "PATCH_CARDIAC",
+        "price_thb": 7742
+      },
+      "gender_constraint": null,
+      "age_min": 18,
+      "age_max": null,
+      "guideline": "Clinical practice — palpitations / chest pain / dyspnea on exertion workup for arrhythmia evaluation",
+      "admin_configurable_fields": [
+        "price_thb",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "ldct_lung",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Low-Dose CT Chest — Lung Cancer Annual Screening",
+      "category": "cancer_screening",
+      "trigger_signals": [
+        "lung_ct_threshold_met"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Red",
+      "_priority_rationale": "Red: USPSTF Grade B — annual screening indicated for eligible patients. High-severity oncologic risk. Never-screened eligible patient = highest urgency.",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Low-Dose CT Chest (Lung Cancer / PM2.5 Screening)",
+        "product_code": "LDCT_LUNG",
+        "price_thb": 3900
+      },
+      "gender_constraint": null,
+      "age_min": 50,
+      "age_max": 80,
+      "guideline": "USPSTF Lung Cancer Screening 2021 — Grade B: age 50–80, ≥ 20 pack-years, current smoker or quit within past 15 years",
+      "_guideline_age_note": "USPSTF 2021 changed criteria: age 50–80 (previously 55–80), pack-years ≥ 20 (previously ≥ 30). Verify this updated threshold is adopted.",
+      "admin_configurable_fields": [
+        "price_thb",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "mammogram",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Mammogram — Bilateral Screening Mammography",
+      "category": "cancer_screening",
+      "trigger_signals": [
+        "mammogram_screening_gap"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Red",
+      "_priority_rationale": "Red: Biennial interval is 24 months. Any overdue = ≥ 24+ months gap. Family history further elevates to annual.",
+      "priority_override_signals": {
+        "family_hx_breast_ca": "Red"
+      },
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Mammogram",
+        "product_code": "MAMMOGRAM",
+        "price_thb": 2850
+      },
+      "gender_constraint": "female",
+      "age_min": 40,
+      "age_max": 74,
+      "guideline": "USPSTF Breast Cancer Screening 2024 — Grade B: biennial mammography ages 40–74; ACS 2023: annual 45–54, biennial 55+",
+      "_guideline_note": "USPSTF 2024 updated start age from 50 → 40. ACS recommends annual from 45. System uses USPSTF 2024 biennial from 40 as primary rule. ACS annual is acceptable alternative — confirm with hospital protocol.",
+      "_expert_review_note": "Should the high-risk interval (annual, for BRCA/family hx) produce a different item_code to distinguish from standard biennial? Or handle via priority_override only?",
+      "admin_configurable_fields": [
+        "price_thb",
+        "age_min",
+        "age_max",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "cervical_cancer_hpv_screen",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Cervical Cancer + HPV Co-test (Pap Smear + HPV DNA)",
+      "category": "cancer_screening",
+      "trigger_signals": [
+        "pap_smear_screening_gap"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Orange",
+      "_priority_rationale": "Orange: standard overdue (within reasonable window). Red if overdue > 10 years (2× the 5-year co-test interval).",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Cervical Cancer + HPV Screening",
+        "product_code": "CERVICAL_HPV",
+        "price_thb": 2300
+      },
+      "gender_constraint": "female",
+      "age_min": 21,
+      "age_max": 65,
+      "guideline": "USPSTF Cervical Cancer Screening 2018 — Grade A (21–65): Pap smear alone every 3yr (ages 21–29); Pap + HPV co-test every 5yr preferred (ages 30–65); ACOG Practice Bulletin 168",
+      "admin_configurable_fields": [
+        "price_thb",
+        "age_min",
+        "age_max",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "dexa_bone_density",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "DEXA Bone Density Scan — Osteoporosis Screening (2 Areas)",
+      "category": "imaging",
+      "trigger_signals": [
+        "dexa_screening_gap"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Orange",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Bone Density Scan DEXA (2 areas)",
+        "product_code": "DEXA_BONE",
+        "price_thb": 1450
+      },
+      "gender_constraint": "female",
+      "age_min": 65,
+      "age_max": null,
+      "guideline": "USPSTF Osteoporosis to Prevent Fractures 2018 — Grade B: women ≥ 65 routine DEXA; women < 65 if 10-year fracture risk ≥ 10% (FRAX-based)",
+      "_expert_review_note": "USPSTF has insufficient evidence for routine male screening. Should males ever receive DEXA (e.g., if on long-term steroids, or with osteoporosis risk factors)? Consider adding a separate item_code for male DEXA with risk-factor trigger if clinical team decides to include.",
+      "admin_configurable_fields": [
+        "price_thb",
+        "age_min",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "psa_sdm",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "PSA (Prostate-Specific Antigen) — Shared Decision-Making Discussion",
+      "category": "cancer_screening",
+      "trigger_signals": [
+        "psa_sdm_status",
+        "family_hx_prostate_ca"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Green",
+      "_priority_rationale": "Green: USPSTF C-grade (SDM, not routine recommendation) for age 55–69. ACS recommends SDM starting at 50 for average risk; earlier for high risk. Neither endorses universal screening — shared decision-making only.",
+      "priority_override_signals": {
+        "family_hx_prostate_ca": "Yellow"
+      },
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "PSA Standalone Test",
+        "product_code": "TBD",
+        "price_thb": null,
+        "note": "OQ-10: Confirm standalone PSA product code and price with client. May be included within Diamond — Men package already."
+      },
+      "gender_constraint": "male",
+      "age_min": 50,
+      "age_max": 69,
+      "guideline": "ACS Prostate Cancer Early Detection 2023 — SDM at age 50 (average risk), age 40 if family_hx_prostate_ca or BRCA2; USPSTF 2018 — Grade C: SDM ages 55–69, not recommended ≥ 70",
+      "_expert_review_note": "Should age_min be 40 (not 50) when family_hx_prostate_ca is the trigger signal? ACS recommends SDM discussion starting at 40 for high-risk patients.",
+      "admin_configurable_fields": [
+        "price_thb",
+        "age_min",
+        "age_max",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "diabetes_screening_pro",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Diabetes Screening Pro 1 — HbA1c, Insulin, HOMA-IR (12 items)",
+      "category": "endocrine",
+      "trigger_signals": [
+        "prediabetes_confirmed",
+        "diabetes_confirmation_required",
+        "bmi_obese_asian"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "priority_override_signals": {
+        "diabetes_confirmation_required": "Red"
+      },
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Diabetes Screening Pro 1",
+        "product_code": "DM_PRO1",
+        "price_thb": 2134
+      },
+      "gender_constraint": null,
+      "age_min": 15,
+      "age_max": null,
+      "guideline": "ADA Standards of Medical Care 2024 — pre-diabetes monitoring: HbA1c + fasting glucose every 1–3 years depending on risk; insulin resistance assessment for obese patients",
+      "admin_configurable_fields": [
+        "price_thb",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "thyroid_pro1",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Thyroid Function Panel Pro 1 — TSH + Free T4 (6 items)",
+      "category": "endocrine",
+      "trigger_signals": [
+        "tsh_status",
+        "symptom_palpitations"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "_trigger_note": "tsh_status fires when TSH is borderline or abnormal. symptom_palpitations (Option A) fires when patient reports palpitations.",
+      "priority_level_default": "Yellow",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "_symptom_signal_note": "symptom_palpitations is an Option A signal.",
+      "navavej_product": {
+        "product_name": "Thyroid Pro 1",
+        "product_code": "THYRO_PRO1",
+        "price_thb": 2134
+      },
+      "gender_constraint": null,
+      "age_min": 15,
+      "age_max": null,
+      "guideline": "ATA Hypothyroidism Guidelines 2014 — initial evaluation for suspected thyroid dysfunction; TSH as first-line",
+      "_expert_review_note": "Should Thyroid Pro 1 be triggered by any abnormal tsh_status, or only specific sub-signals (tsh_borderline_high, hypothyroidism_likely, hyperthyroidism_possible)? The current tsh_status signal fires for any TSH abnormality.",
+      "admin_configurable_fields": [
+        "price_thb",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "thyroid_pro2",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Thyroid Function Panel Pro 2 — TSH, Free T3, Free T4, Anti-TPO (7 items)",
+      "category": "endocrine",
+      "trigger_signals": [
+        "tsh_borderline_high",
+        "hypothyroidism_likely",
+        "hyperthyroidism_possible"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "priority_override_signals": {
+        "hypothyroidism_likely": "Orange",
+        "hyperthyroidism_possible": "Orange"
+      },
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Thyroid Pro 2",
+        "product_code": "THYRO_PRO2",
+        "price_thb": 3395
+      },
+      "gender_constraint": null,
+      "age_min": 15,
+      "age_max": null,
+      "guideline": "ATA 2014 — follow-up for confirmed TSH abnormality: Free T3/T4 + anti-TPO antibodies for comprehensive autoimmune thyroid evaluation",
+      "admin_configurable_fields": [
+        "price_thb",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "fibroscan",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "FibroTouch — Liver Fibrosis & Fat Assessment (Non-Invasive)",
+      "category": "gi_liver",
+      "trigger_signals": [
+        "fibroscan_indication",
+        "liver_enzyme_elevation_significant",
+        "high_triglycerides"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "priority_override_signals": {
+        "liver_enzyme_elevation_significant": "Red"
+      },
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "FibroTouch (Liver Fat Assessment)",
+        "product_code": "FIBRO_TOUCH",
+        "price_thb": 1900
+      },
+      "gender_constraint": null,
+      "age_min": 18,
+      "age_max": null,
+      "guideline": "AASLD NAFLD/MASLD Practice Guidance 2023 — fibroscan/elastography for NAFLD staging when BMI ≥ 23 (Asian) + elevated ALT, or alcohol-related liver disease risk, or TG ≥ 200",
+      "admin_configurable_fields": [
+        "price_thb",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "hepatitis_abc_screen",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Hepatitis A, B, C Viral Screening (5 items)",
+      "category": "gi_liver",
+      "trigger_signals": [
+        "hepatitis_b_vaccination_status",
+        "hepatitis_b_anti_hbs_check_needed"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "priority_override_signals": {
+        "hepatitis_b_not_started": "Red"
+      },
+      "safety_contraindication_signals": [],
+      "_expert_review_note": "hepatitis_b_vaccination_status fires for incomplete series (not started or < 2 doses). Should Hepatitis C screening (anti-HCV) have a separate trigger, e.g., for patients born 1945–1965 or with at-risk behavior? Currently bundled into the 5-item panel.",
+      "navavej_product": {
+        "product_name": "Hepatitis A, B, C Screening (5 items)",
+        "product_code": "HEPA_ABC",
+        "price_thb": 1900
+      },
+      "gender_constraint": null,
+      "age_min": 18,
+      "age_max": null,
+      "guideline": "AASLD HBV Management Guidelines 2023; CDC ACIP 2022 — HBsAg, anti-HBs, anti-HBc, anti-HAV, anti-HCV panel",
+      "admin_configurable_fields": [
+        "price_thb",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "kidney_screening",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Kidney Disease Screening — Urine ACR, eGFR, Microalbumin",
+      "category": "nephrology",
+      "trigger_signals": [
+        "ckd_comorbidity",
+        "ckd_rapid_progression",
+        "dm_comorbidity",
+        "htn_active"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "priority_override_signals": {
+        "ckd_rapid_progression": "Red"
+      },
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Kidney Disease Screening",
+        "product_code": "KIDNEY_SCREEN",
+        "price_thb": 2500
+      },
+      "gender_constraint": null,
+      "age_min": 18,
+      "age_max": null,
+      "guideline": "KDIGO 2022 — CKD monitoring + DM nephropathy surveillance; ADA Standards 2024 — annual urine ACR + eGFR for all DM patients",
+      "admin_configurable_fields": [
+        "price_thb",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "abdominal_ultrasound_full",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Ultrasound — Whole Abdomen (Upper + Lower)",
+      "category": "imaging",
+      "trigger_signals": [
+        "at_risk_alcohol_use",
+        "fibroscan_indication",
+        "liver_enzyme_mildly_elevated"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Abdominal Ultrasound (Full)",
+        "product_code": "US_ABD_FULL",
+        "price_thb": 2550
+      },
+      "gender_constraint": null,
+      "age_min": 18,
+      "age_max": null,
+      "guideline": "AASLD 2023 — abdominal ultrasound for NAFLD/MASLD screening and alcohol-related liver disease workup; clinical practice for mildly elevated liver enzymes",
+      "admin_configurable_fields": [
+        "price_thb",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "carotid_ultrasound",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Carotid Artery Ultrasound — Atherosclerosis & Stroke Risk",
+      "category": "imaging",
+      "trigger_signals": [
+        "family_hx_premature_cad",
+        "ascvd_risk_intermediate",
+        "ascvd_high",
+        "bp_stage2_htn"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "priority_override_signals": {
+        "ascvd_high": "Orange"
+      },
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Carotid Artery Ultrasound",
+        "product_code": "US_CAROTID",
+        "price_thb": 5096
+      },
+      "gender_constraint": null,
+      "age_min": 50,
+      "age_max": null,
+      "guideline": "ACC/AHA 2018 Cholesterol Guideline — carotid IMT as ACC/AHA risk enhancer for reclassifying borderline-to-intermediate ASCVD risk patients",
+      "_expert_review_note": "Is age_min 50 appropriate, or should it be lower for patients with strong family_hx_premature_cad (e.g., start at 40)?",
+      "admin_configurable_fields": [
+        "price_thb",
+        "age_min",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "retinal_exam",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Retinal Examination — Diabetic Retinopathy Screening",
+      "category": "ophthalmology",
+      "trigger_signals": [
+        "dm_organ_complication_screening",
+        "dm_comorbidity"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Retinal Examination",
+        "product_code": "RETINA_EXAM",
+        "price_thb": 2590
+      },
+      "gender_constraint": null,
+      "age_min": 18,
+      "age_max": null,
+      "guideline": "ADA Standards of Medical Care 2024 — dilated eye exam at diagnosis, then annually (or every 1–2 years if stable and no retinopathy)",
+      "admin_configurable_fields": [
+        "price_thb",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "spine_mri",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Spine MRI — Cervical or Lumbar (Office Syndrome / Chronic Back Pain)",
+      "category": "musculoskeletal",
+      "trigger_signals": [
+        "office_syndrome",
+        "symptom_chronic_back_pain"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Green",
+      "_priority_rationale": "Green: occupational risk screening / patient-reported symptom — not an urgent clinical finding. Discretionary imaging.",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "_symptom_signal_note": "symptom_chronic_back_pain is an Option A signal.",
+      "navavej_product": {
+        "product_name": "Spine MRI (Cervical or Lumbar)",
+        "product_code": "MRI_SPINE",
+        "price_thb": 6500
+      },
+      "gender_constraint": null,
+      "age_min": 18,
+      "age_max": null,
+      "guideline": "WHO Global Plan of Action on Workers' Health 2008 — occupational MSK risk (prolonged sedentary desk work); clinical practice for chronic back pain workup",
+      "admin_configurable_fields": [
+        "price_thb",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "multi_cancer_spotmas",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Multi-Cancer Screening (SPOT-MAS) — Blood-Based Early Multi-Cancer Detection",
+      "category": "cancer_screening",
+      "trigger_signals": [
+        "family_hx_colon_ca",
+        "family_hx_breast_ca",
+        "family_hx_prostate_ca"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "_expert_review_note": "SPOT-MAS is a cfDNA-based multi-cancer early detection test. Clinical evidence is emerging but not yet endorsed by USPSTF or major guidelines as a primary screening tool. Is this appropriate for recommendation to patients with family history alone? Consider limiting to patients where at least 2 of the 3 family_hx signals are active, or where conventional screening is already overdue.",
+      "navavej_product": {
+        "product_name": "Multi-Cancer Screening SPOT-MAS",
+        "product_code": "SPOTMAS",
+        "price_thb": 15900
+      },
+      "gender_constraint": null,
+      "age_min": 40,
+      "age_max": null,
+      "guideline": "Clinical practice — first-degree family history of hereditary cancers (CRC, breast, prostate); SPOT-MAS cfDNA multi-cancer panel (proprietary — not USPSTF-endorsed guideline)",
+      "admin_configurable_fields": [
+        "price_thb",
+        "age_min",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "influenza_vaccine",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Influenza Vaccine — Annual (Standard 3-strain, Age 1–59)",
+      "category": "vaccination",
+      "trigger_signals": [
+        "influenza_vaccination_gap"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Orange",
+      "_priority_rationale": "Orange: annual vaccination gap — low burden, high preventive value. Timely completion recommended within this visit.",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Influenza Vaccine (3-strain)",
+        "product_code": "VAX_FLU_STD",
+        "price_thb": 490
+      },
+      "gender_constraint": null,
+      "age_min": 1,
+      "age_max": 59,
+      "guideline": "CDC ACIP Adult Immunization Schedule 2024 — annual influenza vaccination for all adults; standard dose for ages < 65",
+      "_age_note": "Age 1–59 receives standard dose. Age ≥ 60 should receive high-dose/adjuvanted (see influenza_vaccine_senior).",
+      "admin_configurable_fields": [
+        "price_thb",
+        "age_max",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "influenza_vaccine_senior",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Influenza Vaccine — High-Dose / Adjuvanted (Age ≥ 60)",
+      "category": "vaccination",
+      "trigger_signals": [
+        "influenza_vaccination_gap"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Orange",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "_age_note": "Mutually exclusive with influenza_vaccine by age band — MCP Server filters: patients ≥ 60 receive this item, not influenza_vaccine.",
+      "navavej_product": {
+        "product_name": "Senior Influenza Vaccine (High-Dose, Age 60+)",
+        "product_code": "VAX_FLU_SENIOR",
+        "price_thb": 2300
+      },
+      "gender_constraint": null,
+      "age_min": 60,
+      "age_max": null,
+      "guideline": "CDC ACIP 2024 — high-dose or MF59-adjuvanted influenza vaccine preferred for adults ≥ 65; Navavej age threshold set at 60",
+      "_expert_review_note": "ACIP prefers high-dose from ≥ 65, not ≥ 60. Confirm with hospital whether to use age 60 or 65 as the cutover point.",
+      "admin_configurable_fields": [
+        "price_thb",
+        "age_min",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "hepatitis_b_vaccine",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Hepatitis B Vaccine Series (3-dose or 2-dose Heplisav-B)",
+      "category": "vaccination",
+      "trigger_signals": [
+        "hepatitis_b_vaccination_status"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Red",
+      "_priority_rationale": "Red if not started (0 doses). Yellow if series incomplete (1–2 doses started).",
+      "priority_override_signals": {
+        "hepatitis_b_series_incomplete": "Yellow"
+      },
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Hepatitis B Vaccine",
+        "product_code": "VAX_HEPB",
+        "price_thb": null,
+        "note": "OQ: Confirm per-dose price. 3-dose series (0, 1, 6 months) or 2-dose Heplisav-B (0, 1 month). Note which is available."
+      },
+      "gender_constraint": null,
+      "age_min": 1,
+      "age_max": null,
+      "guideline": "CDC ACIP 2022 — Hepatitis B vaccination recommended for all unvaccinated adults",
+      "admin_configurable_fields": [
+        "price_thb",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "pneumococcal_vaccine",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Pneumococcal Vaccine (PCV20 or PCV15 + PPSV23)",
+      "category": "vaccination",
+      "trigger_signals": [
+        "pneumococcal_vaccination_gap"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Orange",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Pneumococcal Vaccine",
+        "product_code": "TBD",
+        "price_thb": null,
+        "note": "OQ: Confirm product code and price. PCV20 (single dose) or PCV15 + PPSV23 series — confirm which is available at Navavej."
+      },
+      "gender_constraint": null,
+      "age_min": 65,
+      "age_max": null,
+      "guideline": "CDC ACIP 2022 — PCV15 + PPSV23 or PCV20 alone (1 dose) for adults ≥ 65; also for high-risk adults < 65 (immunocompromised, asplenia, chronic illness)",
+      "_expert_review_note": "Should high-risk patients < 65 (e.g., those with active CKD, DM, or immunosuppression) also receive this recommendation? Currently age_min: 65 only.",
+      "admin_configurable_fields": [
+        "price_thb",
+        "age_min",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "shingrix_vaccine",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Shingrix (RZV) — Zoster Vaccine 2-Dose Series",
+      "category": "vaccination",
+      "trigger_signals": [
+        "shingrix_vaccination_gap"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "navavej_product": {
+        "product_name": "Shingrix (RZV) — Zoster Vaccine",
+        "product_code": "VAX_SHINGRIX",
+        "price_thb": null,
+        "note": "OQ: Confirm per-dose price. 2-dose series: Dose 1 at visit, Dose 2 at 2–6 months."
+      },
+      "gender_constraint": null,
+      "age_min": 50,
+      "age_max": null,
+      "guideline": "CDC ACIP 2017 — RZV (Shingrix) 2-dose series preferred over ZVL for all adults ≥ 50",
+      "admin_configurable_fields": [
+        "price_thb",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "sleep_apnea_psg",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Full Sleep Test (1-Night PSG) — Sleep Apnea Evaluation",
+      "category": "neurology",
+      "trigger_signals": [
+        "night_shift_worker",
+        "bmi_obese_asian",
+        "sleep_apnea_screen_result"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "_expert_review_note": "Is bmi_obese_asian alone sufficient to trigger sleep apnea PSG, or should it require at least one additional indicator (e.g., reported snoring from symptom_tags, or HTN as OSA comorbidity marker)?",
+      "navavej_product": {
+        "product_name": "Full Sleep Test 1 Night PSG (with Attendant)",
+        "product_code": "SLEEP_PSG",
+        "price_thb": 10900
+      },
+      "gender_constraint": null,
+      "age_min": 18,
+      "age_max": null,
+      "guideline": "Clinical practice — OSA screening for night-shift workers and obese patients; AASM guidelines for polysomnography indications",
+      "admin_configurable_fields": [
+        "price_thb",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "menopause_screening",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Menopause Screening Pro Premium — Hormonal Assessment (19 items)",
+      "category": "women_health",
+      "trigger_signals": [
+        "reproductive_history"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "_trigger_note": "reproductive_history signal fires when the questionnaire response indicates perimenopausal or menopausal status. In the absence of questionnaire data (missing_signals), this add-on will not be triggered — consider adding an age-based fallback trigger for female patients age 45–60.",
+      "priority_level_default": "Yellow",
+      "priority_override_signals": {},
+      "safety_contraindication_signals": [],
+      "_expert_review_note": "Should this item also be triggered by age alone (female age 45–60) as a fallback when reproductive_history questionnaire is missing? Currently only fires if questionnaire is completed and indicates perimenopausal status.",
+      "navavej_product": {
+        "product_name": "Menopause Screening Pro Premium",
+        "product_code": "MENO_PRO",
+        "price_thb": 7900
+      },
+      "gender_constraint": "female",
+      "age_min": 45,
+      "age_max": 60,
+      "guideline": "Clinical practice — perimenopausal hormonal assessment; ATA 2014 (thyroid function in menopause); endocrine evaluation for hormonal status",
+      "admin_configurable_fields": [
+        "price_thb",
+        "age_min",
+        "age_max",
+        "priority_level_default"
+      ],
+      "last_updated_by": "system_initial_seed",
+      "last_updated_at": "2026-03-13T00:00:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "arrhythmia_screening_program",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Arrhythmia Screening Program",
+      "category": "cardiac",
+      "trigger_signals": [
+        "history_loss_of_consciousness",
+        "family_hx_sudden_cardiac_death_young"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Orange",
+      "navavej_product": {
+        "product_name": "Arrhythmia Screening Program",
+        "product_code": "ARRHYT_PRO",
+        "price_thb": 8500
+      },
+      "gender_constraint": null,
+      "age_min": 15,
+      "age_max": null,
+      "guideline": "Navavej Cardiology protocol for syncope and sudden death family history workup",
+      "last_updated_at": "2026-03-18T12:15:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "male_hormone_assessment",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Male Hormone Assessment (Andropause Screening)",
+      "category": "endocrine",
+      "trigger_signals": [
+        "male_age_40_plus",
+        "symptom_fatigue",
+        "symptom_mood_swings"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "navavej_product": {
+        "product_name": "Male Hormone Assessment",
+        "product_code": "MALE_HORMONE",
+        "price_thb": 4500
+      },
+      "gender_constraint": "male",
+      "age_min": 40,
+      "age_max": null,
+      "guideline": "Endocrine Society Clinical Practice Guideline for Testosterone Therapy in Men",
+      "last_updated_at": "2026-03-18T12:15:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "dengue_vaccine",
+      "version": "v2026.03.1-draft",
+      "status": "active",
+      "label": "Dengue Vaccine (2-Dose Series)",
+      "category": "vaccination",
+      "trigger_signals": [
+        "overdue_dengue_vaccination"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "navavej_product": {
+        "product_name": "Dengue Vaccine",
+        "product_code": "VAX_DENGUE",
+        "price_thb": 3500
+      },
+      "gender_constraint": null,
+      "age_min": 4,
+      "age_max": 60,
+      "guideline": "CDC/Thai Ministry of Public Health recommendation for Dengue endemic areas",
+      "last_updated_at": "2026-03-18T12:15:00Z"
+    },
+    {
+      "record_type": "add_on_item",
+      "item_code": "toxicology_heavy_metal",
+      "version": "v2026.03.1-draft",
+      "status": "draft",
+      "label": "Toxicology Screening (Heavy Metal Panel)",
+      "category": "occupational",
+      "trigger_signals": [
+        "occupational_risk_factory",
+        "chemical_exposure_risk"
+      ],
+      "match_logic": "ANY_OF_TRIGGER_SIGNALS",
+      "priority_level_default": "Yellow",
+      "navavej_product": {
+        "product_name": "Toxicology Screening (Heavy Metal)",
+        "product_code": "TOX_METAL",
+        "price_thb": 5200
+      },
+      "gender_constraint": null,
+      "age_min": 18,
+      "age_max": null,
+      "guideline": "Occupational Health surveillance for industrial chemical exposure",
+      "last_updated_at": "2026-03-18T12:15:00Z"
+    }
+  ]
+}

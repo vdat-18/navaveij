@@ -13,14 +13,24 @@
 
 This document defines the complete output schema for the Recommendation Platform — the typed structure that flows from AI model output through system enrichment to the ROC Dashboard.
 
-### Two-Layer Output Model
+### Three-Agent Output Model
 
-The final `RecommendationOutput` record is assembled in two stages:
+The final `RecommendationOutput` record is assembled through a coordinated three-agent pipeline:
 
 ```
-Stage 1 — AI Model emits (BAML-enforced):
-  ai_recommended_tier, tier_deviation_justification?, add_ons[] (core),
-  reasoning_trace, supporting_signals[], missing_signals[], communication_script
+Stage 1 — Multi-Agent AI Pipeline (BAML-enforced):
+
+  Agent 1: Clinical Risk Analyzer
+    Input: clinical_signals, biomarker_trends, hard_constraints
+    Output: ClinicalRiskProfile (primary_risks, severity, suggested_tier, signals)
+
+  Agent 2: Policy & Package Resolver
+    Input: ClinicalRiskProfile, program_ruleset (catalog + rules)
+    Output: RecommendationPlan (final_tier, deviation_note, add_ons, reasoning)
+
+  Agent 3: Clinical Communicator
+    Input: ClinicalRiskProfile, RecommendationPlan
+    Output: CommunicationScript (conclusion, summary, explanation, highlights, steps)
 
 Stage 2 — System injects (post-AI processing):
   rule_preliminary_tier, resolved_package, confidence_score, confidence_tier,

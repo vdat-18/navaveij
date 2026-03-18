@@ -1,18 +1,20 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_a9b8c7d6",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_a9b8c7d6",
     "patient_demographics": {
       "gender": "male",
       "age": 34,
-      "date_of_birth_token": "dob_tok_19910712",
       "ethnicity": "asian",
       "bmi_threshold_profile": "asian_adjusted",
-      "name": "Chaiyo Siriwat"
+      "name": "Chaiyo Siriwat",
+      "birth_date": "1992-06-15",
+      "phone": "+66 846179539",
+      "email": "chaiyo.siriwat.39@example.com",
+      "address": "449 Navavej Rd, Bueng Kum, Bangkok 10230",
+      "mrn": "MRN-1179539"
     },
     "eligibility_exclusions": [
       {
@@ -39,7 +41,6 @@
     "patient_id": "id_a9b8c7d6"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_a9b8c7d6",
     "rule_preliminary_tier": "Standard",
     "overall_risk_level": "Low",
     "applicable_signals": [
@@ -105,6 +106,23 @@
         "guideline": "CDC ACIP 2024",
         "note": "Last seasonal flu vaccine ~6 months ago; due for annual shot later this year, typically in Fall.",
         "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "hepatitis_b",
+        "label": "Hepatitis B",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 3,
+        "eligible_since_age": 0,
+        "age_at_evaluation": 34,
+        "years_until_due": null,
+        "priority_color": "Yellow",
+        "guideline": "CDC ACIP 2024",
+        "note": "Consider completion of Hepatitis B vaccination series if not done previously.",
+        "anti_hbs_checked": false
       }
     ],
     "abnormal_triggers": [],
@@ -127,11 +145,19 @@
         "audit_c_score": 1.0,
         "risk_level": "none",
         "fibroscan_indicated": false,
-        "note": "Drinks socially, adhering to low-risk consumption guidelines."
+        "note": "Drinks socially, adhering to low-risk consumption guidelines.",
+        "units_per_week": 2.0
       },
       "occupational": {
-        "tags": [],
-        "add_ons_triggered": []
+        "tags": [
+          "low_exposure_to_physical_hazards",
+          "desk_job",
+          "office_work"
+        ],
+        "add_ons_triggered": [],
+        "computer_hours_per_day": 8.0,
+        "night_shift_worker": false,
+        "factory_chemical_exposure": false
       },
       "physical_activity": {
         "days_per_week": 4,
@@ -141,7 +167,8 @@
     },
     "symptom_tags": [],
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "chief_complaint": "Wellness check for routine health maintenance."
   },
   "biomarker_trends": {
     "patient_token": "tok_hmac_a9b8c7d6",

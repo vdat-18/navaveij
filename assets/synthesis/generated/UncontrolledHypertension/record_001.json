@@ -1,18 +1,20 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_2b67df89",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_2b67df89",
     "patient_demographics": {
       "gender": "male",
       "age": 56,
-      "date_of_birth_token": "dob_tok_19700315",
       "ethnicity": "asian",
       "bmi_threshold_profile": "asian_adjusted",
-      "name": "Ananda Wichai"
+      "name": "Ananda Wichai",
+      "birth_date": "1970-06-15",
+      "phone": "+66 823871704",
+      "email": "ananda.wichai.4@example.com",
+      "address": "14 Navavej Rd, Bueng Kum, Bangkok 10230",
+      "mrn": "MRN-5871704"
     },
     "eligibility_exclusions": [
       {
@@ -39,7 +41,6 @@
     "patient_id": "id_2b67df89"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_2b67df89",
     "rule_preliminary_tier": "Advanced",
     "overall_risk_level": "High",
     "applicable_signals": [
@@ -199,6 +200,57 @@
         "guideline": "CDC ACIP 2024",
         "note": "Missed the 2025–2026 season.",
         "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "pneumococcal",
+        "label": "Pneumococcal conjugate vaccine (PCV20)",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 1,
+        "eligible_since_age": 50,
+        "age_at_evaluation": 56,
+        "years_until_due": null,
+        "priority_color": "Red",
+        "guideline": "CDC Pneumococcal Vaccine Guidelines",
+        "note": "Indicated due to Stage 2 Hypertension and ASCVD risk markers.",
+        "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "shingrix",
+        "label": "Shingles vaccine (Shingrix)",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 2,
+        "eligible_since_age": 50,
+        "age_at_evaluation": 56,
+        "years_until_due": null,
+        "priority_color": "Orange",
+        "guideline": "CDC Shingrix Recommendation",
+        "note": "Recommended for all patients ≥50 years old.",
+        "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "hepatitis_b",
+        "label": "Hepatitis B vaccine",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 3,
+        "eligible_since_age": null,
+        "age_at_evaluation": 56,
+        "years_until_due": null,
+        "priority_color": "Orange",
+        "guideline": "CDC Hepatitis B Guidelines",
+        "note": "Indicated due to elevated ASCVD risk.",
+        "anti_hbs_checked": null
       }
     ],
     "abnormal_triggers": [
@@ -234,16 +286,20 @@
         "audit_c_score": 2.8,
         "risk_level": "borderline",
         "fibroscan_indicated": false,
-        "note": "Borderline AUDIT-C; reduce alcohol intake."
+        "note": "Borderline AUDIT-C; reduce alcohol intake.",
+        "units_per_week": 12.0
       },
       "occupational": {
         "tags": [
+          "sedentary_lifestyle",
           "office_syndrome"
         ],
         "add_ons_triggered": [
           "msk_assessment",
           "vision_check_annual"
-        ]
+        ],
+        "computer_hours_per_day": 8.0,
+        "stress_level": "High"
       },
       "physical_activity": {
         "days_per_week": 2,
@@ -251,14 +307,18 @@
         "add_ons_triggered": [
           "exercise_counseling"
         ]
-      }
+      },
+      "dietary_salt_risk": true,
+      "medication_adherence_note": "Occasional missed doses, especially on weekends.",
+      "home_bp_monitoring": true
     },
     "symptom_tags": [
       "dizziness",
       "mild_dyspnea_on_exertion"
     ],
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "chief_complaint": "Fatigue and dizziness possibly related to hypertensive symptoms and cardiometabolic risk factors."
   },
   "biomarker_trends": {
     "patient_token": "tok_hmac_2b67df89",

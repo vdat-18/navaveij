@@ -1,18 +1,20 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_58k9qlwp",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_58k9qlwp",
     "patient_demographics": {
       "gender": "male",
       "age": 51,
-      "date_of_birth_token": "dob_tok_19750310",
       "ethnicity": "asian",
       "bmi_threshold_profile": "asian_adjusted",
-      "name": "Boon-Mee Wichai"
+      "name": "Boon-Mee Wichai",
+      "birth_date": "1975-06-15",
+      "phone": "+66 880067295",
+      "email": "boon-mee.wichai.95@example.com",
+      "address": "505 Navavej Rd, Bueng Kum, Bangkok 10230",
+      "mrn": "MRN-8067295"
     },
     "eligibility_exclusions": [
       {
@@ -39,7 +41,6 @@
     "patient_id": "id_58k9qlwp"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_58k9qlwp",
     "rule_preliminary_tier": "Advanced",
     "overall_risk_level": "High",
     "applicable_signals": [
@@ -172,6 +173,57 @@
         "guideline": "CDC ACIP 2024",
         "note": "Missed the 2025–2026 influenza season.",
         "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "pneumococcal",
+        "label": "Pneumococcal polysaccharide vaccine (PCV20)",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 1,
+        "eligible_since_age": null,
+        "age_at_evaluation": 51,
+        "years_until_due": null,
+        "priority_color": "Red",
+        "guideline": "CDC ACIP 2024",
+        "note": "Highly recommended due to hypertension and ASCVD risk factors.",
+        "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "shingrix",
+        "label": "Recombinant zoster vaccine (RZV or Shingrix)",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 2,
+        "eligible_since_age": 50,
+        "age_at_evaluation": 51,
+        "years_until_due": null,
+        "priority_color": "Orange",
+        "guideline": "CDC ACIP 2023",
+        "note": "Recommended as patient is age 50 or older.",
+        "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "hepatitis_b",
+        "label": "Hepatitis B vaccine",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 3,
+        "eligible_since_age": null,
+        "age_at_evaluation": 51,
+        "years_until_due": null,
+        "priority_color": "Orange",
+        "guideline": "CDC ACIP 2024",
+        "note": "Recommended due to missed vaccination earlier in life.",
+        "anti_hbs_checked": true
       }
     ],
     "abnormal_triggers": [
@@ -207,16 +259,20 @@
         "audit_c_score": 2.8,
         "risk_level": "borderline",
         "fibroscan_indicated": false,
-        "note": "Borderline AUDIT-C; suggest ongoing monitoring."
+        "note": "Borderline AUDIT-C; suggest ongoing monitoring.",
+        "units_per_week": 5.6
       },
       "occupational": {
         "tags": [
+          "sedentary_lifestyle",
           "office_syndrome"
         ],
         "add_ons_triggered": [
           "msk_assessment",
           "vision_check_annual"
-        ]
+        ],
+        "computer_hours_per_day": 8.0,
+        "stress_level": "High"
       },
       "physical_activity": {
         "days_per_week": 2,
@@ -224,14 +280,18 @@
         "add_ons_triggered": [
           "exercise_counseling"
         ]
-      }
+      },
+      "dietary_salt_risk": true,
+      "medication_adherence_note": "Missed doses on weekends and during travel.",
+      "home_bp_monitoring": true
     },
     "symptom_tags": [
       "dull_headache",
       "palpitations_on_exertion"
     ],
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "chief_complaint": "Uncontrolled hypertension and worsening cardiometabolic risk factors, experiencing dull headaches and palpitations on exertion."
   },
   "biomarker_trends": {
     "patient_token": "tok_hmac_58k9qlwp",

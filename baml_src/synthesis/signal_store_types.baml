@@ -4,7 +4,7 @@
 class PatientDemographics {
   gender string // "male" | "female" | "other"
   age int
-  date_of_birth_token string
+  date_of_birth_token string?
   ethnicity string // "asian" | "caucasian" | "african" | "hispanic" | "other" | "unknown"
   bmi_threshold_profile string // "asian_adjusted" | "who_global"
 }
@@ -26,7 +26,7 @@ class SafetyFlag {
 }
 
 class HardConstraints {
-  patient_token string
+  patient_token string?
   patient_demographics PatientDemographics
   eligibility_exclusions EligibilityExclusion[]
   active_safety_flags SafetyFlag[]
@@ -119,6 +119,9 @@ class AlcoholBehavior {
 class OccupationalBehavior {
   tags string[]
   add_ons_triggered string[]
+  stress_level string?
+  computer_hours_per_day float?
+  retired_status bool?
 }
 
 class PhysicalActivityBehavior {
@@ -132,10 +135,14 @@ class BehavioralFlags {
   alcohol AlcoholBehavior?
   occupational OccupationalBehavior?
   physical_activity PhysicalActivityBehavior?
+  dietary_salt_risk bool?
+  medication_adherence_note string?
+  home_bp_monitoring bool?
 }
 
 class ClinicalSignals {
-  patient_token string
+  patient_token string?
+  chief_complaint string?
   rule_preliminary_tier string // "Standard" | "Advanced" | "Premium"
   overall_risk_level string // "Low" | "Moderate" | "High"
   applicable_signals string[] // All 40 signal IDs from catalog evaluated for this patient
@@ -147,6 +154,7 @@ class ClinicalSignals {
   vaccination_gaps VaccinationGap[]
   abnormal_triggers AbnormalTrigger[]
   family_history_flags FamilyHistoryFlags
+  reproductive_history_detail ReproductiveHistoryDetail?
   behavioral_flags BehavioralFlags
   symptom_tags string[]
   computed_at string
@@ -280,7 +288,7 @@ class WaistCircumference {
 }
 
 class BiomarkerTrends {
-  patient_token string
+  patient_token string?
   bmi BMITrend
   blood_pressure BloodPressureTrend
   egfr EGFRTrend
@@ -300,7 +308,7 @@ class SignalStoreMeta {
 
 class SignalStoreRecord {
   schema_version string
-  patient_token string
+  patient_token string?
   computed_at string
   pipeline_run_id string
   fhir_snapshot_version string

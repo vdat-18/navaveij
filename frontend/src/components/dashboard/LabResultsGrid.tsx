@@ -44,8 +44,8 @@ export function LabResultsGrid({ labs }: LabResultsGridProps) {
     return (
         <div className="space-y-6 mt-10">
             <div className="flex items-center gap-2 text-navavej-teal">
-                <Beaker className="w-5 h-5" />
-                <span className="text-xs font-black uppercase tracking-[0.2em]">Comprehensive metabolic Profile</span>
+                <Beaker className="w-6 h-6" />
+                <span className="text-sm font-black uppercase tracking-[0.2em]">Comprehensive metabolic Profile</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4">
@@ -53,11 +53,11 @@ export function LabResultsGrid({ labs }: LabResultsGridProps) {
                     <div key={lab.lab_id} className="navavej-card p-5 bg-white flex flex-col justify-between group hover:scale-[1.02] transition-all cursor-default">
                         <div>
                             <div className="flex justify-between items-start mb-3">
-                                <span className="text-[9px] font-black text-navavej-gray-med uppercase tracking-wider truncate mr-2">
+                                <span className="text-[11px] font-black text-navavej-gray-med uppercase tracking-wider truncate mr-2">
                                     {lab.label}
                                 </span>
                                 <div className={cn(
-                                    "px-2 py-0.5 rounded text-[8px] font-black uppercase border",
+                                    "px-2 py-0.5 rounded text-[9px] font-black uppercase border",
                                     getStatusColor(lab.interpretation)
                                 )}>
                                     {translateIdentifier(lab.category)}
@@ -68,7 +68,7 @@ export function LabResultsGrid({ labs }: LabResultsGridProps) {
                                 <span className="text-2xl font-black text-navavej-gray-dark tracking-tighter">
                                     {lab.current_value}
                                 </span>
-                                <span className="text-[10px] font-bold text-navavej-gray-med italic">
+                                <span className="text-xs font-bold text-navavej-gray-med italic">
                                     {lab.unit}
                                 </span>
                                 <div className="ml-auto">
@@ -79,8 +79,8 @@ export function LabResultsGrid({ labs }: LabResultsGridProps) {
 
                         <div className="mt-4 pt-3 border-t border-navavej-border flex justify-between items-center">
                             <div className="flex flex-col">
-                                <span className="text-[7px] font-black text-navavej-gray-med uppercase tracking-widest">Ref Range</span>
-                                <span className="text-[9px] font-bold text-navavej-gray-dark">
+                                <span className="text-[9px] font-black text-navavej-gray-med uppercase tracking-widest">Ref Range</span>
+                                <span className="text-[11px] font-bold text-navavej-gray-dark">
                                     {lab.reference_range?.low ?? "--"} - {lab.reference_range?.high ?? lab.reference_range?.optimal ?? "--"}
                                 </span>
                             </div>

@@ -1,18 +1,20 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_6b8c9d2f",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_6b8c9d2f",
     "patient_demographics": {
       "gender": "female",
       "age": 50,
-      "date_of_birth_token": "dob_tok_19760310",
       "ethnicity": "asian",
       "bmi_threshold_profile": "asian_adjusted",
-      "name": "Hathai Siriwat"
+      "name": "Hathai Siriwat",
+      "birth_date": "1976-06-15",
+      "phone": "+66 818126171",
+      "email": "hathai.siriwat.71@example.com",
+      "address": "81 Navavej Rd, Bueng Kum, Bangkok 10230",
+      "mrn": "MRN-9126171"
     },
     "eligibility_exclusions": [],
     "active_safety_flags": [],
@@ -22,7 +24,6 @@
     "patient_id": "id_6b8c9d2f"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_6b8c9d2f",
     "rule_preliminary_tier": "Advanced",
     "overall_risk_level": "Moderate",
     "applicable_signals": [
@@ -190,6 +191,57 @@
         "guideline": "CDC ACIP 2017",
         "note": "Age < 50; not yet indicated.",
         "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "shingrix",
+        "label": "Shingles (RZV/Shingrix)",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 2,
+        "eligible_since_age": 50,
+        "age_at_evaluation": 50,
+        "years_until_due": null,
+        "priority_color": "Yellow",
+        "guideline": "CDC ACIP 2017",
+        "note": "Age meets eligibility, vaccine now indicated.",
+        "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "pneumococcal",
+        "label": "Pneumococcal Vaccine",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 1,
+        "eligible_since_age": 50,
+        "age_at_evaluation": 50,
+        "years_until_due": null,
+        "priority_color": "Yellow",
+        "guideline": "CDC ACIP 2024",
+        "note": "Indicated due to metabolic syndrome risk factors.",
+        "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "hepatitis_b",
+        "label": "Hepatitis B Vaccine",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 3,
+        "eligible_since_age": null,
+        "age_at_evaluation": 50,
+        "years_until_due": null,
+        "priority_color": "Yellow",
+        "guideline": "CDC ACIP 2024",
+        "note": "Indicated for general population health in adults.",
+        "anti_hbs_checked": false
       }
     ],
     "abnormal_triggers": [
@@ -226,7 +278,8 @@
         "audit_c_score": 2.1,
         "risk_level": "low",
         "fibroscan_indicated": false,
-        "note": null
+        "note": null,
+        "units_per_week": 1.0
       },
       "occupational": {
         "tags": [
@@ -234,7 +287,11 @@
         ],
         "add_ons_triggered": [
           "msk_assessment"
-        ]
+        ],
+        "computer_hours_per_day": 9.0,
+        "night_shift_worker": false,
+        "factory_chemical_exposure": false,
+        "stress_level": "Moderate"
       },
       "physical_activity": {
         "days_per_week": 2,
@@ -246,10 +303,19 @@
     },
     "symptom_tags": [
       "fatigue",
-      "mild_joint_stiffness"
+      "mild_joint_stiffness",
+      "snoring"
     ],
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "chief_complaint": "Concern about fatigue, abdominal weight gain, and overall cardiometabolic health.",
+    "reproductive_history_detail": {
+      "age_at_menarche": 12,
+      "age_at_menopause": 51,
+      "num_children": 2,
+      "hormonal_contraception": false
+    },
+    "history_of_gdm": true
   },
   "biomarker_trends": {
     "patient_token": "tok_hmac_6b8c9d2f",

@@ -8,7 +8,6 @@ import { cn } from "@/shared/utils";
 interface Patient {
     patient_id: string;
     patient_name: string;
-    patient_token: string;
 }
 
 interface PatientListProps {

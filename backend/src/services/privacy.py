@@ -16,6 +16,7 @@ PII_FIELDS = {
     "address",
     "mrn",
     "fhir_patient_id",
+    "patient_id",
 }
 
 

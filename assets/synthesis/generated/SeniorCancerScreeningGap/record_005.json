@@ -1,18 +1,20 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_daff890e",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_daff890e",
     "patient_demographics": {
       "gender": "female",
       "age": 65,
-      "date_of_birth_token": "dob_tok_19610318",
       "ethnicity": "asian",
       "bmi_threshold_profile": "asian_adjusted",
-      "name": "Ganya Prasert"
+      "name": "Ganya Prasert",
+      "birth_date": "1961-06-15",
+      "phone": "+66 874338562",
+      "email": "ganya.prasert.62@example.com",
+      "address": "272 Navavej Rd, Bueng Kum, Bangkok 10230",
+      "mrn": "MRN-2338562"
     },
     "eligibility_exclusions": [],
     "active_safety_flags": [],
@@ -22,7 +24,6 @@
     "patient_id": "id_daff890e"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_daff890e",
     "rule_preliminary_tier": "Advanced",
     "overall_risk_level": "Moderate",
     "applicable_signals": [
@@ -147,6 +148,40 @@
         "guideline": "CDC ACIP 2017",
         "note": "Second Shingrix dose overdue by >1 year.",
         "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "hpv",
+        "label": "Human Papillomavirus (HPV)",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": null,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 3,
+        "eligible_since_age": null,
+        "age_at_evaluation": 65,
+        "years_until_due": null,
+        "priority_color": "Orange",
+        "guideline": "CDC ACIP",
+        "note": "Consider catching up on HPV vaccination if applicable based on history and risk.",
+        "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "hepatitis_b",
+        "label": "Hepatitis B",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": null,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 3,
+        "eligible_since_age": null,
+        "age_at_evaluation": 65,
+        "years_until_due": null,
+        "priority_color": "Yellow",
+        "guideline": "CDC ACIP 2022",
+        "note": "Hepatitis B vaccination (3-dose series) recommended for adults at risk or who have no documented immunization.",
+        "anti_hbs_checked": false
       }
     ],
     "abnormal_triggers": [],
@@ -169,11 +204,17 @@
         "audit_c_score": 0.9,
         "risk_level": "none",
         "fibroscan_indicated": false,
-        "note": null
+        "note": null,
+        "units_per_week": 0.5
       },
       "occupational": {
-        "tags": [],
-        "add_ons_triggered": []
+        "tags": [
+          "Retired"
+        ],
+        "add_ons_triggered": [],
+        "retired_status": true,
+        "computer_hours_per_day": 2.0,
+        "stress_level": "moderate"
       },
       "physical_activity": {
         "days_per_week": 3,
@@ -185,7 +226,14 @@
     },
     "symptom_tags": [],
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "chief_complaint": "Checking for cancer screening gaps and assessing osteoporosis risk; some joint pain and slight difficulty with sleep.",
+    "reproductive_history_detail": {
+      "age_at_menarche": 13,
+      "age_at_menopause": 50,
+      "num_children": 2,
+      "hormonal_contraception": true
+    }
   },
   "biomarker_trends": {
     "patient_token": "tok_hmac_daff890e",

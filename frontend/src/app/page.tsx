@@ -26,21 +26,26 @@ const NavavejBrand = () => (
 
 export default function DashboardPage() {
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
+  const [clinicalData, setClinicalData] = useState<any>(null);
   const [privacyMode, setPrivacyMode] = useState(false);
+  const [isRuleBasedForced, setIsRuleBasedForced] = useState(false);
 
-  // Helper to get token for display
-  const getPatientDisplayId = (patient: any) => {
-    if (!patient) return "";
-    return privacyMode ? patient.patient_token : patient.patient_id;
-  };
+  // Generic helper to get masked value or original
+  const getDisplayValue = (originalValue: string, fallbackToken: string) => {
+    if (!privacyMode) return originalValue || "N/A";
 
-  const getPatientDisplayName = (patient: any) => {
-    if (!patient) return "";
-    return privacyMode ? patient.patient_token : patient.patient_name;
+    // Search in rehydration map for the token assigned to this specific value
+    const map = clinicalData?.security_metadata?.rehydration_map;
+    if (map && originalValue) {
+      const token = Object.keys(map).find(key => map[key] === originalValue);
+      if (token) return token;
+    }
+    return fallbackToken;
   };
 
   const handleSelectPatient = async (patient: any) => {
     setSelectedPatient(patient); // Immediate UI update with basic info
+    setClinicalData(null); // Reset clinical data for new patient
     try {
       const fullData = await patientService.getDetails(patient.patient_id);
       setSelectedPatient(fullData);
@@ -81,6 +86,20 @@ export default function DashboardPage() {
         </nav>
 
         <div className="flex items-center gap-5 translate-y-[-2px]">
+          {/* Global Mode Control */}
+          <button
+            onClick={() => setIsRuleBasedForced(!isRuleBasedForced)}
+            className={cn(
+              "hidden md:flex items-center gap-2 px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest transition-all shadow-md active:scale-95 border-2",
+              isRuleBasedForced
+                ? "bg-amber-500 text-white border-amber-600 animate-pulse"
+                : "bg-white text-navavej-gray-med border-navavej-border hover:border-amber-400"
+            )}
+          >
+            <Activity className="w-4 h-4" />
+            {isRuleBasedForced ? "Fallback: Rules" : "Mode: Hybrid AI"}
+          </button>
+
           <button className="p-2 text-navavej-gray-dark hover:text-navavej-teal transition-all"><Search className="w-5 h-5 stroke-[2.5px]" /></button>
           <button className="p-2 text-navavej-gray-dark hover:text-navavej-teal transition-all relative">
             <Bell className="w-5 h-5 stroke-[2.5px]" />
@@ -148,7 +167,7 @@ export default function DashboardPage() {
                         "text-4xl font-black tracking-tighter relative z-10 transition-colors",
                         privacyMode ? "text-navavej-red" : "text-navavej-teal"
                       )}>
-                        {getPatientDisplayName(selectedPatient).charAt(0)}
+                        {getDisplayValue(selectedPatient.patient_name, "P").charAt(0)}
                       </span>
                     </div>
                     <div className={cn(
@@ -163,13 +182,13 @@ export default function DashboardPage() {
                       "text-3xl font-black tracking-tighter uppercase transition-colors",
                       privacyMode ? "text-navavej-red font-mono" : "text-navavej-gray-dark"
                     )}>
-                      {getPatientDisplayName(selectedPatient)}
+                      {getDisplayValue(selectedPatient.patient_name, "tok_named_entity")}
                     </h3>
                     <div className="flex items-center gap-6 mt-2">
                       <div className="flex flex-col">
                         <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest">Medical ID</span>
                         <span className={cn("text-xs font-bold transition-colors", privacyMode ? "text-navavej-red/60" : "text-navavej-teal")}>
-                          {getPatientDisplayId(selectedPatient)}
+                          {getDisplayValue(selectedPatient.patient_id, "tok_id_entity")}
                         </span>
                       </div>
                       <div className="w-[1px] h-6 bg-navavej-border" />
@@ -179,11 +198,39 @@ export default function DashboardPage() {
                           {`${selectedPatient.age || "???"} Yrs / ${selectedPatient.gender || "???"} / ${selectedPatient.ethnicity || "???"}`}
                         </span>
                       </div>
+                      <div className="w-[1px] h-6 bg-navavej-border" />
+                      <div className="flex flex-col">
+                        <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest">Medical Record (MRN)</span>
+                        <span className={cn("text-xs font-bold transition-colors", privacyMode ? "text-navavej-red/60" : "text-navavej-gray-dark")}>
+                          {getDisplayValue(selectedPatient.mrn, "tok_mrn_entity")}
+                        </span>
+                      </div>
                     </div>
+                    {/* Chief Complaint Highlight */}
+                    {clinicalData?.clinical_signals?.chief_complaint && (
+                      <div className="mt-4 flex items-center gap-2 px-4 py-2 bg-white/40 border border-white/60 rounded-xl max-w-2xl group hover:border-navavej-teal/30 transition-all">
+                        <div className="w-1.5 h-1.5 rounded-full bg-navavej-teal animate-pulse" />
+                        <span className="text-[10px] font-extrabold text-navavej-gray-med uppercase tracking-tighter">Chief Complaint:</span>
+                        <p className="text-xs font-bold text-navavej-gray-dark italic line-clamp-1 group-hover:line-clamp-none transition-all">
+                          "{clinicalData.clinical_signals.chief_complaint}"
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex gap-4">
+                  <div className="px-6 py-3 bg-white/60 border border-white rounded-2xl flex flex-col justify-center min-w-[200px]">
+                    <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest mb-1">Contact Information</span>
+                    <div className="flex flex-col gap-0.5">
+                      <span className={cn("text-[10px] font-bold transition-colors", privacyMode ? "text-navavej-red/60" : "text-navavej-gray-dark")}>
+                        Tel: {getDisplayValue(selectedPatient.phone, "tok_phone_entity")}
+                      </span>
+                      <span className={cn("text-[10px] font-bold transition-colors", privacyMode ? "text-navavej-red/60" : "text-navavej-gray-dark")}>
+                        Email: {getDisplayValue(selectedPatient.email, "tok_email_entity")}
+                      </span>
+                    </div>
+                  </div>
                   <div className="px-6 py-3 bg-white/60 border border-white rounded-2xl flex flex-col justify-center">
                     <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest mb-1">Status</span>
                     <span className={cn("text-xs font-black uppercase tracking-tighter", privacyMode ? "text-navavej-red" : "text-navavej-teal")}>
@@ -198,6 +245,8 @@ export default function DashboardPage() {
               patientId={selectedPatient?.patient_id || null}
               privacyMode={privacyMode}
               setPrivacyMode={setPrivacyMode}
+              onDataLoaded={setClinicalData}
+              isRuleBasedForced={isRuleBasedForced}
             />
           </div>
         </div>

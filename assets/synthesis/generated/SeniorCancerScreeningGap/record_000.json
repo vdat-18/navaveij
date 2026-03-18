@@ -1,18 +1,20 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_24d93799",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_24d93799",
     "patient_demographics": {
       "gender": "female",
       "age": 70,
-      "date_of_birth_token": "dob_tok_19560722",
       "ethnicity": "asian",
       "bmi_threshold_profile": "asian_adjusted",
-      "name": "Wichai Silpa"
+      "name": "Wichai Silpa",
+      "birth_date": "1956-06-15",
+      "phone": "+66 832096765",
+      "email": "wichai.silpa.65@example.com",
+      "address": "875 Navavej Rd, Bueng Kum, Bangkok 10230",
+      "mrn": "MRN-5096765"
     },
     "eligibility_exclusions": [],
     "active_safety_flags": [],
@@ -22,7 +24,6 @@
     "patient_id": "id_24d93799"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_24d93799",
     "rule_preliminary_tier": "Standard",
     "overall_risk_level": "Moderate",
     "applicable_signals": [
@@ -207,6 +208,23 @@
         "guideline": "CDC ACIP 2017",
         "note": "Second Shingrix dose overdue by ~8 months.",
         "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "hepatitis_b",
+        "label": "Hepatitis B",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": null,
+        "series_complete": false,
+        "doses_received": 0,
+        "doses_required": 3,
+        "eligible_since_age": null,
+        "age_at_evaluation": 70,
+        "years_until_due": null,
+        "priority_color": "Orange",
+        "guideline": "CDC ACIP 2024",
+        "note": "Age over 60 with no documented Hepatitis B vaccination.",
+        "anti_hbs_checked": false
       }
     ],
     "abnormal_triggers": [],
@@ -229,11 +247,18 @@
         "audit_c_score": 1.0,
         "risk_level": "none",
         "fibroscan_indicated": false,
-        "note": null
+        "note": null,
+        "units_per_week": 0.5
       },
       "occupational": {
-        "tags": [],
-        "add_ons_triggered": []
+        "tags": [
+          "retired",
+          "Retired"
+        ],
+        "add_ons_triggered": [],
+        "retired_status": true,
+        "computer_hours_per_day": 1.5,
+        "stress_level": "Low"
       },
       "physical_activity": {
         "days_per_week": 1,
@@ -245,7 +270,14 @@
     },
     "symptom_tags": [],
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "chief_complaint": "General wellness check; concerns regarding overdue cancer and bone screenings due to family history of colon cancer.",
+    "reproductive_history_detail": {
+      "age_at_menarche": 12,
+      "age_at_menopause": 50,
+      "num_children": 2,
+      "hormonal_contraception": true
+    }
   },
   "biomarker_trends": {
     "patient_token": "tok_hmac_24d93799",

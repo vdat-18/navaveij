@@ -1,18 +1,20 @@
 {
   "schema_version": "signal_store_record_v1",
-  "patient_token": "tok_hmac_1aa1b504",
   "computed_at": "2026-03-15T03:00:00Z",
   "pipeline_run_id": "pipe_20260315_0300",
   "fhir_snapshot_version": "fhir_snap_20260315",
   "hard_constraints": {
-    "patient_token": "tok_hmac_1aa1b504",
     "patient_demographics": {
       "gender": "male",
       "age": 35,
-      "date_of_birth_token": "dob_tok_19910301",
       "ethnicity": "asian",
       "bmi_threshold_profile": "asian_adjusted",
-      "name": "Kanya Prasert"
+      "name": "Kanya Prasert",
+      "birth_date": "1991-06-15",
+      "phone": "+66 889313362",
+      "email": "kanya.prasert.62@example.com",
+      "address": "872 Navavej Rd, Bueng Kum, Bangkok 10230",
+      "mrn": "MRN-8313362"
     },
     "eligibility_exclusions": [
       {
@@ -39,7 +41,6 @@
     "patient_id": "id_1aa1b504"
   },
   "clinical_signals": {
-    "patient_token": "tok_hmac_1aa1b504",
     "rule_preliminary_tier": "Standard",
     "overall_risk_level": "Low",
     "applicable_signals": [
@@ -106,6 +107,23 @@
         "guideline": "CDC ACIP 2024",
         "note": "Last vaccination recorded approx 5 months ago; annual revaccination recommended in Q4 2026.",
         "anti_hbs_checked": null
+      },
+      {
+        "vaccine_id": "hepatitis_b",
+        "label": "Hepatitis B",
+        "last_administered_date": null,
+        "overdue_days": null,
+        "recommended_annual": false,
+        "series_complete": false,
+        "doses_received": null,
+        "doses_required": 3,
+        "eligible_since_age": null,
+        "age_at_evaluation": 35,
+        "years_until_due": 0,
+        "priority_color": "Green",
+        "guideline": "CDC ACIP 2024",
+        "note": "Ensure hepatitis B vaccination status is assessed for full immunity.",
+        "anti_hbs_checked": false
       }
     ],
     "abnormal_triggers": [],
@@ -128,11 +146,20 @@
         "audit_c_score": 1.0,
         "risk_level": "none",
         "fibroscan_indicated": false,
-        "note": "Minimal social consumption."
+        "note": "Minimal social consumption.",
+        "units_per_week": 1.0
       },
       "occupational": {
-        "tags": [],
-        "add_ons_triggered": []
+        "tags": [
+          "office_environment",
+          "sedentary_tendency",
+          "prolonged_computer_use",
+          "desk_job"
+        ],
+        "add_ons_triggered": [],
+        "computer_hours_per_day": 9.0,
+        "night_shift_worker": true,
+        "factory_chemical_exposure": false
       },
       "physical_activity": {
         "days_per_week": 3,
@@ -142,7 +169,8 @@
     },
     "symptom_tags": [],
     "computed_at": "2026-03-15T03:00:00Z",
-    "pipeline_run_id": "pipe_20260315_0300"
+    "pipeline_run_id": "pipe_20260315_0300",
+    "chief_complaint": "Wellness check and minor concerns about back tension, likely due to prolonged sitting at work."
   },
   "biomarker_trends": {
     "patient_token": "tok_hmac_1aa1b504",
