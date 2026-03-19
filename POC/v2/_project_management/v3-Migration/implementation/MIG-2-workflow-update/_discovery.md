@@ -2,14 +2,17 @@
 
 ## Source Reference
 
-v3 workflow: `POC/v3/backend/src/services/workflows/clinical.py`
+- `POC/v3/backend/src/services/workflows/clinical.py`
+- `POC/v3/backend/src/services/rules.py`
+- `POC/v2/backend/src/api/routes/contracts.py` (`_normalize_stage2`)
+- `POC/v2/scripts/tests/workflows/test_clinical_workflow.py`
 
 ## Key Observations
 
-- v3 workflow adds `force_rule_based: bool = False` to `execute()`.
-- v3 always instantiates `RuleEvaluator` and captures `rule_preliminary_tier` before the AI path.
-- v3 wraps the 3-agent chain in `try/except`; on any exception, builds rule-based output and sets `review_required = True`.
-- v3 uses `_build_rule_based_output()` and `_map_final_to_ai_output()` as private helpers in the workflow class.
+- v2 workflow still called legacy `GenerateRecommendation`, so MIG-2 requires swapping to the MIG-1 3-agent chain.
+- Generated v2 BAML client already exposes `AnalyzeClinicalRisks`, `MatchProgramRules`, and `ComposeRecommendation`.
+- v2 MCP tools still rely on `patient_token`; `patient_id` is supported and should remain included when available.
+- `_normalize_stage2()` consumes stable keys from `ai_output`, so migration must preserve those key names.
 
 ## Critical: _map_final_to_ai_output contract
 
@@ -23,9 +26,17 @@ This helper must produce the following keys to satisfy `_normalize_stage2()` in 
 | `reasoning_trace` | Join `risk_profile.clinical_summary_bullets` + `plan.policy_reasoning` | Non-empty required |
 | `supporting_signals` | `risk_profile.supporting_signal_ids` | List of signal IDs |
 | `missing_signals` | `risk_profile.missing_signal_ids` | List of signal IDs |
-| `communication_script` | `final.communication_script` | Serialize; must have all 4 sections |
+| `communication_script` | `final.communication_script` | Serialize all sections |
 | `rule_preliminary_tier` | `rule_tier` from RuleEvaluator | Always present |
+| `recommendation_source` | static per path | `AI` or `RuleBased` |
+| `review_required` | static per path | `False` (AI success), `True` (forced/fallback) |
 
-## RuleEvaluator Presence Check
+## RuleEvaluator Porting Notes
 
-Must verify: does `POC/v2/backend/src/services/rules.py` exist? If not, copy from `POC/v3/backend/src/services/rules.py`.
+- v2 had no `src/services/rules.py`; file must be added.
+- For v2 compatibility, use `load_ruleset_tier_config()` from `src.mcp_server.utils` instead of hard-coded path reads.
+- Rule engine output shape should remain minimal and deterministic:
+  - `rule_tier`
+  - `applied_rule_id`
+  - `applied_condition`
+  - `signals_matched`

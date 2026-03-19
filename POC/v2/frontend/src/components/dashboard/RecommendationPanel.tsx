@@ -26,6 +26,7 @@ import { CLINICAL_DICTIONARY } from "@/shared/clinical-dictionary";
 interface RecommendationPanelProps {
     patientId: string | null;
     patientToken: string | null;
+    isRuleBasedForced: boolean;
 }
 
 const renderBoldText = (text: any) => {
@@ -137,7 +138,7 @@ const normalizeCriticalAlerts = (patientHighAlert: any) => {
     return DEFAULT_CRITICAL_ALERTS;
 };
 
-export function RecommendationPanel({ patientId, patientToken }: RecommendationPanelProps) {
+export function RecommendationPanel({ patientId, patientToken, isRuleBasedForced }: RecommendationPanelProps) {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
@@ -151,7 +152,7 @@ export function RecommendationPanel({ patientId, patientToken }: RecommendationP
             setDecided(false);
             setNotes("");
             try {
-                const result = await clinicalService.getRecommendation(patientToken);
+                const result = await clinicalService.getRecommendation(patientToken, isRuleBasedForced);
                 setData(result);
             } catch (error) {
                 console.error("Failed to fetch recommendation:", error);
@@ -160,7 +161,7 @@ export function RecommendationPanel({ patientId, patientToken }: RecommendationP
             }
         };
         fetchRecommendation();
-    }, [patientToken]);
+    }, [patientToken, isRuleBasedForced]);
 
     const handleApprove = async () => {
         if (!data?.recommendation_hash || !patientId) return;

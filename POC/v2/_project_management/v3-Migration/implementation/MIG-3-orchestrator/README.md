@@ -1,6 +1,6 @@
 # MIG-3 — Orchestrator Update
 
-**Status:** Not started
+**Status:** Completed
 **Priority:** P1
 **POC Scoring Impact:** Hybrid 35% + Security 20%
 **Depends on:** MIG-2
@@ -14,6 +14,7 @@
 ## Files Changed
 
 - `POC/v2/backend/src/services/orchestrator.py`
+- `POC/v2/scripts/tests/test_orchestrator_mig3.py`
 
 ## Acceptance Gate
 
@@ -21,3 +22,4 @@
 - Response dict contains `security_metadata.rehydration_map` (dict)
 - Response dict contains `security_metadata.masked_ai_output` (dict with `reasoning_trace`)
 - Both AI and rule-based paths populate `security_metadata`
+- `security_metadata` is injected after final rehydration so `masked_ai_output` stays masked

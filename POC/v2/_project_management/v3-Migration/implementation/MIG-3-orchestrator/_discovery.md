@@ -22,6 +22,15 @@ result = {
 }
 ```
 
+## v2 Constraint Applied
+
+- v2 does a second full `rehydrator.rehydrate(result)` pass before returning.
+- If `security_metadata` is attached before that pass, `masked_ai_output` is no longer masked.
+- Implementation strategy in v2:
+  1. Capture `masked_ai_output = context.ai_output.copy()`
+  2. Build and rehydrate normal frontend payload first
+  3. Inject `security_metadata` only after final rehydration
+
 ## Notes
 
 - The `rehydration_map` in `WorkflowContext` is the token→real_value dict built by `PIIMasker`.

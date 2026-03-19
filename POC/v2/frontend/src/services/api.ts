@@ -53,10 +53,13 @@ export const patientService = {
 };
 
 export const clinicalService = {
-    getRecommendation: async (patientToken: string) => {
+    getRecommendation: async (patientToken: string, forceRuleBased: boolean = false) => {
         const response = await apiV3.post(
             "/recommend",
-            { patient_token: patientToken },
+            {
+                patient_token: patientToken,
+                force_rule_based: forceRuleBased
+            },
             { headers: buildAuthHeaders(undefined, "recommendation:read") }
         );
         return response.data;

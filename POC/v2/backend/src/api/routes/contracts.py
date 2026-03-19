@@ -25,6 +25,7 @@ orchestrator = OrchestrationManager()
 
 class RecommendRequest(BaseModel):
     patient_token: str
+    force_rule_based: bool = False
 
 
 class RecommendResponse(BaseModel):
@@ -43,6 +44,7 @@ class RecommendResponse(BaseModel):
     recommendation_source: str
     recommendation_hash: str | None = None
     patient_high_alert: dict[str, Any]
+    security_metadata: dict[str, Any]
     metadata: dict[str, Any]
 
 
@@ -408,7 +410,12 @@ def _normalize_stage2(
     rule_agreement = 1.0 if ai_tier == rule_preliminary_tier else 0.7
     confidence_score = round(0.4 * signal_coverage + 0.4 * data_completeness + 0.2 * rule_agreement, 3)
     confidence_tier = _confidence_tier(confidence_score)
-    review_required = confidence_score < 0.50
+    review_required = ai_output.get("review_required")
+    if review_required is None:
+        review_required = confidence_score < 0.50
+    recommendation_source = ai_output.get("recommendation_source")
+    if not recommendation_source:
+        recommendation_source = "RuleBased" if review_required else "AI"
 
     critical_signals = _build_critical_signals(clinical_signals)
     missing_data_alerts = _build_missing_data_alerts(missing_signals)
@@ -436,12 +443,13 @@ def _normalize_stage2(
         "confidence_score": confidence_score,
         "confidence_tier": confidence_tier,
         "review_required": review_required,
-        "recommendation_source": "RuleBased" if review_required else "AI",
+        "recommendation_source": recommendation_source,
         "recommendation_hash": ai_output.get("recommendation_hash"),
         "patient_high_alert": {
             "critical_signals": critical_signals,
             "missing_data_alerts": missing_data_alerts,
         },
+        "security_metadata": ai_output.get("security_metadata", {}),
         "metadata": {
             "request_id": f"req_{uuid.uuid4().hex[:12]}",
             "patient_token": patient_token,
@@ -460,12 +468,14 @@ def _recommendation_cache_key(
     patient_token: str,
     signal_store_pipeline_run_id: str,
     ruleset_version: str,
+    force_rule_based: bool,
 ) -> str:
     raw = json.dumps(
         {
             "patient_token": patient_token,
             "signal_store_pipeline_run_id": signal_store_pipeline_run_id,
             "ruleset_version": ruleset_version,
+            "force_rule_based": force_rule_based,
             "model_id": settings.llm_model,
             "template_version": "poc-v2-stage2-v1",
             "api_auth_mode": settings.api_auth_mode,
@@ -487,6 +497,7 @@ async def recommend(request: RecommendRequest, _auth: AuthContext = Depends(requ
         patient_token=request.patient_token,
         signal_store_pipeline_run_id=pipeline_run_id,
         ruleset_version=ruleset.get("ruleset_version", "v2026.03.1"),
+        force_rule_based=request.force_rule_based,
     )
     cache_ttl = settings.cache_recommendation_ttl_seconds or settings.cache_ttl_seconds
     cache_key_hash = cache_key.split(":", 1)[-1][:16]
@@ -507,6 +518,7 @@ async def recommend(request: RecommendRequest, _auth: AuthContext = Depends(requ
     ai_output = await orchestrator.generate_recommendation(
         patient_id=patient_id,
         patient_token=request.patient_token,
+        force_rule_based=request.force_rule_based,
     )
     latency_ms = int((time.time() - started_at) * 1000)
     payload = _normalize_stage2(

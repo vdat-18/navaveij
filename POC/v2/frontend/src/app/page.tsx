@@ -6,6 +6,7 @@ import { RecommendationPanel } from "@/components/dashboard/RecommendationPanel"
 import { Bell, Search, User, Globe, Phone, ShoppingCart, Menu, Info, Activity, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { cn } from "@/shared/utils";
 
 const primaryNavLinks = [
   { label: "Screen 1 Summary", href: "/" },
@@ -31,6 +32,7 @@ const NavavejBrand = () => (
 
 export default function DashboardPage() {
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
+  const [isRuleBasedForced, setIsRuleBasedForced] = useState(false);
 
   return (
     <div className="min-h-screen bg-white">
@@ -76,6 +78,18 @@ export default function DashboardPage() {
         </nav>
 
         <div className="flex items-center gap-5 translate-y-[-2px]">
+          <button
+            onClick={() => setIsRuleBasedForced((prev) => !prev)}
+            className={cn(
+              "hidden md:flex items-center gap-2 px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest transition-all shadow-md active:scale-95 border-2",
+              isRuleBasedForced
+                ? "bg-amber-500 text-white border-amber-600 animate-pulse"
+                : "bg-white text-navavej-gray-med border-navavej-border hover:border-amber-400"
+            )}
+          >
+            <Activity className="w-4 h-4" />
+            {isRuleBasedForced ? "Fallback: Rules" : "Mode: Hybrid AI"}
+          </button>
           <button className="p-2 text-navavej-gray-dark hover:text-navavej-teal transition-all"><Search className="w-5 h-5 stroke-[2.5px]" /></button>
           <button className="p-2 text-navavej-gray-dark hover:text-navavej-teal transition-all relative">
             <Bell className="w-5 h-5 stroke-[2.5px]" />
@@ -168,6 +182,7 @@ export default function DashboardPage() {
             <RecommendationPanel
               patientId={selectedPatient?.patient_id || null}
               patientToken={selectedPatient?.patient_token || null}
+              isRuleBasedForced={isRuleBasedForced}
             />
           </div>
         </div>

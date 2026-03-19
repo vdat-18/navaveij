@@ -38,3 +38,10 @@ getRecommendation: async (patientToken: string, forceRuleBased: boolean = false)
 
 - v2 `api.ts` currently uses `patient_token` in the POST body — consistent with the contract route. Just add `force_rule_based`.
 - v2's RecommendationPanel fetches based on `patientToken` prop — also add `isRuleBasedForced` to dependency.
+
+## Implementation Confirmation
+
+- Header toggle implemented in `page.tsx` utility controls and wired to `isRuleBasedForced` state.
+- `RecommendationPanel` now accepts `isRuleBasedForced` and re-fetches when toggle state changes.
+- `clinicalService.getRecommendation(...)` now sends `force_rule_based` in request payload.
+- Existing remount key (`key={patientToken}`) remained unchanged to avoid toggle-triggered remounts.

@@ -27,12 +27,18 @@ class OrchestrationManager:
         self.safety_guard = ClinicalSafetyGuard()
         self.audit_logger = AuditLogger()
 
-    async def generate_recommendation(self, patient_id: str, patient_token: str | None = None) -> dict[str, Any]:
+    async def generate_recommendation(
+        self,
+        patient_id: str,
+        patient_token: str | None = None,
+        force_rule_based: bool = False,
+    ) -> dict[str, Any]:
         """Coordinate the full recommendation generation process.
 
         Args:
             patient_id: The patient to generate a recommendation for.
             patient_token: Optional pre-existing token (useful for synthesized data).
+            force_rule_based: If True, bypass AI and use deterministic rules.
 
         Returns:
             A dictionary containing the recommendation and safety checks.
@@ -40,14 +46,18 @@ class OrchestrationManager:
         resolved_patient_token = patient_token or resolve_patient_token(patient_id)
         if not resolved_patient_token:
             raise ValueError(f"Patient token not found for patient_id: {patient_id}")
-        logger.info(f"Manager received request for patient: {patient_id}")
+        logger.info(f"Manager received request for patient: {patient_id} (force_rule_based={force_rule_based})")
 
         async with MCPClientFactory.get_client() as session:
             # Initialize Workflow
             workflow = ClinicalReasoningWorkflow(session)
 
             # Execute Workflow
-            context = await workflow.execute(patient_id, patient_token=resolved_patient_token)
+            context = await workflow.execute(
+                patient_id,
+                patient_token=resolved_patient_token,
+                force_rule_based=force_rule_based,
+            )
 
             # Post-process: Safety Validation
             logger.info("Performing safety validation")
@@ -64,10 +74,11 @@ class OrchestrationManager:
             )
 
             context.ai_output["recommendation_hash"] = recommendation_hash
-            
+
             # Post-process: Rehydration (Restore PII values for Frontend display)
             logger.info("Rehydrating AI output for frontend")
             rehydrator = PIIRehydrator(context.rehydration_map)
+            masked_ai_output = context.ai_output.copy()
             rehydrated_output = rehydrator.rehydrate(context.ai_output)
 
             # Expose raw data for visualization/HUDs
@@ -78,7 +89,13 @@ class OrchestrationManager:
             }
 
             # Final rehydration pass on everything for the frontend
-            return rehydrator.rehydrate(result)
+            rehydrated_result = rehydrator.rehydrate(result)
+            rehydrated_result["security_metadata"] = {
+                "rehydration_map": context.rehydration_map,
+                "masked_ai_output": masked_ai_output,
+                "is_poc_demo": True,
+            }
+            return rehydrated_result
 
     async def record_decision(
         self,
