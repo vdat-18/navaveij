@@ -14,7 +14,8 @@ import {
     Heart,
     Stethoscope,
     ChevronDown,
-    MessageSquare
+    MessageSquare,
+    Search
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { clinicalService } from "@/services/api";
@@ -22,14 +23,23 @@ import { cn } from "@/shared/utils";
 import { BiomarkerCharts } from "./BiomarkerCharts";
 import { LabResultsGrid } from "./LabResultsGrid";
 import { CLINICAL_DICTIONARY } from "@/shared/clinical-dictionary";
+import { CriticalSignal, PatientHighAlert, RecommendationAddOn, RecommendationResponse } from "@/types/recommendation";
 
 interface RecommendationPanelProps {
     patientId: string | null;
     patientToken: string | null;
+    privacyMode: boolean;
+    onRecommendationLoad?: (data: RecommendationResponse | null) => void;
     isRuleBasedForced: boolean;
 }
 
-const renderBoldText = (text: any) => {
+interface NormalizedAlert {
+    label: string;
+    sub: string;
+    value: string;
+}
+
+const renderBoldText = (text: string | string[] | null | undefined) => {
     if (!text) return null;
 
     // Handle array of strings (like add_on_highlights)
@@ -76,8 +86,17 @@ const renderBoldText = (text: any) => {
 };
 
 const ClinicalRiskGauge = ({ value }: { value: string }) => {
-    const isHigh = value === "High";
-    const percentage = isHigh ? 85 : 30;
+    let percentage = 30;
+    if (value === "Critical") percentage = 95;
+    else if (value === "High") percentage = 85;
+    else if (value === "Medium") percentage = 55;
+    else if (value === "Low") percentage = 25;
+
+    const isHighOrCritical = value === "High" || value === "Critical";
+    const isMedium = value === "Medium";
+    
+    const strokeColor = isHighOrCritical ? "var(--color-navavej-red)" : (isMedium ? "var(--color-risk-mod)" : "var(--color-risk-low)");
+    const textColor = isHighOrCritical ? "text-navavej-red" : (isMedium ? "text-orange-500" : "text-green-600");
 
     return (
         <div className="relative flex flex-col items-center group">
@@ -85,7 +104,7 @@ const ClinicalRiskGauge = ({ value }: { value: string }) => {
                 <path
                     d="M 10 45 A 40 40 0 0 1 90 45"
                     fill="none"
-                    stroke="#E9ECEF"
+                    stroke="var(--color-navavej-border)"
                     strokeWidth="6"
                     strokeLinecap="round"
                 />
@@ -95,7 +114,7 @@ const ClinicalRiskGauge = ({ value }: { value: string }) => {
                     transition={{ duration: 2, ease: "circOut" }}
                     d="M 10 45 A 40 40 0 0 1 90 45"
                     fill="none"
-                    stroke={isHigh ? "#9D0A31" : "#10B981"}
+                    stroke={strokeColor}
                     strokeWidth="8"
                     strokeLinecap="round"
                     className="transition-all duration-500"
@@ -104,7 +123,7 @@ const ClinicalRiskGauge = ({ value }: { value: string }) => {
             <div className="absolute top-10 flex flex-col items-center">
                 <span className={cn(
                     "text-3xl font-black transition-all duration-1000 tracking-tighter",
-                    isHigh ? "text-navavej-red" : "text-emerald-500"
+                    textColor
                 )}>
                     {value}
                 </span>
@@ -114,19 +133,28 @@ const ClinicalRiskGauge = ({ value }: { value: string }) => {
     );
 };
 
-const DEFAULT_CRITICAL_ALERTS = [
-    { label: "Hypertensive Crisis", sub: "SBP > 180 mmHg detected", value: "URGENT" },
-    { label: "High ASCVD Risk", sub: "Score ≥ 20.0%", value: "MONITOR" },
-];
+const priorityBadgeClass = (priority?: string) => {
+    if (priority === "Red" || priority === "Critical" || priority === "High") return "bg-navavej-red";
+    if (priority === "Orange") return "bg-orange-500";
+    if (priority === "Yellow" || priority === "Medium") return "bg-yellow-500";
+    if (priority === "Green" || priority === "Low") return "bg-green-600";
+    return "bg-navavej-teal";
+};
 
-const normalizeCriticalAlerts = (patientHighAlert: any) => {
+const normalizeCriticalAlerts = (patientHighAlert: PatientHighAlert | CriticalSignal[] | null | undefined): NormalizedAlert[] => {
     if (Array.isArray(patientHighAlert)) {
-        return patientHighAlert;
+        return patientHighAlert
+            .filter((signal): signal is CriticalSignal => !!signal && typeof signal === "object")
+            .map((signal) => ({
+                label: signal.label || signal.signal_id || "Clinical Signal",
+                sub: signal.clinical_note || "Immediate clinical review recommended",
+                value: signal.severity === "Critical" ? "URGENT" : signal.severity || "MONITOR",
+            }));
     }
     if (Array.isArray(patientHighAlert?.critical_signals)) {
         const mapped = patientHighAlert.critical_signals
-            .filter((signal: any) => signal && typeof signal === "object")
-            .map((signal: any) => ({
+            .filter((signal): signal is CriticalSignal => !!signal && typeof signal === "object")
+            .map((signal) => ({
                 label: signal.label || signal.signal_id || "Clinical Signal",
                 sub: signal.clinical_note || "Immediate clinical review recommended",
                 value: signal.severity === "Critical" ? "URGENT" : signal.severity || "MONITOR",
@@ -135,27 +163,36 @@ const normalizeCriticalAlerts = (patientHighAlert: any) => {
             return mapped;
         }
     }
-    return DEFAULT_CRITICAL_ALERTS;
+    return [];
 };
 
-export function RecommendationPanel({ patientId, patientToken, isRuleBasedForced }: RecommendationPanelProps) {
-    const [data, setData] = useState<any>(null);
+export function RecommendationPanel({ patientId, patientToken, privacyMode, onRecommendationLoad, isRuleBasedForced }: RecommendationPanelProps) {
+    const [data, setData] = useState<RecommendationResponse | null>(null);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [isApproving, setIsApproving] = useState(false);
+    const [approvalError, setApprovalError] = useState<string | null>(null);
     const [decided, setDecided] = useState<boolean>(false);
     const [notes, setNotes] = useState("");
 
     useEffect(() => {
-        if (!patientToken) return;
+        if (!patientToken) {
+            onRecommendationLoad?.(null);
+            return;
+        }
         const fetchRecommendation = async () => {
             setLoading(true);
+            setError(null);
             setDecided(false);
             setNotes("");
+            setApprovalError(null);
             try {
                 const result = await clinicalService.getRecommendation(patientToken, isRuleBasedForced);
                 setData(result);
-            } catch (error) {
-                console.error("Failed to fetch recommendation:", error);
+                onRecommendationLoad?.(result);
+            } catch (err) {
+                console.error("Failed to fetch recommendation:", err);
+                setError(err instanceof Error ? err.message : "Failed to load clinical recommendation");
             } finally {
                 setLoading(false);
             }
@@ -166,12 +203,13 @@ export function RecommendationPanel({ patientId, patientToken, isRuleBasedForced
     const handleApprove = async () => {
         if (!data?.recommendation_hash || !patientId) return;
         setIsApproving(true);
+        setApprovalError(null);
         try {
             await clinicalService.recordDecision(patientId, data.recommendation_hash, "Approve", notes);
             setDecided(true);
-        } catch (error) {
-            console.error("Failed to approve:", error);
-            alert("Approval failed. Please check backend connection.");
+        } catch (err) {
+            console.error("Failed to approve:", err);
+            setApprovalError("Approval failed. Please check backend connection.");
         } finally {
             setIsApproving(false);
         }
@@ -221,8 +259,19 @@ export function RecommendationPanel({ patientId, patientToken, isRuleBasedForced
         );
     }
 
+    if (error) {
+        return (
+            <div className="h-[650px] flex flex-col items-center justify-center navavej-card bg-red-50 border-red-200 border-2 border-dashed">
+                <AlertTriangle className="w-12 h-12 text-red-500 mb-4" />
+                <h3 className="text-sm font-black text-red-700 uppercase tracking-widest">Error Loading Recommendation</h3>
+                <p className="text-xs text-red-600/80 mt-2 font-medium">{error}</p>
+            </div>
+        );
+    }
+
     if (!data) return null;
     const criticalAlerts = normalizeCriticalAlerts(data.patient_high_alert);
+    const reasoningTrace = ((privacyMode ? data.security_metadata?.masked_ai_output?.reasoning_trace : data.reasoning_trace) || data.reasoning_trace || "").toString();
 
     return (
         <AnimatePresence mode="wait">
@@ -266,11 +315,15 @@ export function RecommendationPanel({ patientId, patientToken, isRuleBasedForced
                             <div className="flex items-center justify-between w-full mb-8">
                                 <div className="flex flex-col">
                                     <span className="text-[9px] font-black text-navavej-gray-med uppercase tracking-[0.2em] mb-1">Recommended Package</span>
-                                    <span className="text-xl font-black text-navavej-gray-dark uppercase tracking-wide">Diamond Plus Center</span>
+                                    <span className={cn("text-xl font-black uppercase tracking-wide", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-gray-dark")}>
+                                        {privacyMode ? "Masked" : (data.resolved_package?.name || "Unknown Package")}
+                                    </span>
                                 </div>
                                 <div className="flex flex-col items-end">
                                     <span className="text-[9px] font-black text-navavej-gray-med uppercase tracking-[0.2em] mb-1">Program Value</span>
-                                    <span className="text-3xl font-black text-navavej-teal italic">฿15,000</span>
+                                    <span className={cn("text-3xl font-black italic", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-teal")}>
+                                        {privacyMode ? "Masked" : (data.resolved_package?.price_thb ? `฿${data.resolved_package.price_thb.toLocaleString()}` : "Price TBD")}
+                                    </span>
                                 </div>
                             </div>
 
@@ -322,18 +375,30 @@ export function RecommendationPanel({ patientId, patientToken, isRuleBasedForced
 
                         <div className="relative z-10 bg-navavej-gray-light/30 rounded-[24px] p-8 border border-navavej-border/50">
                             <div className="space-y-4">
-                                {data.reasoning_trace.split('\n').map((line: string, idx: number) => {
-                                    const cleanLine = line.replace(/^[*-]\s*/, '').trim();
-                                    if (!cleanLine) return null;
-                                    return (
-                                        <div key={idx} className="flex gap-4">
-                                            <div className="mt-2 w-2 h-2 rounded-full bg-navavej-teal shrink-0 shadow-[0_0_8px_rgba(45,161,162,0.4)]" />
-                                            <p className="text-sm font-medium text-navavej-gray-dark leading-relaxed text-justify flex-1">
-                                                {renderBoldText(cleanLine)}
-                                            </p>
-                                        </div>
-                                    );
-                                })}
+                                {(reasoningTrace?.split('\n') ?? []).filter((l: string) => l.trim()).length > 0 ? (
+                                    (reasoningTrace?.split('\n') ?? []).map((line: string, idx: number) => {
+                                        const cleanLine = line.replace(/^[*-]\s*/, '').trim();
+                                        if (!cleanLine) return null;
+                                        return (
+                                            <div key={idx} className="flex gap-4">
+                                                <div className={cn(
+                                                    "mt-2 w-2 h-2 rounded-full shrink-0 shadow-[0_0_8px_rgba(45,161,162,0.4)]",
+                                                    privacyMode ? "bg-navavej-red" : "bg-navavej-teal"
+                                                )} />
+                                                <p className={cn(
+                                                    "text-sm font-medium leading-relaxed text-justify flex-1",
+                                                    privacyMode ? "font-mono text-navavej-red/80" : "text-navavej-gray-dark"
+                                                )}>
+                                                    {renderBoldText(cleanLine)}
+                                                </p>
+                                            </div>
+                                        );
+                                    })
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-6 opacity-50">
+                                        <span className="text-xs font-bold text-navavej-gray-med uppercase tracking-widest">Insufficient reasoning trace data</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -354,14 +419,13 @@ export function RecommendationPanel({ patientId, patientToken, isRuleBasedForced
                                 <h4 className="text-sm font-black text-navavej-gray-dark uppercase tracking-widest">Additional Clinical Screenings</h4>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
-                                {data.add_ons?.map((item: any, i: number) => (
+                                {data.add_ons?.map((item: RecommendationAddOn, i: number) => (
                                     <div key={i} className="p-5 bg-navavej-gray-light rounded-2xl border border-navavej-border hover:border-navavej-teal/30 transition-all group flex flex-col justify-between">
                                         <div className="flex items-center justify-between mb-3">
                                             <span className="text-[11px] font-black text-navavej-gray-dark uppercase bg-white px-2 py-1 rounded shadow-sm">{item.item_code}</span>
                                             <span className={cn(
                                                 "text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest text-white shadow-sm",
-                                                item.priority_level === "High" ? "bg-navavej-red" :
-                                                    item.priority_level === "Medium" ? "bg-orange-500" : "bg-navavej-teal"
+                                                priorityBadgeClass(item.priority_level || item.priority)
                                             )}>
                                                 {item.priority_level}
                                             </span>
@@ -393,18 +457,30 @@ export function RecommendationPanel({ patientId, patientToken, isRuleBasedForced
                                 </div>
 
                                 <div className="space-y-3">
-                                    {criticalAlerts.map((alert: any, i: number) => (
-                                        <div key={i} className="flex items-center justify-between p-4 bg-white rounded-xl border border-navavej-border group hover:border-navavej-red/40 transition-colors shadow-sm">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-1.5 h-1.5 bg-navavej-red rounded-full" />
-                                                <div>
-                                                    <h4 className="text-[10px] font-black text-navavej-gray-dark uppercase">{alert.label}</h4>
-                                                    <p className="text-[9px] text-navavej-gray-med font-bold italic">{alert.sub}</p>
+                                    {criticalAlerts.length > 0 ? (
+                                        criticalAlerts.map((alert: NormalizedAlert, i: number) => (
+                                            <div key={i} className="flex items-center justify-between p-4 bg-white rounded-xl border border-navavej-border group hover:border-navavej-red/40 transition-colors shadow-sm">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-1.5 h-1.5 bg-navavej-red rounded-full" />
+                                                    <div>
+                                                        <h4 className={cn("text-[10px] font-black uppercase", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-gray-dark")}>
+                                                            {privacyMode ? "Masked Alert" : alert.label}
+                                                        </h4>
+                                                        <p className={cn("text-[9px] font-bold italic", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-gray-med")}>
+                                                            {privacyMode ? "Masked Clinical Details" : alert.sub}
+                                                        </p>
+                                                    </div>
                                                 </div>
+                                                <span className="text-[8px] font-black text-navavej-red border border-navavej-red/20 px-2 py-1 rounded tracking-tighter">
+                                                    {privacyMode ? "—" : alert.value}
+                                                </span>
                                             </div>
-                                            <span className="text-[8px] font-black text-navavej-red border border-navavej-red/20 px-2 py-1 rounded tracking-tighter">{alert.value}</span>
+                                        ))
+                                    ) : (
+                                        <div className="flex items-center justify-center p-4 bg-white rounded-xl border border-navavej-border shadow-sm">
+                                            <span className="text-[10px] font-bold text-navavej-gray-med uppercase">Insufficient data</span>
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
                             </div>
 
@@ -421,12 +497,15 @@ export function RecommendationPanel({ patientId, patientToken, isRuleBasedForced
                                     placeholder="Add clinical observation..."
                                     className="w-full h-24 bg-white border-2 border-navavej-border rounded-xl p-4 text-[11px] font-medium outline-none transition-all resize-none shadow-sm focus:border-navavej-teal/50"
                                 />
+                                {approvalError && (
+                                    <p className="text-xs text-red-500 font-bold mt-2">{approvalError}</p>
+                                )}
                                 <button
                                     onClick={handleApprove}
                                     disabled={isApproving || decided}
                                     className={cn(
                                         "navavej-button-primary mt-4 w-full py-4 flex items-center justify-center gap-3 group shadow-lg",
-                                        decided && "bg-emerald-500 hover:bg-emerald-500",
+                                        decided && "bg-green-600 hover:bg-green-600",
                                         isApproving && "opacity-70 cursor-wait"
                                     )}
                                 >
@@ -521,6 +600,3 @@ export function RecommendationPanel({ patientId, patientToken, isRuleBasedForced
         </AnimatePresence>
     );
 }
-
-// Logic helper for extra visual flare
-import { Search } from "lucide-react";

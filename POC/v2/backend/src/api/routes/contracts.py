@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from src.api.security import AuthContext, parse_roles, require_access
@@ -178,24 +178,28 @@ def _normalize_runtime_audit_entries() -> list[dict[str, Any]]:
     previous_hash = "0" * 64
     for index, entry in enumerate(_read_audit_logs(), start=1):
         who = entry.get("who", {})
+        where = entry.get("where", {})
         what = entry.get("what", {})
         why = entry.get("why", {})
         timestamp = entry.get("timestamp", "")
-        patient_id = who.get("patient_id")
+        request_context = why.get("request_context", {}) if isinstance(why.get("request_context"), dict) else {}
+        patient_id = request_context.get("patient_id")
         patient_token = token_by_patient_id.get(patient_id)
+        if not patient_token:
+            patient_token = request_context.get("patient_token")
         patient_token_masked = None
         if patient_token:
             patient_token_masked = f"{patient_token[:12]}****{patient_token[-2:]}"
-        action_type = what.get("event", "Generate")
+        action_type = request_context.get("action_type") or what.get("event", "Generate")
         if action_type == "PROVISIONING_DECISION":
             action_type = "Decision"
         record = {
             "entry_id": f"alog-runtime-{index:06d}",
             "prev_entry_hash": entry.get("previous_hash") or previous_hash,
             "who": {
-                "user_id": who.get("physician_id") or "usr-clinician-001",
+                "user_id": who.get("user_id") or who.get("physician_id") or "usr-clinician-001",
                 "user_display_name": "POC Clinician",
-                "user_role": "physician",
+                "user_role": who.get("user_role") or "physician",
                 "department": "Health Checkup Center",
             },
             "when": {
@@ -203,9 +207,9 @@ def _normalize_runtime_audit_entries() -> list[dict[str, Any]]:
                 "local_timestamp_ict": _to_ict_timestamp(timestamp),
             },
             "where": {
-                "service_id": "recommendation-dashboard-ui",
-                "source_ip_hash": "sha256_source_ip_runtime",
-                "request_id": f"req-runtime-{index:06d}",
+                "service_id": where.get("service_id") or "recommendation-dashboard-ui",
+                "source_ip_hash": where.get("client_ip") or "sha256_source_ip_runtime",
+                "request_id": request_context.get("request_id") or f"req-runtime-{index:06d}",
                 "user_agent_class": "web_browser",
             },
             "what": {
@@ -213,15 +217,15 @@ def _normalize_runtime_audit_entries() -> list[dict[str, Any]]:
                 "resource_type": what.get("resource_type", "RecommendationOutput"),
                 "patient_token": patient_token,
                 "patient_token_masked": patient_token_masked,
-                "model_id": entry.get("how", {}).get("model_id"),
-                "template_version": "poc-v2",
-                "latency_ms": None,
+                "model_id": what.get("model_id") or entry.get("how", {}).get("model_id"),
+                "template_version": "v1.0",
+                "latency_ms": what.get("latency_ms"),
                 "safety_validator_result": "pass",
                 "recommendation_source": "AI",
             },
             "why": {
-                "request_context": why.get("reasoning_trace") or why.get("notes") or "Runtime clinical action",
-                "indication_code": why.get("decision") or action_type,
+                "request_context": request_context or "Runtime clinical action",
+                "indication_code": action_type,
             },
             "retention_expiry": "2029-12-31",
             "raw": entry,
@@ -283,12 +287,18 @@ def _filter_audit_entries(
 
 
 def _map_communication_script(script: dict[str, Any]) -> dict[str, Any]:
-    opening = script.get("opening") or script.get("clinical_conclusion") or "Clinical recommendation summary."
+    opening = (
+        script.get("opening")
+        or script.get("clinical_conclusion")
+        or script.get("health_summary")
+        or "Clinical recommendation summary."
+    )
     return {
         "opening": opening,
         "health_summary": script.get("health_summary", ""),
-        "recommendation_explanation": script.get("recommendation_explanation", ""),
-        "add_on_highlights": script.get("add_on_highlights", []),
+        "recommendation_explanation": script.get("recommendation_rationale")
+        or script.get("recommendation_explanation", ""),
+        "add_on_highlights": script.get("addon_highlights") or script.get("add_on_highlights", []),
         "next_steps": script.get("next_steps", ""),
     }
 
@@ -308,18 +318,67 @@ def _build_critical_signals(clinical_signals: dict[str, Any]) -> list[dict[str, 
     critical = []
     for flag in clinical_signals.get("risk_flags", []):
         severity = flag.get("severity", "")
-        if severity not in {"High", "Critical"}:
+        normalized_severity = severity.lower()
+        if normalized_severity not in {"high", "critical"}:
             continue
         sources = ", ".join(flag.get("source_signals", []))
         critical.append(
             {
                 "signal_id": flag.get("flag_id", ""),
                 "label": flag.get("label", ""),
-                "severity": severity,
+                "severity": "Critical" if normalized_severity == "critical" else "High",
                 "clinical_note": f'{flag.get("guideline", "")} | source_signals: {sources}',
             }
         )
     return critical
+
+
+def _validate_stage1_output(
+    *,
+    ai_output: dict[str, Any],
+    ruleset: dict[str, Any],
+    clinical_signals: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+
+    add_ons = ai_output.get("add_ons", []) or []
+    supporting_signals = ai_output.get("supporting_signals", []) or []
+    output_signals = ai_output.get("clinical_signals", {}) or {}
+
+    signals_fired = output_signals.get("signals_fired")
+    if signals_fired is None:
+        signals_fired = clinical_signals.get("signals_fired", [])
+    applicable_signals = output_signals.get("applicable_signals")
+    if applicable_signals is None:
+        applicable_signals = clinical_signals.get("applicable_signals", [])
+
+    library = ruleset.get("add_on_library", []) or []
+    library_by_id = {
+        item.get("item_id") or item.get("item_code"): item
+        for item in library
+        if item.get("item_id") or item.get("item_code")
+    }
+
+    for item in add_ons:
+        item_id = item.get("item_id") or item.get("item_code")
+        if not item_id or item_id not in library_by_id:
+            failures.append("V2:item_id_not_in_ruleset")
+            continue
+        expected_price = (library_by_id.get(item_id, {}).get("navavej_product") or {}).get("price_thb")
+        candidate_price = item.get("price_thb")
+        if candidate_price is not None and candidate_price != expected_price:
+            failures.append("V10:price_thb_mismatch")
+
+    valid_signals = set(applicable_signals or [])
+    for signal in supporting_signals:
+        if signal not in valid_signals:
+            failures.append("V7:supporting_signal_invalid")
+            break
+
+    if signals_fired and not add_ons:
+        failures.append("V9:add_ons_empty_with_triggers")
+
+    return sorted(set(failures))
 
 
 def _normalize_mapping_codes(raw_mappings: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -378,19 +437,27 @@ def _normalize_stage2(
     )
     ai_tier = ai_output.get("ai_recommended_tier", "Standard")
 
-    addon_map = {item.get("item_code"): item for item in ruleset.get("add_on_library", [])}
+    addon_map = {
+        item.get("item_code") or item.get("item_id"): item
+        for item in ruleset.get("add_on_library", [])
+    }
     enriched_add_ons = []
     for item in ai_output.get("add_ons", []):
-        item_code = item.get("item_code", "")
-        meta = addon_map.get(item_code, {})
+        item_id = item.get("item_id") or item.get("item_code", "")
+        meta = addon_map.get(item_id, {})
         trigger_signals = meta.get("trigger_signals", [])
+        product = meta.get("navavej_product", {})
         enriched_add_ons.append(
             {
-                "item_code": item_code,
-                "priority_level": item.get("priority_level", "Yellow"),
+                "item_code": item_id,
+                "item_id": item_id,
+                "priority_level": item.get("priority") or item.get("priority_level", "Yellow"),
+                "priority": item.get("priority") or item.get("priority_level", "Yellow"),
                 "rationale": item.get("rationale", ""),
-                "label": meta.get("label", item_code),
-                "category": meta.get("category", "other"),
+                "label": item.get("label") or meta.get("label", item_id),
+                "product_code": item.get("product_code") or product.get("product_code", ""),
+                "price_thb": item.get("price_thb", product.get("price_thb")),
+                "category": item.get("category") or meta.get("category", "other"),
                 "navavej_product": meta.get(
                     "navavej_product",
                     {
@@ -403,11 +470,39 @@ def _normalize_stage2(
             }
         )
 
-    applicable_count = len(applicable_signals) or 1
-    signal_coverage = min(len(signals_fired) / applicable_count, 1.0)
-    total_signal_count = len(signals_fired) + len(missing_signals) or 1
-    data_completeness = len(signals_fired) / total_signal_count
-    rule_agreement = 1.0 if ai_tier == rule_preliminary_tier else 0.7
+    expected_signal_ids = set(applicable_signals or [])
+    missing_signal_ids = set(missing_signals or [])
+    observed_signal_ids = signals_fired | set(ai_output.get("supporting_signals", []) or [])
+    if expected_signal_ids:
+        signals_with_data = len(expected_signal_ids - missing_signal_ids)
+        total_expected_signals = len(expected_signal_ids)
+    else:
+        signals_with_data = len(observed_signal_ids)
+        total_expected_signals = len(observed_signal_ids) + len(missing_signal_ids)
+    signal_coverage = signals_with_data / max(total_expected_signals, 1)
+
+    required_fields = {
+        "ai_recommended_tier": ai_output.get("ai_recommended_tier"),
+        "add_ons": ai_output.get("add_ons"),
+        "communication_script": ai_output.get("communication_script"),
+        "clinical_signals": ai_output.get("clinical_signals"),
+        "reasoning_trace": ai_output.get("reasoning_trace"),
+    }
+
+    def _field_present(name: str, value: Any) -> bool:
+        if value is None:
+            return False
+        if name in {"communication_script", "clinical_signals"}:
+            return isinstance(value, dict) and len(value) > 0
+        if name == "reasoning_trace":
+            return isinstance(value, str) and bool(value.strip())
+        return True
+
+    required_fields_present = sum(
+        1 for name, value in required_fields.items() if _field_present(name, value)
+    )
+    data_completeness = required_fields_present / len(required_fields)
+    rule_agreement = 1.0 if ai_tier == rule_preliminary_tier else 0.0
     confidence_score = round(0.4 * signal_coverage + 0.4 * data_completeness + 0.2 * rule_agreement, 3)
     confidence_tier = _confidence_tier(confidence_score)
     review_required = ai_output.get("review_required")
@@ -415,7 +510,7 @@ def _normalize_stage2(
         review_required = confidence_score < 0.50
     recommendation_source = ai_output.get("recommendation_source")
     if not recommendation_source:
-        recommendation_source = "RuleBased" if review_required else "AI"
+        recommendation_source = "AI_LowConfidence" if review_required else "AI"
 
     critical_signals = _build_critical_signals(clinical_signals)
     missing_data_alerts = _build_missing_data_alerts(missing_signals)
@@ -454,11 +549,11 @@ def _normalize_stage2(
             "request_id": f"req_{uuid.uuid4().hex[:12]}",
             "patient_token": patient_token,
             "model_id": settings.llm_model,
-            "template_version": "poc-v2-stage2-v1",
+            "template_version": "v1.0",
             "ruleset_version": ruleset.get("ruleset_version", "v2026.03.1"),
             "signal_store_pipeline_run_id": clinical_signals.get("pipeline_run_id", ""),
             "generated_at": datetime.now(timezone.utc).isoformat(),
-            "latency_ms": latency_ms,
+            "latency_ms": int(latency_ms or 0),
         },
     }
 
@@ -477,7 +572,7 @@ def _recommendation_cache_key(
             "ruleset_version": ruleset_version,
             "force_rule_based": force_rule_based,
             "model_id": settings.llm_model,
-            "template_version": "poc-v2-stage2-v1",
+            "template_version": "v1.0",
             "api_auth_mode": settings.api_auth_mode,
         },
         sort_keys=True,
@@ -487,7 +582,11 @@ def _recommendation_cache_key(
 
 
 @router.post("/recommend", response_model=RecommendResponse)
-async def recommend(request: RecommendRequest, _auth: AuthContext = Depends(require_recommendation_access)):
+async def recommend(
+    request: RecommendRequest,
+    http_request: Request,
+    _auth: AuthContext = Depends(require_recommendation_access),
+):
     patient = _resolve_patient_by_token(request.patient_token)
     patient_id = patient["patient_id"]
     signals = get_clinical_signals(request.patient_token, patient_id=patient_id)
@@ -515,11 +614,37 @@ async def recommend(request: RecommendRequest, _auth: AuthContext = Depends(requ
             payload["metadata"] = metadata
             return payload
     started_at = time.time()
+    request_id = f"req_{uuid.uuid4().hex[:12]}"
+    audit_context = {
+        "user_id": _auth.user_id,
+        "user_role": _auth.role,
+        "client_ip": http_request.client.host if http_request.client else "unknown",
+        "request_id": request_id,
+        "action_type": "GenerateRecommendation",
+    }
     ai_output = await orchestrator.generate_recommendation(
         patient_id=patient_id,
         patient_token=request.patient_token,
         force_rule_based=request.force_rule_based,
+        audit_context=audit_context,
     )
+    recommendation_source = ai_output.get("recommendation_source")
+    if not request.force_rule_based and recommendation_source != "RuleBased":
+        validation_failures = _validate_stage1_output(
+            ai_output=ai_output,
+            ruleset=ruleset,
+            clinical_signals=signals,
+        )
+        if validation_failures:
+            ai_output = await orchestrator.generate_recommendation(
+                patient_id=patient_id,
+                patient_token=request.patient_token,
+                force_rule_based=True,
+                audit_context=audit_context,
+            )
+            ai_output["validation_failures"] = validation_failures
+            ai_output["review_required"] = True
+            ai_output["recommendation_source"] = "RuleBased"
     latency_ms = int((time.time() - started_at) * 1000)
     payload = _normalize_stage2(
         patient_token=request.patient_token,

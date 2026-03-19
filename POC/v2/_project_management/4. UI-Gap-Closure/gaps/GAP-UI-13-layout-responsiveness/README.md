@@ -1,7 +1,7 @@
 # GAP-UI-13 — Layout Responsiveness
 
 **Title:** Fix sidebar-layout coupling and LiveMetricsBar display issues
-**Status:** Not started
+**Status:** Complete
 **Wave:** 2
 
 ---

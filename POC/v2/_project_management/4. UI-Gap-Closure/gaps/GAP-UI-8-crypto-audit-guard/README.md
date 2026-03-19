@@ -1,7 +1,7 @@
 # GAP-UI-8 — Crypto Audit Guard
 
 **Title:** Add availability guard and error handling for crypto.subtle hash verification
-**Status:** Not started
+**Status:** Complete
 **Wave:** 1
 
 ---

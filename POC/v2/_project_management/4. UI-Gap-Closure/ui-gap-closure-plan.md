@@ -1,5 +1,5 @@
 # UI Gap Closure Plan
-> **Date:** 2026-03-19 · **Total Gaps:** 15 (GAP-UI-1 through GAP-UI-15) · **Source Findings:** 53
+> **Date:** 2026-03-19 · **Last updated:** 2026-03-19 (verification audit) · **Total Gaps:** 16 (GAP-UI-1 through GAP-UI-16) · **Source Findings:** 53 original + 1 new
 
 ## Planning Principles
 
@@ -10,7 +10,7 @@
 
 ## Target End State
 
-After all 15 gaps are closed:
+After all 16 gaps are closed:
 - Zero hardcoded clinical data displayed to users
 - Sidebar visible with correct theming and active state
 - All three screens show meaningful error states on API failure
@@ -22,7 +22,7 @@ After all 15 gaps are closed:
 ## Workstreams
 
 ### WS-A — Visual & Clinical Correctness (Wave 1)
-GAP-UI-1, GAP-UI-2, GAP-UI-3, GAP-UI-4, GAP-UI-5, GAP-UI-6, GAP-UI-7, GAP-UI-8
+GAP-UI-1, GAP-UI-2, GAP-UI-3, GAP-UI-4, GAP-UI-5, GAP-UI-6, GAP-UI-7, GAP-UI-8, GAP-UI-16
 
 ### WS-B — Code Quality & Consolidation (Wave 2)
 GAP-UI-9, GAP-UI-10, GAP-UI-11, GAP-UI-12, GAP-UI-13
@@ -42,6 +42,7 @@ GAP-UI-14, GAP-UI-15
 | 6 | GAP-UI-4 | Fix auth security (move out of NEXT_PUBLIC, fix physician_id) | Security: DevTools check |
 | 7 | GAP-UI-7 | Fix anomaly alert persistence | Functional: persist or disable |
 | 8 | GAP-UI-8 | Add crypto.subtle guard | Functional: HTTPS message shown |
+| 8b | GAP-UI-16 | Extend privacy mode to all PII fields (or add disclaimer) | Visual: privacy mode consistent |
 | **WAVE 1 GATE** | — | All Wave 1 items verified per Verification Plan | All checks pass |
 | 9 | GAP-UI-9 | Replace all `any` types; add Axios interceptors and timeout | `tsc --noEmit` clean |
 | 10 | GAP-UI-10 | Consolidate design tokens; remove dual CSS system | No raw hex in source |
@@ -72,6 +73,7 @@ GAP-UI-14, GAP-UI-15
 | GAP-UI-13 | Layout Responsiveness | 2 | G-46, G-47, G-48 | `layout.tsx`, `LiveMetricsBar.tsx` |
 | GAP-UI-14 | Accessibility | 3 | G-49, G-50, G-51, G-52 | `Sidebar.tsx`, `PatientList.tsx`, `layout.tsx` |
 | GAP-UI-15 | Test Coverage | 3 | (blanket) | `package.json`, `vitest.config.ts` (new), test files (new) |
+| GAP-UI-16 | Privacy Mode: Incomplete PII Masking | 1 | NEW-UI-16 (identified 2026-03-19) | `page.tsx`, `RecommendationPanel.tsx`, `TrendTimelineScreen.tsx` |
 
 ## Risk Register
 
@@ -92,20 +94,32 @@ A gap is closed when:
 
 ## Closure Status
 
-| GAP-UI | Title | Wave | Status |
-|---|---|---|---|
-| GAP-UI-1 | Recommendation Panel Clinical Data | 1 | Not started |
-| GAP-UI-2 | Patient Context Header | 1 | Not started |
-| GAP-UI-3 | Sidebar Theming | 1 | Not started |
-| GAP-UI-4 | Auth & Security | 1 | Not started |
-| GAP-UI-5 | Navigation & Placeholder Content | 1 | Not started |
-| GAP-UI-6 | Error & Loading States | 1 | Not started |
-| GAP-UI-7 | Anomaly Alert Persistence | 1 | Not started |
-| GAP-UI-8 | Crypto Audit Guard | 1 | Not started |
-| GAP-UI-9 | Type Safety & API Service | 2 | Not started |
-| GAP-UI-10 | Design Token Consolidation | 2 | Not started |
-| GAP-UI-11 | Chart Component Deduplication | 2 | Not started |
-| GAP-UI-12 | UX Polish | 2 | Not started |
-| GAP-UI-13 | Layout Responsiveness | 2 | Not started |
-| GAP-UI-14 | Accessibility | 3 | Not started |
-| GAP-UI-15 | Test Coverage | 3 | Not started |
+> Last verified: 2026-03-19 (AI verification audit)
+
+| GAP-UI | Title | Wave | Status | Verified |
+|---|---|---|---|---|
+| GAP-UI-1 | Recommendation Panel Clinical Data | 1 | ✅ Done | 2026-03-19 |
+| GAP-UI-2 | Patient Context Header | 1 | ✅ Done | 2026-03-19 |
+| GAP-UI-3 | Sidebar Theming | 1 | ✅ Done | 2026-03-19 |
+| GAP-UI-4 | Auth & Security | 1 | ✅ Done | 2026-03-19 |
+| GAP-UI-5 | Navigation & Placeholder Content | 1 | ✅ Done | 2026-03-19 |
+| GAP-UI-6 | Error & Loading States | 1 | ✅ Done | 2026-03-19 |
+| GAP-UI-7 | Anomaly Alert Persistence | 1 | ✅ Done | 2026-03-19 |
+| GAP-UI-8 | Crypto Audit Guard | 1 | ✅ Done | 2026-03-19 |
+| GAP-UI-9 | Type Safety & API Service | 2 | ✅ Done | 2026-03-19 |
+| GAP-UI-10 | Design Token Consolidation | 2 | ✅ Done | 2026-03-19 |
+| GAP-UI-11 | Chart Component Deduplication | 2 | ✅ Done | 2026-03-19 |
+| GAP-UI-12 | UX Polish | 2 | ✅ Done | 2026-03-19 |
+| GAP-UI-13 | Layout Responsiveness | 2 | ✅ Done | 2026-03-19 |
+| GAP-UI-14 | Accessibility | 3 | ✅ Done | 2026-03-19 |
+| GAP-UI-15 | Test Coverage | 3 | ✅ Done | 2026-03-19 |
+| GAP-UI-16 | Privacy Mode: Incomplete PII Masking | 1 | ✅ Done | 2026-03-19 |
+
+### Wave 1 Gate: ✅ PASSED
+All 9 Wave 1 items (GAP-UI-1 through GAP-UI-8 + GAP-UI-16) are closed and verified.
+
+### Wave 2 Gate: ✅ PASSED
+All 5 Wave 2 items (GAP-UI-9 through GAP-UI-13) are closed and verified.
+
+### Wave 3 Gate: ✅ PASSED
+All 2 Wave 3 items (GAP-UI-14 and GAP-UI-15) are closed and verified. All 16 gaps closed — UI Gap Closure complete.

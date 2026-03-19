@@ -5,7 +5,6 @@ from loguru import logger
 from src.mcp_server.utils import (
     extract_clinical_signals,
     extract_hard_constraints,
-    filter_add_ons_by_demographics,
     get_current_timestamp,
     load_package_resolution_map,
     load_ruleset_add_on_items,
@@ -89,9 +88,8 @@ def get_program_ruleset(patient_token: str, patient_id: str | None = None) -> di
     # Cleaned up: Removed redundant _evaluate_tier_rules call.
     # We rely on the Clinical Signal Engine's offline computation results already in the record.
 
-    # Load and filter add-on items
+    # Load full add-on library (no pre-AI demographic filtering)
     all_add_ons = load_ruleset_add_on_items()
-    filtered_add_ons, excluded_add_ons = filter_add_ons_by_demographics(all_add_ons, gender, age)
 
     # Externalized: Package resolution map is now loaded from a JSON file
     package_resolution_map = load_package_resolution_map()
@@ -110,8 +108,8 @@ def get_program_ruleset(patient_token: str, patient_id: str | None = None) -> di
         "rule_preliminary_tier": rule_preliminary_tier,
         "package_resolution_map": package_resolution_map,
         "resolved_package": resolved_package or {},
-        "add_on_library": filtered_add_ons,
-        "_add_on_library_filtered_count": len(filtered_add_ons),
-        "_add_on_library_excluded_count": len(excluded_add_ons),
-        "_add_on_library_excluded_items": excluded_add_ons,
+        "add_on_library": all_add_ons,
+        "_add_on_library_filtered_count": len(all_add_ons),
+        "_add_on_library_excluded_count": 0,
+        "_add_on_library_excluded_items": [],
     }

@@ -1,5 +1,6 @@
 """Orchestration Manager to coordinate workflows, safety, and audit."""
 
+import time
 from typing import Any
 
 from loguru import logger
@@ -8,7 +9,7 @@ from src.api.routes.patients import resolve_patient_token
 from src.services.mcp_client import MCPClientFactory
 from src.services.audit import AuditLogger
 from src.services.privacy import PIIRehydrator
-from src.services.safety import ClinicalSafetyGuard
+from src.services.safety import SafetyRuleValidator
 from src.services.workflows.clinical import ClinicalReasoningWorkflow
 from shared.settings import settings
 
@@ -24,7 +25,7 @@ class OrchestrationManager:
 
     def __init__(self):
         """Initialize core components."""
-        self.safety_guard = ClinicalSafetyGuard()
+        self.safety_validator = SafetyRuleValidator()
         self.audit_logger = AuditLogger()
 
     async def generate_recommendation(
@@ -32,6 +33,7 @@ class OrchestrationManager:
         patient_id: str,
         patient_token: str | None = None,
         force_rule_based: bool = False,
+        audit_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Coordinate the full recommendation generation process.
 
@@ -48,29 +50,53 @@ class OrchestrationManager:
             raise ValueError(f"Patient token not found for patient_id: {patient_id}")
         logger.info(f"Manager received request for patient: {patient_id} (force_rule_based={force_rule_based})")
 
+        started_at = time.time()
+        audit_context = audit_context or {}
+
         async with MCPClientFactory.get_client() as session:
             # Initialize Workflow
             workflow = ClinicalReasoningWorkflow(session)
 
             # Execute Workflow
-            context = await workflow.execute(
-                patient_id,
-                patient_token=resolved_patient_token,
-                force_rule_based=force_rule_based,
-            )
+            try:
+                context = await workflow.execute(
+                    patient_id,
+                    patient_token=resolved_patient_token,
+                    force_rule_based=force_rule_based,
+                )
+            except Exception as exc:
+                if force_rule_based:
+                    raise RuntimeError(f"Rule-based fallback failed: {exc}") from exc
+                logger.warning(f"Primary path failed, retrying deterministic rule-based flow: {exc}")
+                context = await workflow.execute(
+                    patient_id,
+                    patient_token=resolved_patient_token,
+                    force_rule_based=True,
+                )
 
-            # Post-process: Safety Validation
-            logger.info("Performing safety validation")
-            safety_result = await self.safety_guard.validate(context.ai_output, context.raw_context)
-            context.ai_output["safety_check"] = safety_result
+            # Post-process: Deterministic Safety Validation
+            logger.info("Performing deterministic safety validation")
+            safety_result = self.safety_validator.validate_and_filter(
+                context.ai_output,
+                context.raw_context,
+            )
+            context.ai_output["add_ons"] = safety_result["filtered_add_ons"]
 
             # Post-process: Audit Logging
             logger.info("Recording audit log")
             recommendation_hash = self.audit_logger.log_recommendation(
                 patient_id=patient_id,
+                patient_token=resolved_patient_token,
                 masked_context=context.masked_context,
                 ai_output=context.ai_output,
                 model_id=settings.llm_model,
+                safety_conflict_events=safety_result["conflict_events"],
+                user_id=audit_context.get("user_id", "usr-system"),
+                user_role=audit_context.get("user_role", "system"),
+                client_ip=audit_context.get("client_ip", "unknown"),
+                request_id=audit_context.get("request_id", ""),
+                action_type=audit_context.get("action_type", "GenerateRecommendation"),
+                latency_ms=int((time.time() - started_at) * 1000),
             )
 
             context.ai_output["recommendation_hash"] = recommendation_hash

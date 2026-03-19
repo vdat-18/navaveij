@@ -1,7 +1,7 @@
 # GAP-UI-14 — Accessibility
 
 **Title:** Add ARIA attributes, fix image component, and add root ErrorBoundary
-**Status:** Not started
+**Status:** Complete
 **Wave:** 3
 
 ---

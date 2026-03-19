@@ -66,8 +66,7 @@ async def test_with_synthesized_data():
             "ai_recommended_tier",
             "reasoning_trace",
             "add_ons",
-            "communication_script",
-            "safety_check"
+            "communication_script"
         ]
 
         missing_fields = [field for field in required_fields if field not in result]
@@ -106,7 +105,7 @@ async def test_multiple_scenarios():
                 "ai_recommended_tier": result.get("ai_recommended_tier"),
                 "has_reasoning": "reasoning_trace" in result,
                 "add_ons_count": len(result.get("add_ons", [])),
-                "is_safe": result.get("safety_check", {}).get("is_safe")
+                "has_add_ons": isinstance(result.get("add_ons", []), list),
             }
         except Exception as e:
             if _is_external_service_error(e):

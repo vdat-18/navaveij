@@ -1,7 +1,7 @@
 # GAP-UI-5 — Navigation & Placeholder Content
 
 **Title:** Replace all placeholder labels and remove duplicate/incorrect navigation elements
-**Status:** Not started
+**Status:** Complete
 **Wave:** 1
 
 ---
@@ -14,7 +14,7 @@ Remove all development-era placeholder content (Screen 1/2/3 labels, Sample Link
 2. Fix "Support" link in `Sidebar.tsx` — route to `/support` or remove; must not route to `/audit`
 3. Remove duplicate nav links from `page.tsx` header (Governance, Trend & Timeline already in Sidebar)
 4. Remove "Sample Link 1/2/3" placeholder footer content from `page.tsx`
-5. Remove duplicate "Back to Summary" link from `TrendTimelineScreen.tsx` (already rendered by page layout)
+5. ~~Remove duplicate "Back to Summary" link from `TrendTimelineScreen.tsx`~~ — **DONE** (verified 2026-03-19)
 6. Fix "No entities found" → "No patients found" in `PatientList.tsx`
 
 ## Primary Files

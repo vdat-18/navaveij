@@ -1,3 +1,0 @@
-# Discovery
-
-Status: Not started

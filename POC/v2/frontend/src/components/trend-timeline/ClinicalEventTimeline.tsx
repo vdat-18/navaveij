@@ -20,7 +20,7 @@ export function ClinicalEventTimeline({ timeline, startYear }: ClinicalEventTime
         date: item.date,
         type: "Diagnosis",
         title: item.label,
-        detail: item.clinical_status || "active",
+        detail: item.clinical_status || "unknown",
         terminology: terminology || "N/A",
       });
     }

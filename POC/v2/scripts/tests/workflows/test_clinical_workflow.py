@@ -54,8 +54,12 @@ async def test_clinical_workflow_ai_path(mock_session):
         tier_deviation_justification="Policy-aligned escalation",
         selected_add_ons=[
             SimpleNamespace(
-                item_code="AON001",
-                priority_level=SimpleNamespace(value="Yellow"),
+                item_id="AON001",
+                priority=SimpleNamespace(value="Yellow"),
+                label="Add-on One",
+                product_code="PROD_AON001",
+                price_thb=1200.0,
+                category="cardiac",
                 rationale="Triggered by signal_1",
             )
         ],
@@ -64,10 +68,9 @@ async def test_clinical_workflow_ai_path(mock_session):
     final = SimpleNamespace(
         plan=plan,
         communication_script=SimpleNamespace(
-            clinical_conclusion="Advanced tier is recommended.",
             health_summary="There is elevated metabolic risk.",
-            recommendation_explanation="A higher tier improves screening coverage.",
-            add_on_highlights=["AON001"],
+            recommendation_rationale="A higher tier improves screening coverage.",
+            addon_highlights=["AON001"],
             next_steps="Book the advanced package this month.",
         ),
     )
@@ -95,8 +98,11 @@ async def test_clinical_workflow_ai_path(mock_session):
     assert result.ai_output["recommendation_source"] == "AI"
     assert result.ai_output["review_required"] is False
     assert result.ai_output["rule_preliminary_tier"] == "Standard"
-    assert result.ai_output["add_ons"][0]["item_code"] == "AON001"
-    assert result.ai_output["communication_script"]["clinical_conclusion"] == "Advanced tier is recommended."
+    assert result.ai_output["add_ons"][0]["item_id"] == "AON001"
+    assert result.ai_output["add_ons"][0]["product_code"] == "PROD_AON001"
+    assert result.ai_output["communication_script"]["recommendation_rationale"] == (
+        "A higher tier improves screening coverage."
+    )
     assert mock_session.call_tool.call_count == 4
     for call in mock_session.call_tool.call_args_list:
         assert "patient_token" in call.args[1]

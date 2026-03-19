@@ -1,7 +1,7 @@
 # GAP-UI-12 — UX Polish
 
 **Title:** Remove dead code and fix minor UX inconsistencies
-**Status:** Not started
+**Status:** Complete
 **Wave:** 2
 
 ---

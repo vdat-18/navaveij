@@ -22,7 +22,7 @@ interface LabResultsGridProps {
 
 const getStatusColor = (interpretation: string) => {
     switch (interpretation) {
-        case "N": return "text-emerald-500 bg-emerald-50 border-emerald-100";
+        case "N": return "text-green-600 bg-green-50 border-green-100";
         case "H": return "text-navavej-red bg-navavej-red/5 border-navavej-red/10";
         case "L": return "text-blue-500 bg-blue-50 border-blue-100";
         default: return "text-navavej-gray-med bg-navavej-gray-light border-navavej-border";
@@ -32,7 +32,7 @@ const getStatusColor = (interpretation: string) => {
 const TrendIcon = ({ direction }: { direction: string }) => {
     switch (direction) {
         case "increasing": return <ArrowUpRight className="w-3 h-3 text-navavej-red" />;
-        case "decreasing": return <ArrowDownRight className="w-3 h-3 text-emerald-500" />;
+        case "decreasing": return <ArrowDownRight className="w-3 h-3 text-green-600" />;
         case "stable": return <Minus className="w-3 h-3 text-navavej-gray-med" />;
         default: return null;
     }
@@ -50,7 +50,7 @@ export function LabResultsGrid({ labs }: LabResultsGridProps) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4">
                 {labs.map((lab) => (
-                    <div key={lab.lab_id} className="navavej-card p-5 bg-white flex flex-col justify-between group hover:scale-[1.02] transition-all cursor-default">
+                    <div key={lab.lab_id} className="navavej-card p-5 bg-white flex flex-col justify-between group transition-all cursor-default">
                         <div>
                             <div className="flex justify-between items-start mb-3">
                                 <span className="text-[9px] font-black text-navavej-gray-med uppercase tracking-wider truncate mr-2">
@@ -85,7 +85,7 @@ export function LabResultsGrid({ labs }: LabResultsGridProps) {
                                 </span>
                             </div>
                             {lab.interpretation !== "N" && (
-                                <AlertCircle className="w-3.5 h-3.5 text-navavej-red animate-pulse" />
+                                <AlertCircle className={cn("w-3.5 h-3.5 text-navavej-red", lab.interpretation === "H" ? "animate-pulse" : "")} />
                             )}
                         </div>
                     </div>

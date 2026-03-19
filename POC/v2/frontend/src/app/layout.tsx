@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Sidebar } from "@/components/Sidebar";
+import { Providers } from "./Providers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -24,16 +26,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased selection:bg-teal-accent selection:text-navy-950`}
       >
-        <Sidebar />
-        <main className="pl-64 min-h-screen bg-white">
-          <div className="w-full">
-            {children}
-          </div>
-        </main>
+        <Providers>
+          <Sidebar />
+          <main className="min-h-screen bg-white" style={{ paddingLeft: "var(--sidebar-width)" }}>
+            <ErrorBoundary>
+              <div className="w-full">
+                {children}
+              </div>
+            </ErrorBoundary>
+          </main>
+        </Providers>
       </body>
     </html>
   );

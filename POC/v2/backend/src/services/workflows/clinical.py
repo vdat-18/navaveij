@@ -184,8 +184,12 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             "tier_deviation_justification": final.plan.tier_deviation_justification,
             "add_ons": [
                 {
-                    "item_code": item.item_code,
-                    "priority_level": item.priority_level.value,
+                    "item_id": item.item_id,
+                    "priority": item.priority.value,
+                    "label": item.label,
+                    "product_code": item.product_code,
+                    "price_thb": item.price_thb,
+                    "category": item.category,
                     "rationale": item.rationale,
                 }
                 for item in final.plan.selected_add_ons
@@ -194,10 +198,9 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             "supporting_signals": risk_profile.supporting_signal_ids,
             "missing_signals": risk_profile.missing_signal_ids,
             "communication_script": {
-                "clinical_conclusion": final.communication_script.clinical_conclusion,
                 "health_summary": final.communication_script.health_summary,
-                "recommendation_explanation": final.communication_script.recommendation_explanation,
-                "add_on_highlights": final.communication_script.add_on_highlights,
+                "recommendation_rationale": final.communication_script.recommendation_rationale,
+                "addon_highlights": final.communication_script.addon_highlights,
                 "next_steps": final.communication_script.next_steps,
             },
             "rule_preliminary_tier": rule_result["rule_tier"],
@@ -228,12 +231,11 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             "supporting_signals": matched_signals,
             "missing_signals": clinical_signals.get("missing_signals", []),
             "communication_script": {
-                "clinical_conclusion": f"Based on hospital rules, we recommend the {rule_tier} tier.",
                 "health_summary": f"Current clinical findings ({matched_text}) indicate a {rule_tier} package.",
-                "recommendation_explanation": (
+                "recommendation_rationale": (
                     "This recommendation follows deterministic rule matching while the AI chain is unavailable."
                 ),
-                "add_on_highlights": [],
+                "addon_highlights": [],
                 "next_steps": "Please confirm this recommendation with the clinical team.",
             },
             "rule_preliminary_tier": rule_tier,

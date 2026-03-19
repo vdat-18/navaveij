@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
     LayoutDashboard,
@@ -13,9 +14,9 @@ import {
 import { cn } from "@/shared/utils";
 
 const menuItems = [
-    { icon: LayoutDashboard, label: "Screen 1", id: "dashboard", href: "/" },
-    { icon: LineChart, label: "Screen 2", id: "timeline", href: "/trend-timeline" },
-    { icon: ShieldCheck, label: "Screen 3", id: "monitoring", href: "/access-monitoring" },
+    { icon: LayoutDashboard, label: "Clinical Dashboard", id: "dashboard", href: "/" },
+    { icon: LineChart, label: "Trend & Timeline", id: "timeline", href: "/trend-timeline" },
+    { icon: ShieldCheck, label: "Access Monitoring", id: "monitoring", href: "/access-monitoring" },
     { icon: FileSearch, label: "Governance", id: "audit", href: "/audit" },
 ];
 
@@ -23,11 +24,13 @@ export function Sidebar() {
     const pathname = usePathname();
 
     return (
-        <aside className="w-64 glass-sidebar h-screen flex flex-col p-6 fixed left-0 top-0 z-50">
+        <aside aria-label="Main navigation" className="w-[var(--sidebar-width)] glass-sidebar h-screen flex flex-col p-6 fixed left-0 top-0 z-50">
             <div className="flex flex-col mb-12">
-                <img
+                <Image
                     src="/logo-navavej.png"
                     alt="Navavej"
+                    width={120}
+                    height={48}
                     className="h-12 w-auto object-contain mb-2 self-start"
                 />
                 <div className="flex items-center gap-2 px-1">
@@ -46,6 +49,7 @@ export function Sidebar() {
                     <Link
                         key={item.id}
                         href={item.href}
+                        aria-current={pathname === item.href ? "page" : undefined}
                         className={cn(
                             "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group",
                             pathname === item.href
@@ -60,10 +64,10 @@ export function Sidebar() {
             </nav>
 
             <div className="mt-auto space-y-2">
-                <Link href="/audit" className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition-all">
+                <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition-all">
                     <HelpCircle className="w-5 h-5 text-slate-500" />
                     <span className="font-medium">Support</span>
-                </Link>
+                </button>
             </div>
         </aside>
     );

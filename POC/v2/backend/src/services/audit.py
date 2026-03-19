@@ -58,20 +58,48 @@ class AuditLogger:
         masked_context: dict[str, Any],
         ai_output: dict[str, Any],
         model_id: str,
+        safety_conflict_events: list[dict[str, Any]] | None = None,
+        patient_token: str | None = None,
+        user_id: str = "usr-system",
+        user_role: str = "system",
+        client_ip: str = "unknown",
+        request_id: str = "",
+        action_type: str = "GenerateRecommendation",
+        latency_ms: int = 0,
     ) -> str:
         timestamp = datetime.now(timezone.utc).isoformat()
+        resolved_request_id = request_id or f"req_{timestamp.replace(':', '').replace('-', '')[-12:]}"
+        resolved_patient_token = patient_token or ai_output.get("metadata", {}).get("patient_token")
 
         payload = {
             "timestamp": timestamp,
-            "who": {"patient_id": patient_id},
-            "what": {"input_context_snapshot": masked_context},
-            "why": {
-                "reasoning_trace": ai_output.get("reasoning_trace"),
-                "decision": ai_output.get("ai_recommended_tier"),
+            "who": {
+                "user_id": user_id,
+                "user_role": user_role,
             },
-            "how": {"model_provider": settings.llm_provider, "model_id": model_id},
+            "where": {
+                "service_id": "recommendation-engine-api",
+                "client_ip": client_ip,
+            },
+            "what": {
+                "prompt": json.dumps(masked_context, ensure_ascii=False),
+                "masked_context": masked_context,
+                "masked_response": ai_output,
+                "latency_ms": int(latency_ms or 0),
+                "model_id": model_id,
+                "safety_conflict_events": safety_conflict_events or [],
+            },
+            "why": {
+                "request_context": {
+                    "patient_id": patient_id,
+                    "patient_token": resolved_patient_token,
+                    "action_type": action_type,
+                    "request_id": resolved_request_id,
+                },
+            },
+            "how": {"model_provider": settings.llm_provider, "model_id": model_id, "action_type": action_type},
             "confidence": ai_output.get("confidence_score"),
-            "metadata": {"environment": settings.environment},
+            "metadata": {"environment": settings.environment, "request_id": resolved_request_id},
             "previous_hash": self.last_hash,
         }
 

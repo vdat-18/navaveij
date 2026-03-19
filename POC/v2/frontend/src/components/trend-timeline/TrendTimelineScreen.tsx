@@ -3,6 +3,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { clinicalService } from "@/services/api";
+import { BiomarkerTrendsResponse, NumericHistoryPoint } from "@/types/biomarker-trends";
+import { BMI_TARGET, BP_SYSTOLIC_NORMAL } from "@/shared/clinicalConstants";
 import { BiomarkerSeries, ScreeningGapRow, TimelinePayload } from "@/types/timeline";
 import { BiomarkerTrendGrid } from "./BiomarkerTrendGrid";
 import { ClinicalEventTimeline } from "./ClinicalEventTimeline";
@@ -12,11 +14,12 @@ interface TrendTimelineScreenProps {
   patientName: string;
   patientId: string;
   patientToken: string;
+  privacyMode?: boolean;
 }
 
-export function TrendTimelineScreen({ patientName, patientId, patientToken }: TrendTimelineScreenProps) {
+export function TrendTimelineScreen({ patientName, patientId, patientToken, privacyMode = false }: TrendTimelineScreenProps) {
   const [timeline, setTimeline] = useState<TimelinePayload | null>(null);
-  const [biomarkers, setBiomarkers] = useState<any>(null);
+  const [biomarkers, setBiomarkers] = useState<BiomarkerTrendsResponse | null>(null);
   const [screeningGaps, setScreeningGaps] = useState<ScreeningGapRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -68,8 +71,8 @@ export function TrendTimelineScreen({ patientName, patientId, patientToken }: Tr
 
   const chartSeries = useMemo<BiomarkerSeries[]>(() => {
     if (!biomarkers) return [];
-    const getLab = (labId: string) => (biomarkers.labs || []).find((item: any) => item.lab_id === labId);
-    const filterHistory = (history: any[] = []) =>
+    const getLab = (labId: string) => (biomarkers.labs || []).find((item) => item.lab_id === labId);
+    const filterHistory = (history: NumericHistoryPoint[] = []) =>
       history.filter((h) => Number((h.date || "").slice(0, 4)) >= startYear);
 
     const fbs = getLab("fbs");
@@ -115,7 +118,7 @@ export function TrendTimelineScreen({ patientName, patientId, patientToken }: Tr
         unit: bmi?.unit || "kg/m²",
         trend_direction: bmi?.trend_direction || "unknown",
         slope_per_year: bmi?.slope_per_year ?? null,
-        reference: 23,
+        reference: BMI_TARGET,
         current: bmi?.current || 0,
         history: filterHistory(bmi?.history || []),
       },
@@ -125,9 +128,9 @@ export function TrendTimelineScreen({ patientName, patientId, patientToken }: Tr
         unit: "mmHg",
         trend_direction: bp?.trend_direction || "unknown",
         slope_per_year: bp?.sbp_slope_per_year ?? null,
-        reference: 120,
+        reference: BP_SYSTOLIC_NORMAL,
         current: bp?.latest?.sbp || 0,
-        history: filterHistory((bp?.history || []).map((item: any) => ({ date: item.date, value: item.sbp }))),
+        history: filterHistory((bp?.history || []).map((item) => ({ date: item.date, value: item.sbp }))),
       },
       {
         label: "eGFR",
@@ -144,13 +147,13 @@ export function TrendTimelineScreen({ patientName, patientId, patientToken }: Tr
 
   return (
     <div className="space-y-6">
-      <div className="navavej-card bg-[#F0F9FA] border-navavej-teal/20 p-5 flex justify-between items-center">
+      <div className="navavej-card bg-navavej-teal/5 border-navavej-teal/20 p-5 flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-black text-navavej-gray-dark uppercase tracking-tighter">
             Trend & Timeline
           </h2>
           <p className="text-xs text-navavej-gray-med font-bold mt-2">
-            {patientName} • {patientId} • {patientToken}
+            {privacyMode ? "De-identified Patient • —" : `${patientName} • ${patientId}`}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -170,29 +173,28 @@ export function TrendTimelineScreen({ patientName, patientId, patientToken }: Tr
         </div>
       </div>
 
-      <BiomarkerTrendGrid series={chartSeries} />
-
-      {isLoading && (
-        <div className="navavej-card bg-white p-4 border border-navavej-border">
+      {isLoading ? (
+        <div className="navavej-card bg-white p-4 border border-navavej-border h-[400px] flex items-center justify-center">
           <p className="text-xs font-black text-navavej-gray-med uppercase">
             Loading trend and timeline data...
           </p>
         </div>
-      )}
-
-      {errorMessage && (
-        <div className="navavej-card bg-[#fff5f5] p-4 border border-navavej-red/30">
+      ) : errorMessage ? (
+        <div className="navavej-card bg-navavej-red/5 p-4 border border-navavej-red/30 h-[400px] flex flex-col items-center justify-center">
           <p className="text-xs font-black text-navavej-red uppercase">
             Data load warning
           </p>
           <p className="text-xs font-bold text-navavej-gray-dark mt-2">{errorMessage}</p>
         </div>
+      ) : (
+        <>
+          <BiomarkerTrendGrid series={chartSeries} />
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mt-6">
+            <ClinicalEventTimeline timeline={timeline} startYear={startYear} />
+            <ScreeningGapStatus screeningGaps={screeningGaps} />
+          </div>
+        </>
       )}
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <ClinicalEventTimeline timeline={timeline} startYear={startYear} />
-        <ScreeningGapStatus screeningGaps={screeningGaps} />
-      </div>
     </div>
   );
 }

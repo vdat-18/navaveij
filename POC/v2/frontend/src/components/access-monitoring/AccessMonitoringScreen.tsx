@@ -86,42 +86,44 @@ export function AccessMonitoringScreen({ role }: AccessMonitoringScreenProps) {
 
   return (
     <div className="space-y-6">
-      {isLoading && (
-        <div className="navavej-card bg-white p-4 border border-navavej-border">
+      {isLoading ? (
+        <div className="navavej-card bg-white p-4 border border-navavej-border h-[400px] flex items-center justify-center">
           <p className="text-xs font-black text-navavej-gray-med uppercase">
             Loading access monitoring data...
           </p>
         </div>
-      )}
-      {errorMessage && (
-        <div className="navavej-card bg-[#fff5f5] p-4 border border-navavej-red/30">
+      ) : errorMessage ? (
+        <div className="navavej-card bg-navavej-red/5 p-4 border border-navavej-red/30 h-[400px] flex flex-col items-center justify-center">
           <p className="text-xs font-black text-navavej-red uppercase">
             Data load warning
           </p>
           <p className="text-xs font-bold text-navavej-gray-dark mt-2">{errorMessage}</p>
         </div>
+      ) : (
+        <>
+          <LiveMetricsBar snapshot={snapshot} />
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+            <AnomalyAlertsPanel alerts={alerts} />
+            <AuditLogSearchPanel
+              entries={entries}
+              total={total}
+              filters={filters}
+              onFilterChange={setFilters}
+              onSearch={runAuditSearch}
+            />
+          </div>
+
+          <div className="flex gap-2 border-b border-navavej-border">
+            <TabButton label="Role Management" active={tab === "role"} onClick={() => setTab("role")} />
+            <TabButton label="Mapping Tool" active={tab === "mapping"} onClick={() => setTab("mapping")} />
+            <TabButton label="Master Data" active={tab === "master"} onClick={() => setTab("master")} />
+          </div>
+
+          {tab === "role" && <RoleManagementTab roles={roles} />}
+          {tab === "mapping" && <MappingToolTab mappings={mappings} />}
+          {tab === "master" && <MasterDataTab programs={programs} />}
+        </>
       )}
-      <LiveMetricsBar snapshot={snapshot} />
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <AnomalyAlertsPanel alerts={alerts} />
-        <AuditLogSearchPanel
-          entries={entries}
-          total={total}
-          filters={filters}
-          onFilterChange={setFilters}
-          onSearch={runAuditSearch}
-        />
-      </div>
-
-      <div className="flex gap-2 border-b border-navavej-border">
-        <TabButton label="Role Management" active={tab === "role"} onClick={() => setTab("role")} />
-        <TabButton label="Mapping Tool" active={tab === "mapping"} onClick={() => setTab("mapping")} />
-        <TabButton label="Master Data" active={tab === "master"} onClick={() => setTab("master")} />
-      </div>
-
-      {tab === "role" && <RoleManagementTab roles={roles} />}
-      {tab === "mapping" && <MappingToolTab mappings={mappings} />}
-      {tab === "master" && <MasterDataTab programs={programs} />}
     </div>
   );
 }

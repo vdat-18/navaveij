@@ -63,3 +63,31 @@ def test_mig5_api_sends_force_rule_based_payload():
     source = _read("frontend/src/services/api.ts")
     assert "getRecommendation: async (patientToken: string, forceRuleBased: boolean = false)" in source
     assert "force_rule_based: forceRuleBased" in source
+
+
+def test_mig6_page_has_privacy_mode_and_masks_patient_fields():
+    source = _read("frontend/src/app/page.tsx")
+    assert "const [privacyMode, setPrivacyMode] = useState(false);" in source
+    assert "const [securityMetadata, setSecurityMetadata] = useState<any>(null);" in source
+    assert "const getDisplayValue = (originalValue: string | null | undefined, fallbackToken: string) => {" in source
+    assert "onClick={() => setPrivacyMode((prev) => !prev)}" in source
+    assert "getDisplayValue(selectedPatient.patient_name, \"tok_name_entity\")" in source
+    assert "getDisplayValue(selectedPatient.patient_id, \"tok_id_entity\")" in source
+    assert "getDisplayValue(selectedPatient?.mrn, \"tok_mrn_entity\")" in source
+    assert "getDisplayValue(selectedPatient?.phone, \"tok_phone_entity\")" in source
+    assert "getDisplayValue(selectedPatient?.email, \"tok_email_entity\")" in source
+
+
+def test_mig6_page_wires_recommendation_metadata_callback():
+    source = _read("frontend/src/app/page.tsx")
+    assert "setSecurityMetadata(null);" in source
+    assert "onSecurityMetadata={setSecurityMetadata}" in source
+
+
+def test_mig6_panel_masks_reasoning_trace_and_lifts_security_metadata():
+    source = _read("frontend/src/components/dashboard/RecommendationPanel.tsx")
+    assert "privacyMode: boolean;" in source
+    assert "onSecurityMetadata?: (securityMetadata: any) => void;" in source
+    assert "onSecurityMetadata?.(result?.security_metadata || null);" in source
+    assert "const reasoningTrace = ((privacyMode ? data.security_metadata?.masked_ai_output?.reasoning_trace : data.reasoning_trace) || data.reasoning_trace || \"\").toString();" in source
+    assert "reasoningTrace.split('\\n').map" in source

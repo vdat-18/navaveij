@@ -1,7 +1,7 @@
 # GAP-UI-15 — Test Coverage
 
 **Title:** Set up Vitest + React Testing Library and write critical-path tests
-**Status:** Not started
+**Status:** Complete
 **Wave:** 3
 
 ---

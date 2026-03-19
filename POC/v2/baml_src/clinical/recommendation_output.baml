@@ -67,8 +67,12 @@ function AnalyzeClinicalRisks(
 // ── AGENT 2: POLICY & PACKAGE RESOLVER ─────────────────────────────────────
 
 class AddOnItem {
-  item_code string
-  priority_level PriorityLevel
+  item_id string
+  priority PriorityLevel
+  label string
+  product_code string
+  price_thb float?
+  category string
   rationale string
 }
 
@@ -101,6 +105,8 @@ function MatchProgramRules(
     2. Select Add-on Items from the 'add_on_library' in the ruleset.
        - Trigger an add-on ONLY if the patient's supporting_signal_ids intersect with the trigger_signals in the library.
        - Assign Priority: Red (Urgent/Overdue), Orange (Moderate), Yellow (Indicated), Green (Optional).
+       - For each selected add-on, populate:
+         item_id (from ruleset item_code), label, product_code, price_thb, category, priority, rationale.
     3. Write 'policy_reasoning' explaining why this specific package combination was chosen.
 
     {{ ctx.output_format }}
@@ -110,10 +116,9 @@ function MatchProgramRules(
 // ── AGENT 3: CLINICAL COMMUNICATOR ──────────────────────────────────────────
 
 class CommunicationScript {
-  clinical_conclusion string
   health_summary string
-  recommendation_explanation string
-  add_on_highlights string[]
+  recommendation_rationale string
+  addon_highlights string[]
   next_steps string
 }
 
@@ -137,9 +142,9 @@ function ComposeRecommendation(
     RECOMMENDATION PLAN: {{ plan }}
 
     ── INSTRUCTIONS ───────────────────────────────────────────────────────────
-    1. Draft a 'clinical_conclusion' (1 sentence high-level summary, use **bolding** for the main diagnosis).
-    2. Write a 'health_summary' (concise paragraph) starting directly with the most significant findings.
-    3. Explain the reasoning for the chosen Tier and selected Add-ons.
+    1. Write a 'health_summary' (concise paragraph) starting directly with the most significant findings.
+    2. Write 'recommendation_rationale' explaining the chosen Tier and selected Add-ons.
+    3. Provide concise 'addon_highlights' as short phrases.
     4. Provide actionable 'next_steps' (concise paragraph).
 
     ── CONSTRAINTS (MANDATORY) ───────────────────────────────────────────────

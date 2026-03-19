@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { AuditLogEntry, AuditLogFilters } from "@/types/access-monitoring";
+
+const ACTION_OPTIONS = ["", "View", "Export", "Generate", "Decision", "AdminUpdate"];
 
 interface AuditLogSearchPanelProps {
   entries: AuditLogEntry[];
@@ -19,30 +21,38 @@ export function AuditLogSearchPanel({
   onSearch,
 }: AuditLogSearchPanelProps) {
   const [selectedEntry, setSelectedEntry] = useState<AuditLogEntry | null>(null);
-  const [verifyResult, setVerifyResult] = useState<"idle" | "pass" | "fail">("idle");
-
-  const actionOptions = useMemo(
-    () => ["", "View", "Export", "Generate", "Decision", "AdminUpdate"],
-    []
-  );
+  const [verifyResult, setVerifyResult] = useState<"idle" | "pass" | "fail" | "no-https">("idle");
+  const [verifyError, setVerifyError] = useState<string | null>(null);
 
   const verifyHash = async (entry: AuditLogEntry) => {
-    const payload = {
-      prev_entry_hash: entry.prev_entry_hash,
-      who: entry.who,
-      when: entry.when,
-      where: entry.where,
-      what: entry.what,
-      why: entry.why,
-      retention_expiry: entry.retention_expiry,
-    };
-    const input = stableStringify(payload);
-    const encoded = new TextEncoder().encode(input);
-    const digest = await crypto.subtle.digest("SHA-256", encoded);
-    const hash = Array.from(new Uint8Array(digest))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-    setVerifyResult(hash === entry.sha256_hash ? "pass" : "fail");
+    setVerifyError(null);
+    if (!crypto?.subtle) {
+      setVerifyResult("no-https");
+      return;
+    }
+
+    try {
+      const payload = {
+        prev_entry_hash: entry.prev_entry_hash,
+        who: entry.who,
+        when: entry.when,
+        where: entry.where,
+        what: entry.what,
+        why: entry.why,
+        retention_expiry: entry.retention_expiry,
+      };
+      const input = stableStringify(payload);
+      const encoded = new TextEncoder().encode(input);
+      const digest = await crypto.subtle.digest("SHA-256", encoded);
+      const hash = Array.from(new Uint8Array(digest))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      setVerifyResult(hash === entry.sha256_hash ? "pass" : "fail");
+    } catch (err) {
+      console.error("Hash verification failed:", err);
+      setVerifyError("An error occurred during hash verification.");
+      setVerifyResult("fail");
+    }
   };
 
   return (
@@ -66,7 +76,7 @@ export function AuditLogSearchPanel({
           onChange={(e) => onFilterChange({ ...filters, action_type: e.target.value })}
           className="rounded-lg border border-navavej-border px-3 py-2 text-xs font-bold"
         >
-          {actionOptions.map((option) => (
+          {ACTION_OPTIONS.map((option) => (
             <option key={option || "all"} value={option}>
               {option || "All actions"}
             </option>
@@ -98,6 +108,7 @@ export function AuditLogSearchPanel({
                 onClick={() => {
                   setSelectedEntry(entry);
                   setVerifyResult("idle");
+                  setVerifyError(null);
                 }}
                 className="border-t border-navavej-border hover:bg-navavej-gray-light/30 cursor-pointer"
               >
@@ -129,7 +140,10 @@ export function AuditLogSearchPanel({
             Verify Hash
           </button>
           {verifyResult === "pass" && <p className="text-xs font-black text-green-600">Hash verification passed</p>}
-          {verifyResult === "fail" && <p className="text-xs font-black text-red-600">Hash verification failed</p>}
+          {verifyResult === "no-https" && (
+            <p className="text-xs font-black text-red-600">Hash verification requires a secure (HTTPS) connection</p>
+          )}
+          {verifyResult === "fail" && <p className="text-xs font-black text-red-600">{verifyError || "Hash verification failed"}</p>}
         </div>
       )}
     </div>

@@ -7,6 +7,14 @@ interface AnomalyAlertsPanelProps {
   alerts: AnomalyAlert[];
 }
 
+const severityClass = (severity?: string) => {
+  if (severity === "Red" || severity === "Critical") return "text-navavej-red";
+  if (severity === "Orange" || severity === "High") return "text-orange-500";
+  if (severity === "Yellow" || severity === "Medium") return "text-yellow-500";
+  if (severity === "Green" || severity === "Low") return "text-green-600";
+  return "text-navavej-gray-med";
+};
+
 export function AnomalyAlertsPanel({ alerts }: AnomalyAlertsPanelProps) {
   const [statusMap, setStatusMap] = useState<Record<string, AnomalyAlert["status"]>>({});
 
@@ -27,22 +35,24 @@ export function AnomalyAlertsPanel({ alerts }: AnomalyAlertsPanelProps) {
           <div key={alert.alert_id} className="rounded-xl border border-navavej-border p-4 bg-white">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs font-black text-navavej-gray-dark">{alert.user_display_name}</p>
-              <span className="text-[10px] font-black uppercase tracking-widest text-navavej-teal">{alert.severity}</span>
+              <span className={`text-[10px] font-black uppercase tracking-widest ${severityClass(alert.severity)}`}>{alert.severity}</span>
             </div>
             <p className="text-[11px] mt-1 text-navavej-gray-med font-bold">{alert.alert_type} • {alert.department}</p>
             <p className="text-[11px] text-navavej-gray-med mt-1">Triggered: {new Date(alert.triggered_at).toLocaleString()}</p>
             <div className="mt-3 flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setStatusMap((prev) => ({ ...prev, [alert.alert_id]: "Acknowledged" }))}
-                className="px-3 py-1 rounded-lg border border-navavej-border text-[10px] font-black uppercase"
+                disabled
+                title="Persistence not yet supported in this POC version"
+                className="px-3 py-1 rounded-lg border border-navavej-border text-[10px] font-black uppercase opacity-50 cursor-not-allowed"
               >
                 Acknowledge
               </button>
               <button
                 type="button"
-                onClick={() => setStatusMap((prev) => ({ ...prev, [alert.alert_id]: "Resolved" }))}
-                className="px-3 py-1 rounded-lg bg-navavej-teal text-white text-[10px] font-black uppercase"
+                disabled
+                title="Persistence not yet supported in this POC version"
+                className="px-3 py-1 rounded-lg bg-navavej-teal text-white text-[10px] font-black uppercase opacity-50 cursor-not-allowed"
               >
                 Resolve
               </button>

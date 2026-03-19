@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock
+from unittest.mock import ANY, AsyncMock
 
 from fastapi.testclient import TestClient
 
@@ -263,6 +263,7 @@ def test_recommend_contract_route_force_rule_based_passthrough_and_response_cont
         patient_id=_first_patient_id(),
         patient_token=token,
         force_rule_based=True,
+        audit_context=ANY,
     )
 
 
@@ -274,7 +275,7 @@ def test_recommend_contract_route_cache_partitioned_by_force_rule_based():
         "ai_recommended_tier": "Advanced",
         "tier_deviation_justification": None,
         "reasoning_trace": "AI path",
-        "add_ons": [],
+        "add_ons": [{"item_id": "A001", "priority": "Yellow", "price_thb": 1200}],
         "supporting_signals": ["signal_1"],
         "missing_signals": [],
         "communication_script": {
@@ -328,7 +329,9 @@ def test_recommend_contract_route_cache_partitioned_by_force_rule_based():
             "age_band": "age_35_plus",
             "gender": "male",
         },
-        "add_on_library": [],
+        "add_on_library": [
+            {"item_code": "A001", "navavej_product": {"price_thb": 1200}, "trigger_signals": ["signal_1"]}
+        ],
     }
     contracts.orchestrator.generate_recommendation = AsyncMock(side_effect=[ai_result, rule_result])
 
@@ -416,7 +419,7 @@ def test_recommend_contract_route_preserves_orchestrator_source_and_review_prece
     response = client.post("/api/recommend", json={"patient_token": token}, headers=_auth_headers(scopes="recommendation:read"))
     assert response.status_code == 200
     payload = response.json()
-    assert payload["confidence_tier"] == "Low"
+    assert payload["confidence_tier"] == "Medium"
     assert payload["recommendation_source"] == "AI"
     assert payload["review_required"] is False
 
@@ -542,3 +545,398 @@ def test_legacy_recommend_adapter_path_uses_id_input():
     assert response.status_code == 200
     payload = response.json()
     assert payload["ai_recommended_tier"] == "Advanced"
+
+
+def test_gap_r1_rule_agreement_mismatch_is_zero():
+    ai_output = {
+        "ai_recommended_tier": "Advanced",
+        "tier_deviation_justification": None,
+        "reasoning_trace": "trace",
+        "add_ons": [],
+        "supporting_signals": ["s1", "s2"],
+        "missing_signals": ["s3", "s4"],
+        "communication_script": {"clinical_conclusion": "ok"},
+        "clinical_signals": {
+            "applicable_signals": ["s1", "s2", "s3", "s4"],
+            "signals_fired": ["s1"],
+            "risk_flags": [],
+            "pipeline_run_id": "pipe_r1_mismatch",
+        },
+        "review_required": False,
+        "recommendation_source": "AI",
+    }
+    ruleset = {"rule_preliminary_tier": "Standard", "resolved_package": {}, "add_on_library": []}
+
+    payload = contracts._normalize_stage2(
+        patient_token="tok_test",
+        ai_output=ai_output,
+        ruleset=ruleset,
+        latency_ms=1,
+    )
+
+    assert payload["confidence_score"] == 0.6
+    assert payload["confidence_tier"] == "Medium"
+
+
+def test_gap_r1_signal_coverage_uses_expected_minus_missing():
+    ai_output = {
+        "ai_recommended_tier": "Advanced",
+        "tier_deviation_justification": None,
+        "reasoning_trace": "trace",
+        "add_ons": [],
+        "supporting_signals": ["s1", "s2", "s3"],
+        "missing_signals": ["s4"],
+        "communication_script": {"clinical_conclusion": "ok"},
+        "clinical_signals": {
+            "applicable_signals": ["s1", "s2", "s3", "s4"],
+            "signals_fired": ["s1"],
+            "risk_flags": [],
+            "pipeline_run_id": "pipe_r1_cov",
+        },
+        "review_required": False,
+        "recommendation_source": "AI",
+    }
+    ruleset = {"rule_preliminary_tier": "Advanced", "resolved_package": {}, "add_on_library": []}
+
+    payload = contracts._normalize_stage2(
+        patient_token="tok_test",
+        ai_output=ai_output,
+        ruleset=ruleset,
+        latency_ms=1,
+    )
+
+    assert payload["confidence_score"] == 0.9
+    assert payload["confidence_tier"] == "High"
+
+
+def test_gap_r1_data_completeness_uses_required_field_presence():
+    ai_output = {
+        "ai_recommended_tier": "Advanced",
+        "tier_deviation_justification": None,
+        "reasoning_trace": "",
+        "add_ons": [],
+        "supporting_signals": ["s1", "s2"],
+        "missing_signals": [],
+        "communication_script": {},
+        "clinical_signals": {
+            "applicable_signals": ["s1", "s2"],
+            "signals_fired": ["s1", "s2"],
+            "risk_flags": [],
+            "pipeline_run_id": "pipe_r1_comp",
+        },
+        "review_required": False,
+        "recommendation_source": "AI",
+    }
+    ruleset = {"rule_preliminary_tier": "Advanced", "resolved_package": {}, "add_on_library": []}
+
+    payload = contracts._normalize_stage2(
+        patient_token="tok_test",
+        ai_output=ai_output,
+        ruleset=ruleset,
+        latency_ms=1,
+    )
+
+    assert payload["confidence_score"] == 0.84
+    assert payload["confidence_tier"] == "High"
+
+
+def test_gap_r3_stage1_fields_are_normalized_for_stage2_contract():
+    ai_output = {
+        "ai_recommended_tier": "Advanced",
+        "tier_deviation_justification": None,
+        "reasoning_trace": "trace",
+        "add_ons": [
+            {
+                "item_id": "A001",
+                "priority": "Yellow",
+                "rationale": "Triggered by signal_1",
+                "label": "Sample Add-on",
+                "product_code": "PROD_A",
+                "price_thb": 1200,
+                "category": "cardiac",
+            }
+        ],
+        "supporting_signals": ["signal_1"],
+        "missing_signals": [],
+        "communication_script": {
+            "health_summary": "summary",
+            "recommendation_rationale": "rationale",
+            "addon_highlights": ["highlight"],
+            "next_steps": "next",
+        },
+        "clinical_signals": {
+            "rule_preliminary_tier": "Advanced",
+            "applicable_signals": ["signal_1"],
+            "signals_fired": ["signal_1"],
+            "missing_signals": [],
+            "risk_flags": [],
+            "pipeline_run_id": "pipe_r3_001",
+        },
+        "recommendation_source": "AI",
+        "review_required": False,
+    }
+    ruleset = {
+        "rule_preliminary_tier": "Advanced",
+        "resolved_package": {},
+        "add_on_library": [
+            {
+                "item_code": "A001",
+                "label": "Sample Add-on",
+                "category": "cardiac",
+                "trigger_signals": ["signal_1"],
+                "navavej_product": {
+                    "product_name": "Product A",
+                    "product_code": "PROD_A",
+                    "price_thb": 1200,
+                },
+            }
+        ],
+    }
+
+    payload = contracts._normalize_stage2(
+        patient_token="tok_test",
+        ai_output=ai_output,
+        ruleset=ruleset,
+        latency_ms=1,
+    )
+
+    assert payload["add_ons"][0]["item_code"] == "A001"
+    assert payload["add_ons"][0]["item_id"] == "A001"
+    assert payload["add_ons"][0]["priority_level"] == "Yellow"
+    assert payload["add_ons"][0]["priority"] == "Yellow"
+    assert payload["add_ons"][0]["label"] == "Sample Add-on"
+    assert payload["add_ons"][0]["category"] == "cardiac"
+    assert payload["add_ons"][0]["product_code"] == "PROD_A"
+    assert payload["add_ons"][0]["price_thb"] == 1200
+    assert payload["communication_script"]["recommendation_explanation"] == "rationale"
+    assert payload["communication_script"]["add_on_highlights"] == ["highlight"]
+
+
+def test_gap_r4_validator_enforces_v2_v7_v9_v10():
+    ai_output = {
+        "add_ons": [{"item_id": "UNKNOWN", "price_thb": 9999}],
+        "supporting_signals": ["invalid_signal"],
+        "clinical_signals": {"signals_fired": ["signal_1"], "applicable_signals": ["signal_1"]},
+    }
+    ruleset = {
+        "add_on_library": [
+            {"item_code": "A001", "navavej_product": {"price_thb": 1200}},
+        ]
+    }
+    failures = contracts._validate_stage1_output(
+        ai_output=ai_output,
+        ruleset=ruleset,
+        clinical_signals={"signals_fired": ["signal_1"], "applicable_signals": ["signal_1"]},
+    )
+    assert "V2:item_id_not_in_ruleset" in failures
+    assert "V7:supporting_signal_invalid" in failures
+
+    ai_output_empty_addons = {
+        "add_ons": [],
+        "supporting_signals": ["signal_1"],
+        "clinical_signals": {"signals_fired": ["signal_1"], "applicable_signals": ["signal_1"]},
+    }
+    failures_empty = contracts._validate_stage1_output(
+        ai_output=ai_output_empty_addons,
+        ruleset=ruleset,
+        clinical_signals={"signals_fired": ["signal_1"], "applicable_signals": ["signal_1"]},
+    )
+    assert "V9:add_ons_empty_with_triggers" in failures_empty
+
+    ai_output_price = {
+        "add_ons": [{"item_id": "A001", "price_thb": 1300}],
+        "supporting_signals": ["signal_1"],
+        "clinical_signals": {"signals_fired": ["signal_1"], "applicable_signals": ["signal_1"]},
+    }
+    failures_price = contracts._validate_stage1_output(
+        ai_output=ai_output_price,
+        ruleset=ruleset,
+        clinical_signals={"signals_fired": ["signal_1"], "applicable_signals": ["signal_1"]},
+    )
+    assert "V10:price_thb_mismatch" in failures_price
+
+
+def test_gap_r4_validation_failure_triggers_rule_based_fallback():
+    contracts.cache_service.clear()
+    token = _first_patient_token()
+    invalid_ai = {
+        "ai_recommended_tier": "Advanced",
+        "reasoning_trace": "invalid-ai",
+        "add_ons": [{"item_id": "UNKNOWN", "price_thb": 9999, "rationale": "invalid"}],
+        "supporting_signals": ["signal_1"],
+        "missing_signals": [],
+        "communication_script": {"health_summary": "h", "recommendation_rationale": "r", "addon_highlights": [], "next_steps": "n"},
+        "clinical_signals": {
+            "rule_preliminary_tier": "Advanced",
+            "applicable_signals": ["signal_1"],
+            "signals_fired": ["signal_1"],
+            "missing_signals": [],
+            "risk_flags": [],
+            "pipeline_run_id": "pipe_r4_fail_001",
+        },
+        "recommendation_source": "AI",
+        "review_required": False,
+    }
+    fallback_rule_based = {
+        "ai_recommended_tier": "Advanced",
+        "tier_deviation_justification": "fallback",
+        "reasoning_trace": "rule-based fallback",
+        "add_ons": [],
+        "supporting_signals": ["signal_1"],
+        "missing_signals": [],
+        "communication_script": {
+            "health_summary": "summary",
+            "recommendation_rationale": "rule rationale",
+            "addon_highlights": [],
+            "next_steps": "next",
+        },
+        "clinical_signals": {
+            "rule_preliminary_tier": "Advanced",
+            "applicable_signals": ["signal_1"],
+            "signals_fired": ["signal_1"],
+            "missing_signals": [],
+            "risk_flags": [],
+            "pipeline_run_id": "pipe_r4_fail_001",
+        },
+        "recommendation_source": "RuleBased",
+        "review_required": True,
+    }
+    contracts.get_clinical_signals = lambda _patient_token, patient_id=None: {
+        "pipeline_run_id": "pipe_r4_fail_001",
+        "signals_fired": ["signal_1"],
+        "applicable_signals": ["signal_1"],
+        "missing_signals": [],
+        "risk_flags": [],
+    }
+    contracts.get_program_ruleset = lambda _patient_token, patient_id=None: {
+        "ruleset_version": "v2026.03.1",
+        "rule_preliminary_tier": "Advanced",
+        "resolved_package": {},
+        "add_on_library": [
+            {"item_code": "A001", "navavej_product": {"price_thb": 1200}, "trigger_signals": ["signal_1"]}
+        ],
+    }
+    contracts.orchestrator.generate_recommendation = AsyncMock(side_effect=[invalid_ai, fallback_rule_based])
+
+    response = client.post("/api/recommend", json={"patient_token": token}, headers=_auth_headers(scopes="recommendation:read"))
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["recommendation_source"] == "RuleBased"
+    assert payload["review_required"] is True
+    assert contracts.orchestrator.generate_recommendation.await_count == 2
+
+
+def test_gap_r5_stage2_metadata_and_high_alert_completeness():
+    ai_output = {
+        "ai_recommended_tier": "Advanced",
+        "tier_deviation_justification": None,
+        "reasoning_trace": "trace",
+        "add_ons": [],
+        "supporting_signals": ["signal_1"],
+        "missing_signals": ["signal_missing_1"],
+        "communication_script": {"health_summary": "summary", "recommendation_rationale": "rationale", "addon_highlights": [], "next_steps": "next"},
+        "clinical_signals": {
+            "rule_preliminary_tier": "Advanced",
+            "applicable_signals": ["signal_1", "signal_2"],
+            "signals_fired": ["signal_1"],
+            "missing_signals": ["signal_missing_1"],
+            "risk_flags": [
+                {"flag_id": "signal_critical", "label": "Critical Signal", "severity": "high", "guideline": "Guide", "source_signals": ["signal_1"]}
+            ],
+            "pipeline_run_id": "pipe_r5_001",
+        },
+        "recommendation_source": "AI",
+        "review_required": False,
+    }
+    ruleset = {"rule_preliminary_tier": "Advanced", "resolved_package": {}, "add_on_library": []}
+
+    payload = contracts._normalize_stage2(
+        patient_token="tok_test",
+        ai_output=ai_output,
+        ruleset=ruleset,
+        latency_ms=25,
+    )
+
+    assert payload["patient_high_alert"]["critical_signals"][0]["signal_id"] == "signal_critical"
+    assert payload["patient_high_alert"]["missing_data_alerts"][0]["signal_id"] == "signal_missing_1"
+    assert payload["metadata"]["template_version"] == "v1.0"
+    assert payload["metadata"]["latency_ms"] == 25
+
+
+def test_gap_r6_low_confidence_without_source_is_ai_low_confidence():
+    ai_output = {
+        "ai_recommended_tier": "Advanced",
+        "tier_deviation_justification": None,
+        "reasoning_trace": "",
+        "add_ons": [],
+        "supporting_signals": [],
+        "missing_signals": ["signal_1", "signal_2", "signal_3"],
+        "communication_script": {"health_summary": "", "recommendation_rationale": "", "addon_highlights": [], "next_steps": ""},
+        "clinical_signals": {
+            "rule_preliminary_tier": "Advanced",
+            "applicable_signals": [],
+            "signals_fired": [],
+            "missing_signals": ["signal_1", "signal_2", "signal_3"],
+            "risk_flags": [],
+            "pipeline_run_id": "pipe_r6_low_001",
+        },
+        "review_required": True,
+    }
+    payload = contracts._normalize_stage2(
+        patient_token="tok_test",
+        ai_output=ai_output,
+        ruleset={"rule_preliminary_tier": "Advanced", "resolved_package": {}, "add_on_library": []},
+        latency_ms=1,
+    )
+    assert payload["recommendation_source"] == "AI_LowConfidence"
+
+
+def test_gap_r7_recommend_route_passes_audit_context_to_orchestrator():
+    contracts.cache_service.clear()
+    token = _first_patient_token()
+    mock_result = {
+        "ai_recommended_tier": "Advanced",
+        "tier_deviation_justification": None,
+        "reasoning_trace": "trace",
+        "add_ons": [],
+        "supporting_signals": ["signal_1"],
+        "missing_signals": [],
+        "communication_script": {
+            "health_summary": "summary",
+            "recommendation_rationale": "rationale",
+            "addon_highlights": [],
+            "next_steps": "next",
+        },
+        "clinical_signals": {
+            "rule_preliminary_tier": "Advanced",
+            "applicable_signals": ["signal_1"],
+            "signals_fired": ["signal_1"],
+            "missing_signals": [],
+            "risk_flags": [],
+            "pipeline_run_id": "pipe_r7_ctx_001",
+        },
+        "recommendation_source": "AI",
+        "review_required": False,
+    }
+    contracts.get_clinical_signals = lambda _patient_token, patient_id=None: {
+        "pipeline_run_id": "pipe_r7_ctx_001",
+        "signals_fired": ["signal_1"],
+        "applicable_signals": ["signal_1"],
+        "missing_signals": [],
+        "risk_flags": [],
+    }
+    contracts.get_program_ruleset = lambda _patient_token, patient_id=None: {
+        "ruleset_version": "v2026.03.1",
+        "rule_preliminary_tier": "Advanced",
+        "resolved_package": {},
+        "add_on_library": [],
+    }
+    contracts.orchestrator.generate_recommendation = AsyncMock(return_value=mock_result)
+
+    response = client.post("/api/recommend", json={"patient_token": token}, headers=_auth_headers(scopes="recommendation:read"))
+    assert response.status_code == 200
+    kwargs = contracts.orchestrator.generate_recommendation.await_args.kwargs
+    assert "audit_context" in kwargs
+    assert kwargs["audit_context"]["user_id"] == "usr-test-0001"
+    assert kwargs["audit_context"]["user_role"] == "admin"
+    assert kwargs["audit_context"]["action_type"] == "GenerateRecommendation"

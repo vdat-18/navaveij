@@ -12,21 +12,13 @@ import {
   YAxis,
 } from "recharts";
 
+import { ChartTooltip } from "@/components/charts/ChartTooltip";
+import { defaultCartesianGrid, defaultXAxisProps, defaultYAxisProps } from "@/components/charts/chartConfig";
 import { BiomarkerSeries } from "@/types/timeline";
 
 interface BiomarkerTrendGridProps {
   series: BiomarkerSeries[];
 }
-
-const TrendTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white border border-navavej-border rounded-xl px-3 py-2 shadow-lg">
-      <p className="text-[10px] font-black text-navavej-gray-med uppercase tracking-wider">{label}</p>
-      <p className="text-xs font-black text-navavej-gray-dark mt-1">{payload[0].value}</p>
-    </div>
-  );
-};
 
 export function BiomarkerTrendGrid({ series }: BiomarkerTrendGridProps) {
   return (
@@ -43,20 +35,20 @@ export function BiomarkerTrendGrid({ series }: BiomarkerTrendGridProps) {
           <div className="h-44 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={item.history}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E9ECEF" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: "#666" }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: "#666" }} />
-                <Tooltip content={<TrendTooltip />} />
+                <CartesianGrid {...defaultCartesianGrid} />
+                <XAxis dataKey="date" {...defaultXAxisProps} />
+                <YAxis {...defaultYAxisProps} />
+                <Tooltip content={<ChartTooltip showAll={false} />} />
                 {typeof item.reference === "number" && (
-                  <ReferenceLine y={item.reference} stroke="#9D0A31" strokeDasharray="4 4" />
+                  <ReferenceLine y={item.reference} stroke="var(--color-navavej-red)" strokeDasharray="4 4" />
                 )}
                 <Line
                   name={item.label}
                   type="monotone"
                   dataKey="value"
-                  stroke="#00ABC7"
+                  stroke="var(--color-navavej-teal)"
                   strokeWidth={3}
-                  dot={{ r: 3.5, fill: "#00ABC7", strokeWidth: 2, stroke: "#fff" }}
+                  dot={{ r: 3.5, fill: "var(--color-navavej-teal)", strokeWidth: 2, stroke: "var(--background)" }}
                 />
               </LineChart>
             </ResponsiveContainer>

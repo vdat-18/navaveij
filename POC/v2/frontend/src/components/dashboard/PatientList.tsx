@@ -14,11 +14,13 @@ interface Patient {
 interface PatientListProps {
     onSelectPatient: (patient: Patient) => void;
     selectedId?: string;
+    privacyMode?: boolean;
 }
 
-export function PatientList({ onSelectPatient, selectedId }: PatientListProps) {
+export function PatientList({ onSelectPatient, selectedId, privacyMode = false }: PatientListProps) {
     const [patients, setPatients] = useState<Patient[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState("");
 
     useEffect(() => {
@@ -26,8 +28,9 @@ export function PatientList({ onSelectPatient, selectedId }: PatientListProps) {
             try {
                 const data = await patientService.getAll();
                 setPatients(data);
-            } catch (error) {
-                console.error("Failed to fetch patients:", error);
+            } catch (err) {
+                console.error("Failed to fetch patients:", err);
+                setError(err instanceof Error ? err.message : "Failed to load patients");
             } finally {
                 setLoading(false);
             }
@@ -35,10 +38,14 @@ export function PatientList({ onSelectPatient, selectedId }: PatientListProps) {
         fetchPatients();
     }, []);
 
-    const filtered = patients.filter(p =>
-        p.patient_name.toLowerCase().includes(search.toLowerCase()) ||
-        p.patient_id.toLowerCase().includes(search.toLowerCase())
-    );
+    const normalizedSearch = search.toLowerCase();
+    const filtered = patients.filter((p) => {
+        const idMatch = p.patient_id.toLowerCase().includes(normalizedSearch);
+        if (!privacyMode) {
+            return p.patient_name.toLowerCase().includes(normalizedSearch) || idMatch;
+        }
+        return idMatch || p.patient_token.toLowerCase().includes(normalizedSearch);
+    });
 
     if (loading) {
         return (
@@ -51,6 +58,14 @@ export function PatientList({ onSelectPatient, selectedId }: PatientListProps) {
         );
     }
 
+    if (error) {
+        return (
+            <div className="space-y-4 px-1 py-4 text-center text-red-500">
+                <p className="text-xs font-bold">{error}</p>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col h-full">
             {/* Search Box - matching navavej.com style */}
@@ -58,7 +73,8 @@ export function PatientList({ onSelectPatient, selectedId }: PatientListProps) {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-navavej-gray-med" />
                 <input
                     type="text"
-                    placeholder="Find patients..."
+                    aria-label="Search patients"
+                    placeholder={privacyMode ? "Find by token / ID..." : "Find patients..."}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full bg-navavej-gray-light border-none rounded-xl py-2 pl-9 pr-4 text-xs focus:ring-2 focus:ring-navavej-teal/30 focus:outline-none placeholder:text-navavej-gray-med transition-all"
@@ -75,7 +91,7 @@ export function PatientList({ onSelectPatient, selectedId }: PatientListProps) {
                     </span>
                 </div>
 
-                {filtered.map((patient) => (
+                {filtered.map((patient, index) => (
                     <button
                         key={patient.patient_id}
                         onClick={() => onSelectPatient(patient)}
@@ -100,10 +116,10 @@ export function PatientList({ onSelectPatient, selectedId }: PatientListProps) {
                                     "text-xs font-bold leading-tight transition-colors",
                                     selectedId === patient.patient_id ? "text-navavej-teal" : "text-navavej-gray-dark"
                                 )}>
-                                    {patient.patient_name}
+                                    {privacyMode ? `Patient ${index + 1}` : patient.patient_name}
                                 </p>
                                 <p className="text-[9px] text-navavej-gray-med font-bold uppercase tracking-wider mt-0.5">
-                                    {patient.patient_id}
+                                    {privacyMode ? "ID hidden" : patient.patient_id}
                                 </p>
                             </div>
                         </div>
@@ -118,7 +134,7 @@ export function PatientList({ onSelectPatient, selectedId }: PatientListProps) {
                 {filtered.length === 0 && (
                     <div className="py-12 flex flex-col items-center justify-center opacity-40">
                         <Search className="w-10 h-10 mb-2" />
-                        <p className="text-xs font-bold uppercase">No entities found</p>
+                        <p className="text-xs font-bold uppercase">No patients found</p>
                     </div>
                 )}
             </div>

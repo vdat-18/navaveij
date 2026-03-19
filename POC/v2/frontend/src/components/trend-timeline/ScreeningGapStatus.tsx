@@ -10,6 +10,8 @@ interface ScreeningGapStatusProps {
 const priorityClass = (priority?: string) => {
   if (priority === "Red") return "text-navavej-red";
   if (priority === "Orange") return "text-orange-500";
+  if (priority === "Yellow") return "text-yellow-500";
+  if (priority === "Green") return "text-green-600";
   return "text-navavej-gray-med";
 };
 

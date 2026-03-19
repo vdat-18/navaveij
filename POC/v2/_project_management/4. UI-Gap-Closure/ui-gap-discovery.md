@@ -1,5 +1,6 @@
 # UI Gap Discovery
-> **Date:** 2026-03-19 · **Source:** Full code audit of `POC/v2/frontend/src/` (20 files)
+> **Date:** 2026-03-19 · **Last updated:** 2026-03-19 (verification audit) · **Source:** Full code audit of `POC/v2/frontend/src/` (20 files)
+> **Verification summary (2026-03-19 final):** Wave 1 complete — GAP-UI-1 through GAP-UI-8 and GAP-UI-16 all verified closed. Wave 2 (GAP-UI-9 through GAP-UI-13) is next.
 
 ## Gap Register
 
@@ -90,12 +91,13 @@
 | G-24 | `PatientList.tsx` L121 | "No entities found" — backend jargon; should be "No patients found" |
 
 #### Fixed State
-- "Support" link removed or routed to appropriate destination
-- Duplicate nav links removed from page header (sidebar is the sole nav)
-- Nav labels replaced: "Clinical Dashboard", "Trend & Timeline", "Access Monitoring"
-- Footer placeholder removed or replaced with real links
-- Duplicate "Back to Summary" link removed from `TrendTimelineScreen`
-- "No entities found" → "No patients found"
+- "Support" link in `Sidebar.tsx` is a dead button (no route) — no longer incorrectly routes to `/audit`
+- Duplicate nav links removed from page header; sidebar is the sole nav
+- Nav labels: "Clinical Dashboard", "Trend & Timeline", "Access Monitoring", "Governance"
+- Footer placeholder replaced with real content ("Privacy Policy / Terms of Service / Security")
+- "Back to Summary" link removed from `trend-timeline/page.tsx`; canonical link remains in `TrendTimelineScreen.tsx`
+- "No entities found" → "No patients found" (`PatientList.tsx:131`)
+- Page title on `/trend-timeline` changed from "Screen 2 — Trend & Timeline" → "Trend & Timeline" (`trend-timeline/page.tsx:23`)
 
 ---
 
@@ -140,9 +142,11 @@
 | G-25 | `AuditLogSearchPanel.tsx` L29–46 | `crypto.subtle.digest()` called with no availability check — silently fails in HTTP contexts (non-HTTPS) |
 
 #### Fixed State
-- `if (!crypto?.subtle)` guard added before use
-- User-facing message "Hash verification requires a secure (HTTPS) connection" shown when unavailable
-- Entire block wrapped in `try/catch` with inline error display
+- `verifyResult` state extended to `"idle" | "pass" | "fail" | "no-https"` (`AuditLogSearchPanel.tsx:22`)
+- `if (!crypto?.subtle) { setVerifyResult("no-https"); return; }` guard at start of `verifyHash()` (`AuditLogSearchPanel.tsx:29-32`)
+- Entire `crypto.subtle.digest()` call wrapped in `try/catch`; error sets `verifyResult("fail")` with message (`AuditLogSearchPanel.tsx:34-55`)
+- "no-https" state renders: "Hash verification requires a secure (HTTPS) connection" (`AuditLogSearchPanel.tsx:143-145`)
+- `actionOptions` moved from `useMemo` to plain array (static constant)
 
 ---
 
@@ -281,3 +285,33 @@ The entire frontend has zero tests — no test runner, no testing libraries, no 
   - `ClinicalRiskGauge` renders correct gauge position for High/Medium/Low/Critical
   - `normalizeCriticalAlerts` returns empty array (not fabricated data) on unexpected input
   - `crypto.subtle` guard shows HTTPS message when unavailable
+
+---
+
+### GAP-UI-16 — Privacy Mode: Incomplete PII Masking
+**Wave:** 1 | **Severity:** High | **Identified:** 2026-03-19 verification audit
+**Files:** `src/app/page.tsx`, `src/components/dashboard/RecommendationPanel.tsx`, `src/components/trend-timeline/TrendTimelineScreen.tsx`
+
+#### Issues
+A `privacyMode` toggle was added between the original audit and the 2026-03-19 verification, but masking is applied only to `reasoning_trace`. All other PII-containing fields remain visible when privacy mode is active.
+
+| Field | Privacy Mode Behaviour | Expected |
+|---|---|---|
+| `reasoning_trace` | ✅ Masked via `security_metadata.masked_ai_output.reasoning_trace` | Correct |
+| "Last Analysis Run" timestamp | 🟡 Shows "De-Identified Trace" label only | Should show masked value or `"–"` |
+| Patient demographics ("35 Yrs / Male / Asian") | ❌ Not gated — page.tsx line 211 | Should be masked or hidden |
+| Patient name / patient ID | ❌ Not gated — TrendTimelineScreen.tsx line 153 | Should be masked |
+| `patientToken` | ❌ Not gated — TrendTimelineScreen.tsx line 153 | Must be hidden |
+| Package name / price | ❌ Not gated — RecommendationPanel.tsx lines 276, 280 | Should be masked or omitted |
+| Clinical alerts | ❌ Not gated — RecommendationPanel.tsx lines 119–122 | Should use masked API data |
+
+**Root cause:** Privacy mode was implemented incrementally — only `reasoning_trace` was connected to the backend's `security_metadata.masked_ai_output`. Other fields were not updated.
+
+#### Fixed State
+- `PrivacyModeProvider` (React Context + localStorage persistence, key `navavej.privacyMode.v1`) created at `shared/privacy-mode.tsx`
+- `Providers.tsx` created to wrap `PrivacyModeProvider`; mounted in `layout.tsx` via `<Providers>` — enables cross-route persistence
+- Dashboard (`page.tsx`): switched from local `useState` to `usePrivacyMode()` hook
+- Trend & Timeline (`trend-timeline/page.tsx`): `usePrivacyMode()` hook added; `privacyMode` prop passed to both `PatientList` and `TrendTimelineScreen`
+- `TrendTimelineScreen.tsx:154`: patient name/ID gated — `privacyMode ? "De-identified Patient • —" : \`${patientName} • ${patientId}\``
+- `PatientList.tsx`: `privacyMode` prop added; patient names masked to "Patient N" and IDs to "ID hidden" when active
+- All dashboard PII fields (name, ID, demographics, MRN, phone, email, timestamp, package, alerts, reasoning trace) already gated in `page.tsx` and `RecommendationPanel.tsx`

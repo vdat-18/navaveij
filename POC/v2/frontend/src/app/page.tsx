@@ -3,17 +3,13 @@
 import React, { useState } from "react";
 import { PatientList } from "@/components/dashboard/PatientList";
 import { RecommendationPanel } from "@/components/dashboard/RecommendationPanel";
-import { Bell, Search, User, Globe, Phone, ShoppingCart, Menu, Info, Activity, ShieldCheck } from "lucide-react";
+import { Bell, Search, User, Globe, Phone, ShoppingCart, Menu, Info, Activity, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { cn } from "@/shared/utils";
-
-const primaryNavLinks = [
-  { label: "Screen 1 Summary", href: "/" },
-  { label: "Trend & Timeline", href: "/trend-timeline" },
-  { label: "Access Monitoring", href: "/access-monitoring" },
-  { label: "Governance", href: "/audit" },
-];
+import { usePrivacyMode } from "@/shared/privacy-mode";
+import { Patient } from "@/types/patient";
+import { RecommendationResponse, RecommendationSecurityMetadata } from "@/types/recommendation";
 
 const NavavejBrand = () => (
   <div className="flex items-center gap-3">
@@ -31,8 +27,44 @@ const NavavejBrand = () => (
 );
 
 export default function DashboardPage() {
-  const [selectedPatient, setSelectedPatient] = useState<any>(null);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const { privacyMode, togglePrivacyMode } = usePrivacyMode();
+  const [securityMetadata, setSecurityMetadata] = useState<RecommendationSecurityMetadata | null>(null);
+  const [analysisTimestamp, setAnalysisTimestamp] = useState<string | null>(null);
   const [isRuleBasedForced, setIsRuleBasedForced] = useState(false);
+
+  const formatTimestamp = (isoString: string | null) => {
+    if (!isoString) return "Pending Analysis";
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return "Pending Analysis";
+    
+    const day = date.getDate();
+    const month = date.toLocaleString('en-GB', { month: 'short' }).toUpperCase();
+    const year = date.getFullYear();
+    const time = date.toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+    
+    return `${day} ${month} ${year} • ${time}`;
+  };
+
+  const getDisplayValue = (originalValue: string | null | undefined, fallbackToken: string) => {
+    const normalizedOriginal = typeof originalValue === "string" ? originalValue : "";
+    if (!privacyMode) return normalizedOriginal || "N/A";
+
+    const rehydrationMap = securityMetadata?.rehydration_map;
+    if (rehydrationMap && normalizedOriginal) {
+      const token = Object.keys(rehydrationMap).find((key) => rehydrationMap[key] === normalizedOriginal);
+      if (token) {
+        return token;
+      }
+    }
+    return fallbackToken;
+  };
+
+  const handleSelectPatient = (patient: Patient) => {
+    setSelectedPatient(patient);
+    setSecurityMetadata(null);
+    setAnalysisTimestamp(null);
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -53,31 +85,25 @@ export default function DashboardPage() {
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-navavej-border px-8 py-5 shadow-sm flex items-center justify-between">
         <NavavejBrand />
 
-        <nav className="hidden lg:flex items-center gap-10">
-          {primaryNavLinks.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className="font-bold text-sm text-navavej-gray-dark hover:text-navavej-teal transition-colors uppercase tracking-wider"
-            >
-              {item.label}
-            </Link>
-          ))}
-          <Link href="/audit" className="font-bold text-sm text-navavej-teal hover:opacity-80 transition-opacity uppercase tracking-wider border-l border-navavej-border pl-6 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4" />
-            Governance
-          </Link>
-          <Link href="/trend-timeline" className="font-bold text-sm text-navavej-teal hover:opacity-80 transition-opacity uppercase tracking-wider border-l border-navavej-border pl-6 flex items-center gap-2">
-            <Activity className="w-4 h-4" />
-            Trend & Timeline
-          </Link>
-          <Link href="/access-monitoring" className="font-bold text-sm text-navavej-teal hover:opacity-80 transition-opacity uppercase tracking-wider border-l border-navavej-border pl-6 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4" />
-            Access Monitoring
-          </Link>
-        </nav>
-
         <div className="flex items-center gap-5 translate-y-[-2px]">
+          <div className="hidden md:flex flex-col mr-4">
+            <span className="text-[9px] font-black text-navavej-gray-med uppercase tracking-widest text-right">Data Visibility</span>
+            <span className="text-[10px] font-bold text-navavej-teal text-right">
+              {privacyMode ? "Partial De-identification Active" : "Full Clinical View"}
+            </span>
+          </div>
+          <button
+            onClick={togglePrivacyMode}
+            className={cn(
+              "hidden md:flex items-center gap-2 px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest transition-all shadow-md active:scale-95 border-2",
+              privacyMode
+                ? "bg-navavej-red text-white border-navavej-red animate-pulse"
+                : "bg-emerald-500 text-white border-emerald-600"
+            )}
+          >
+            {privacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {privacyMode ? "Privacy Mode On" : "Privacy Mode Off"}
+          </button>
           <button
             onClick={() => setIsRuleBasedForced((prev) => !prev)}
             className={cn(
@@ -116,8 +142,9 @@ export default function DashboardPage() {
           <div className="xl:col-span-2">
             <div className="bg-[#fcfdfe] p-4 rounded-[20px] border border-navavej-border min-h-[600px] shadow-inner">
               <PatientList
-                onSelectPatient={setSelectedPatient}
+                onSelectPatient={handleSelectPatient}
                 selectedId={selectedPatient?.patient_id}
+                privacyMode={privacyMode}
               />
             </div>
           </div>
@@ -138,42 +165,78 @@ export default function DashboardPage() {
               <motion.div
                 initial={{ opacity: 0, y: -15 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-8 p-8 navavej-card bg-[#F0F9FA] border-navavej-teal/20 flex items-center justify-between"
+                className={cn(
+                  "mb-8 p-8 navavej-card flex items-center justify-between transition-colors duration-300",
+                  privacyMode ? "bg-navavej-red/5 border-navavej-red/20" : "bg-[#F0F9FA] border-navavej-teal/20"
+                )}
               >
                 <div className="flex items-center gap-8">
                   <div className="relative">
                     <div className="w-20 h-20 bg-white rounded-[20px] flex items-center justify-center shadow-xl border border-navavej-teal/10 group overflow-hidden">
                       <div className="absolute top-0 right-0 w-8 h-8 bg-navavej-teal/10 rounded-bl-[20px]" />
                       <span className="text-4xl font-black text-navavej-teal tracking-tighter relative z-10">
-                        {selectedPatient.patient_name.charAt(0)}
+                        {getDisplayValue(selectedPatient.patient_name, "tok_name_entity").charAt(0)}
                       </span>
                     </div>
-                    <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-navavej-teal text-white rounded-full flex items-center justify-center border-4 border-white shadow-lg">
+                    <div className={cn(
+                      "absolute -bottom-2 -right-2 w-8 h-8 text-white rounded-full flex items-center justify-center border-4 border-white shadow-lg",
+                      privacyMode ? "bg-navavej-red" : "bg-navavej-teal"
+                    )}>
                       <Activity className="w-4 h-4" />
                     </div>
                   </div>
                   <div>
-                    <h3 className="text-3xl font-black text-navavej-gray-dark tracking-tighter uppercase">
-                      {selectedPatient.patient_name}
+                    <h3 className={cn(
+                      "text-3xl font-black tracking-tighter uppercase",
+                      privacyMode ? "text-navavej-red font-mono" : "text-navavej-gray-dark"
+                    )}>
+                      {getDisplayValue(selectedPatient.patient_name, "tok_name_entity")}
                     </h3>
                     <div className="flex items-center gap-6 mt-2">
                       <div className="flex flex-col">
                         <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest">Medical ID</span>
-                        <span className="text-xs font-bold text-navavej-teal">{selectedPatient.patient_id}</span>
+                        <span className={cn("text-xs font-bold", privacyMode ? "text-navavej-red/70" : "text-navavej-teal")}>
+                          {getDisplayValue(selectedPatient.patient_id, "tok_id_entity")}
+                        </span>
                       </div>
                       <div className="w-[1px] h-6 bg-navavej-border" />
                       <div className="flex flex-col">
                         <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest">Demographics</span>
-                        <span className="text-xs font-bold text-navavej-gray-dark">35 Yrs / Male / Asian</span>
+                        <span className={cn("text-xs font-bold", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-gray-dark")}>
+                          {privacyMode ? "— / — / —" : `${selectedPatient.age || "???"} Yrs / ${selectedPatient.gender || "???"} / ${selectedPatient.ethnicity || "???"}`}
+                        </span>
+                      </div>
+                      <div className="w-[1px] h-6 bg-navavej-border" />
+                      <div className="flex flex-col">
+                        <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest">MRN</span>
+                        <span className={cn("text-xs font-bold", privacyMode ? "text-navavej-red/70" : "text-navavej-gray-dark")}>
+                          {getDisplayValue(selectedPatient?.mrn, "tok_mrn_entity")}
+                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex gap-4">
+                  <div className="px-6 py-3 bg-white/60 border border-white rounded-2xl flex flex-col justify-center min-w-[220px]">
+                    <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest mb-1">Contact Information</span>
+                    <div className="flex flex-col gap-0.5">
+                      <span className={cn("text-[10px] font-bold", privacyMode ? "text-navavej-red/70" : "text-navavej-gray-dark")}>
+                        Tel: {getDisplayValue(selectedPatient?.phone, "tok_phone_entity")}
+                      </span>
+                      <span className={cn("text-[10px] font-bold", privacyMode ? "text-navavej-red/70" : "text-navavej-gray-dark")}>
+                        Email: {getDisplayValue(selectedPatient?.email, "tok_email_entity")}
+                      </span>
+                    </div>
+                  </div>
                   <div className="px-6 py-3 bg-white/60 border border-white rounded-2xl flex flex-col justify-center">
                     <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest mb-1">Last Analysis Run</span>
-                    <span className="text-xs font-black text-navavej-gray-dark uppercase tracking-tighter">16 MAR 2026 • 18:43</span>
+                    <span className={cn(
+                      "text-xs font-black uppercase tracking-tighter",
+                      privacyMode ? "text-navavej-red" : "text-navavej-gray-dark"
+                    )}>
+                      {privacyMode ? "—" : formatTimestamp(analysisTimestamp)}
+                    </span>
                   </div>
                 </div>
               </motion.div>
@@ -182,6 +245,11 @@ export default function DashboardPage() {
             <RecommendationPanel
               patientId={selectedPatient?.patient_id || null}
               patientToken={selectedPatient?.patient_token || null}
+              privacyMode={privacyMode}
+              onRecommendationLoad={(data: RecommendationResponse | null) => {
+                setSecurityMetadata(data?.security_metadata || null);
+                setAnalysisTimestamp((data?.metadata?.generated_at as string | undefined) || null);
+              }}
               isRuleBasedForced={isRuleBasedForced}
             />
           </div>
@@ -191,7 +259,7 @@ export default function DashboardPage() {
       {/* Official-style Footer Highlight */}
       <footer className="mt-20 border-t border-navavej-border py-20 px-8 lg:px-16 bg-navavej-gray-light overflow-hidden relative">
         <div className="absolute top-0 right-0 w-96 h-96 bg-navavej-teal/5 rounded-full blur-[100px] translate-x-1/2 -translate-y-1/2" />
-        <div className="w-full grid grid-cols-1 md:grid-cols-4 gap-12">
+        <div className="w-full flex flex-col md:flex-row justify-between items-center gap-12">
           <div>
             <NavavejBrand />
             <p className="text-xs text-navavej-gray-med mt-6 leading-relaxed font-medium">
@@ -199,16 +267,11 @@ export default function DashboardPage() {
               Providing precision medicine powered by advanced AI architecture.
             </p>
           </div>
-          {['Healthcare Info', 'Our Services', 'Contact Us'].map((col) => (
-            <div key={col}>
-              <h4 className="font-black text-navavej-gray-dark text-sm uppercase tracking-widest mb-6">{col}</h4>
-              <ul className="space-y-3">
-                {[1, 2, 3].map(i => (
-                  <li key={i} className="text-xs font-bold text-navavej-gray-med hover:text-navavej-teal cursor-pointer">Sample Link {i}</li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          <div className="flex gap-8 text-xs font-bold text-navavej-gray-med uppercase tracking-widest">
+            <span className="hover:text-navavej-teal cursor-pointer transition-colors">Privacy Policy</span>
+            <span className="hover:text-navavej-teal cursor-pointer transition-colors">Terms of Service</span>
+            <span className="hover:text-navavej-teal cursor-pointer transition-colors">Security</span>
+          </div>
         </div>
       </footer>
     </div>
