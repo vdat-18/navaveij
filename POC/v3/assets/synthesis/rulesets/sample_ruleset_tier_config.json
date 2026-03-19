@@ -86,12 +86,14 @@
           "type": "signal_count_threshold",
           "signal_pool": [
             "prediabetes_confirmed",
+            "diabetes_confirmation_required",
             "htn_active",
             "dyslipidemia_active",
             "bmi_obese_asian",
             "ascvd_risk_intermediate",
             "bp_stage2_htn",
             "family_hx_premature_cad",
+            "history_syncope",
             "at_risk_alcohol_use",
             "fibroscan_indication",
             "lung_ct_threshold_met",
@@ -102,12 +104,14 @@
           "description": "≥ 5 of 12 moderate-severity risk signals active simultaneously — indicates multi-system disease burden requiring comprehensive Premium evaluation.",
           "_signal_pool_rationale": {
             "prediabetes_confirmed": "Metabolic — pre-DM; organ risk precursor",
+            "diabetes_confirmation_required": "Metabolic — probable diabetes requires confirmatory testing and intensified surveillance",
             "htn_active": "Cardiovascular — confirmed hypertension comorbidity",
             "dyslipidemia_active": "Cardiovascular — confirmed dyslipidemia comorbidity",
             "bmi_obese_asian": "Metabolic — Asian-adjusted obese (BMI ≥ 27.5); high NCD risk",
             "ascvd_risk_intermediate": "Cardiovascular — 10-yr risk 7.5–19.9%; significant CV burden",
             "bp_stage2_htn": "Cardiovascular — Stage 2 HTN (SBP ≥ 140 or DBP ≥ 90)",
             "family_hx_premature_cad": "Genetic — first-degree premature CAD; ACC/AHA risk enhancer",
+            "history_syncope": "Cardiovascular — syncope history can indicate high-risk cardiac etiology requiring escalated workup",
             "at_risk_alcohol_use": "Behavioral — AUDIT-C positive; liver + metabolic risk",
             "fibroscan_indication": "Hepatic — liver disease risk from BMI + ALT or alcohol + ALT",
             "lung_ct_threshold_met": "Oncologic — LDCT-eligible smoker; significant cancer risk",
@@ -133,7 +137,7 @@
       "tier": "Advanced",
       "match_logic": "ANY",
       "_clinical_rationale": "Any single moderate-severity signal places the patient into elevated-risk territory requiring enhanced (Platinum) screening beyond the standard annual package. Alternatively, two or more lower-severity signals co-occurring indicates sufficient cumulative risk.",
-      "_expert_review_note": "Please verify: (1) Are all 7 single-signal qualifiers appropriate for Advanced? Should any be Standard instead? (2) Is min_count: 2 the right threshold for the low-moderate pool? (3) Are all 13 low-moderate pool signals correctly categorized?",
+      "_expert_review_note": "Please verify: (1) Are all 7 single-signal qualifiers appropriate for Advanced? Should any be Standard instead? (2) Is min_count: 2 the right threshold for the low-moderate pool? (3) Are all low-moderate pool signals correctly categorized?",
       "conditions": [
         {
           "type": "signal_active",
@@ -194,19 +198,17 @@
             "bp_stage1_htn",
             "bp_worsening",
             "family_hx_premature_cad",
-            "family_hx_early_heart_attack",
             "at_risk_alcohol_use",
             "office_syndrome",
             "night_shift_worker",
             "uric_acid_hyperuricemia",
             "dyslipidemia_active",
             "fibroscan_indication",
-            "symptom_fatigue",
-            "history_loss_of_consciousness",
-            "occupational_risk_factory"
+            "fbs_upward_trend",
+            "diagnosis_fatty_liver"
           ],
           "min_count": 2,
-          "description": "≥ 2 of 17 low-to-moderate severity signals active simultaneously — combined risk burden warrants enhanced screening beyond Standard.",
+          "description": "≥ 2 of 15 low-to-moderate severity signals active simultaneously — combined risk burden warrants enhanced screening beyond Standard.",
           "_signal_pool_rationale": {
             "bmi_overweight_asian": "Asian-adjusted overweight (BMI ≥ 23); elevated metabolic risk",
             "low_hdl": "HDL < 40 (M) / < 50 (F); CV risk factor",
@@ -215,16 +217,14 @@
             "bp_stage1_htn": "SBP 130–139 or DBP 80–89 (ACC/AHA 2017 Stage 1); not yet active comorbidity",
             "bp_worsening": "BP trend worsening over serial readings",
             "family_hx_premature_cad": "First-degree premature CAD; ACC/AHA risk enhancer",
-            "family_hx_early_heart_attack": "Family history of early cardiovascular events",
             "at_risk_alcohol_use": "AUDIT-C ≥ 3 (F) / ≥ 4 (M); liver + metabolic risk",
             "office_syndrome": "Prolonged sedentary desk work; MSK + metabolic risk",
             "night_shift_worker": "Rotating/permanent night shift; elevated DM + HTN + sleep risk",
             "uric_acid_hyperuricemia": "Uric acid above sex-specific threshold; metabolic syndrome marker",
             "dyslipidemia_active": "Confirmed dyslipidemia comorbidity",
             "fibroscan_indication": "Liver disease risk indicator (AASLD 2023)",
-            "symptom_fatigue": "Reported fatigue; metabolic or hormonal indicator",
-            "history_loss_of_consciousness": "Syncope history; requires cardiac surveillance",
-            "occupational_risk_factory": "Industrial exposure risk"
+            "fbs_upward_trend": "Worsening fasting glucose trend indicates accelerating metabolic risk",
+            "diagnosis_fatty_liver": "Diagnosed fatty liver indicates hepatic-metabolic risk burden"
           }
         }
       ],

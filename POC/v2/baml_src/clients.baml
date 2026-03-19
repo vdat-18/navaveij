@@ -8,5 +8,6 @@ client<llm> NavaveijClient {
     base_url env.LLM_BASE_URL
     api_key env.LLM_API_KEY
     model env.LLM_MODEL
+    timeout_ms env.LLM_TIMEOUT_MS
   }
 }

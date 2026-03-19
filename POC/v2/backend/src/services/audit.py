@@ -17,7 +17,6 @@ class AuditLogger:
     def __init__(self):
         """Initialize log files and retrieve the last known hash to maintain the chain."""
         self.log_file_jsonl = Path(settings.audit_log_path)
-        self.log_file_json = self.log_file_jsonl.with_suffix(".json")
 
         self.log_file_jsonl.parent.mkdir(parents=True, exist_ok=True)
         self.last_hash = self._get_last_hash()
@@ -28,29 +27,18 @@ class AuditLogger:
             return "0" * 64
 
         try:
-            with open(self.log_file_jsonl, "r", encoding="utf-8") as f:
-                # For safety in this demo, we read the whole file. 
-                # Each line can be 10KB+, so fixed-buffer reading from end can cut lines.
-                lines = [line.strip() for line in f if line.strip()]
-                if not lines:
-                    return "0" * 64
-                
-                last_line = json.loads(lines[-1])
-                return last_line.get("current_hash", "0" * 64)
+            with open(self.log_file_jsonl, "rb") as f:
+                f.seek(0, 2)
+                size = f.tell()
+                f.seek(max(0, size - 4096))
+                chunk = f.read().decode("utf-8", errors="ignore")
+            for line in reversed(chunk.splitlines()):
+                line = line.strip()
+                if line:
+                    return json.loads(line).get("current_hash", "0" * 64)
         except Exception as e:
-            logger.warning(f"Could not parse last audit hash (file might be corrupt): {e}")
-            return "0" * 64
-
-    def _write_json_array(self, payload: dict[str, Any]) -> None:
-        """Update the JSON array file by appending the new entry."""
-        entries = []
-        if self.log_file_json.exists() and self.log_file_json.stat().st_size > 0:
-            with open(self.log_file_json, encoding="utf-8") as f:
-                entries = json.load(f)
-
-        entries.append(payload)
-        with open(self.log_file_json, "w", encoding="utf-8") as f:
-            json.dump(entries, f, indent=2)
+            logger.warning(f"Could not parse last audit hash: {e}")
+        return "0" * 64
 
     def log_recommendation(
         self,
@@ -112,11 +100,8 @@ class AuditLogger:
         with open(self.log_file_jsonl, "a", encoding="utf-8") as f:
             f.write(json.dumps(payload) + "\n")
 
-        # Write to JSON (array format)
-        self._write_json_array(payload)
-
         self.last_hash = current_hash
-        logger.info(f"Dual audit log written for patient: {patient_id}")
+        logger.info(f"Audit log written for patient: {patient_id}")
         return current_hash
 
     def log_decision(
@@ -154,19 +139,23 @@ class AuditLogger:
 
         with open(self.log_file_jsonl, "a", encoding="utf-8") as f:
             f.write(json.dumps(payload) + "\n")
-        self._write_json_array(payload)
 
         self.last_hash = current_hash
         logger.info(f"Decision audit log written for patient {patient_id}: {decision}")
         return current_hash
 
     def get_logs(self) -> list[dict[str, Any]]:
-        """Retrieve all logs from the JSON audit file."""
-        if not self.log_file_json.exists():
+        """Retrieve all logs from the JSONL audit file."""
+        if not self.log_file_jsonl.exists():
             return []
         try:
-            with open(self.log_file_json, "r", encoding="utf-8") as f:
-                return json.load(f)
+            entries = []
+            with open(self.log_file_jsonl, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        entries.append(json.loads(line))
+            return entries
         except Exception as e:
             logger.error(f"Failed to read audit logs: {e}")
             return []

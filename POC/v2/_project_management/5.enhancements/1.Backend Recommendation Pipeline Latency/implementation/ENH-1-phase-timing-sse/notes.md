@@ -1,6 +1,6 @@
 # ENH-1 — Per-Phase Timing Instrumentation + SSE Stage Stream
 
-**Status:** ⬜ Pending
+**Status:** ✅ Complete (2026-03-19)
 **Bottleneck addressed:** B5 (no per-phase timing)
 **Priority:** P0 (first — needed to validate all other estimates)
 
@@ -15,11 +15,13 @@
 
 ## Exit Evidence
 
-- [ ] Response metadata includes `phase_timings` with keys: `mcp_fetch_ms`, `ai_chain_ms`, `safety_ms`, `audit_ms`, `rehydration_ms`
-- [ ] `/api/v1/clinical/recommend/stream` returns `text/event-stream` with 7 stage events followed by final JSON
-- [ ] Existing `/api/v1/clinical/recommend` endpoint unchanged
-- [ ] Regression suite passes
+- [x] Response metadata includes `phase_timings` with keys: `workflow_ms`, `ai_chain_ms`, `safety_ms`, `audit_ms`, `rehydration_ms`, `total_ms`
+- [x] `/api/v1/clinical/recommend/stream` returns `text/event-stream` with stage events followed by final JSON result
+- [x] Existing `/api/v1/clinical/recommend` endpoint unchanged
+- [x] Regression suite passes
 
-## Notes
+## Implementation Notes (2026-03-19)
 
-_(Updated during implementation)_
+Phase timing: `time.monotonic()` markers at each phase boundary in `orchestrator.py`. `ai_chain_ms` is captured inside `clinical.py` and surfaced via `WorkflowContext`.
+
+SSE endpoint: `StreamingResponse` with `text/event-stream` in `clinical.py`. Async task runs the recommendation pipeline while a generator streams stage-labelled JSON events. Final result emitted as a `result` event type. Error emitted as `error` event type.

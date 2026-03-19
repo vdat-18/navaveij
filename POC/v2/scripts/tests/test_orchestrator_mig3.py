@@ -69,6 +69,7 @@ async def test_orchestrator_passes_force_rule_based_to_workflow():
         "id_test_001",
         patient_token="tok_hmac_test_001",
         force_rule_based=True,
+        on_stage=None,
     )
     assert result["recommendation_hash"] == "hash_mig3"
     assert result["recommendation_source"] == "RuleBased"

@@ -49,7 +49,7 @@ async def test_clinical_workflow_ai_path(mock_session):
         supporting_signal_ids=["signal_1"],
         missing_signal_ids=["signal_missing"],
     )
-    plan = SimpleNamespace(
+    match_result = SimpleNamespace(
         ai_recommended_tier=SimpleNamespace(value="Advanced"),
         tier_deviation_justification="Policy-aligned escalation",
         selected_add_ons=[
@@ -64,9 +64,6 @@ async def test_clinical_workflow_ai_path(mock_session):
             )
         ],
         policy_reasoning="Program matrix matched elevated risk profile.",
-    )
-    final = SimpleNamespace(
-        plan=plan,
         communication_script=SimpleNamespace(
             health_summary="There is elevated metabolic risk.",
             recommendation_rationale="A higher tier improves screening coverage.",
@@ -86,8 +83,7 @@ async def test_clinical_workflow_ai_path(mock_session):
             },
         ),
         patch("baml_client.async_client.b.AnalyzeClinicalRisks", AsyncMock(return_value=risk_profile)),
-        patch("baml_client.async_client.b.MatchProgramRules", AsyncMock(return_value=plan)),
-        patch("baml_client.async_client.b.ComposeRecommendation", AsyncMock(return_value=final)),
+        patch("baml_client.async_client.b.MatchAndCompose", AsyncMock(return_value=match_result)),
     ):
         workflow = ClinicalReasoningWorkflow(mock_session)
         result = await workflow.execute(patient_id, patient_token=patient_token)
@@ -116,8 +112,7 @@ async def test_clinical_workflow_force_rule_based(mock_session):
     mock_session.call_tool.side_effect = _mock_mcp_side_effect()
 
     analyze_mock = AsyncMock()
-    match_mock = AsyncMock()
-    compose_mock = AsyncMock()
+    match_and_compose_mock = AsyncMock()
 
     with (
         patch(
@@ -130,8 +125,7 @@ async def test_clinical_workflow_force_rule_based(mock_session):
             },
         ),
         patch("baml_client.async_client.b.AnalyzeClinicalRisks", analyze_mock),
-        patch("baml_client.async_client.b.MatchProgramRules", match_mock),
-        patch("baml_client.async_client.b.ComposeRecommendation", compose_mock),
+        patch("baml_client.async_client.b.MatchAndCompose", match_and_compose_mock),
     ):
         workflow = ClinicalReasoningWorkflow(mock_session)
         result = await workflow.execute(patient_id, patient_token=patient_token, force_rule_based=True)
@@ -141,8 +135,7 @@ async def test_clinical_workflow_force_rule_based(mock_session):
     assert result.ai_output["review_required"] is True
     assert result.ai_output["supporting_signals"] == ["signal_1"]
     analyze_mock.assert_not_awaited()
-    match_mock.assert_not_awaited()
-    compose_mock.assert_not_awaited()
+    match_and_compose_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio

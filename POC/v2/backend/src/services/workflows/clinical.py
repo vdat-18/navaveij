@@ -1,6 +1,8 @@
 """Clinical Reasoning Workflow implementation."""
 
+import hashlib
 import json
+import time
 from typing import Any
 
 from loguru import logger
@@ -8,10 +10,22 @@ from mcp import ClientSession
 
 from baml_client.async_client import b
 from src.mcp_server.utils import resolve_package
+from src.services.cache import cache_service
 from src.services.privacy import PIIMasker
 from src.services.rules import RuleEvaluator
 from src.services.workflows.base import BaseWorkflow, WorkflowContext
 from shared.exceptions import DataIntegrityError
+from shared.settings import settings
+
+
+def _risk_profile_cache_key(masked_context: dict) -> str:
+    payload = {
+        "signals": masked_context.get("get_clinical_signals"),
+        "trends": masked_context.get("get_biomarker_trends"),
+    }
+    return "risk_profile:" + hashlib.sha256(
+        json.dumps(payload, sort_keys=True).encode()
+    ).hexdigest()
 
 
 class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
@@ -35,18 +49,22 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         patient_id: str,
         patient_token: str,
         force_rule_based: bool = False,
+        on_stage: Any = None,
     ) -> WorkflowContext:
         """Execute the full clinical reasoning loop."""
         logger.info(f"Executing Clinical Workflow for patient: {patient_id} (force_rule_based={force_rule_based})")
         context = WorkflowContext(patient_id=patient_id)
 
         # Phase 1: Baseline
+        if on_stage: await on_stage(1, "Fetching patient baseline")
         await self._fetch_baseline(context, patient_id, patient_token)
 
         # Phase 2: Signals
+        if on_stage: await on_stage(2, "Analyzing clinical signals")
         await self._analyze_signals(context, patient_id, patient_token)
 
         # Phase 3: Trends
+        if on_stage: await on_stage(3, "Evaluating biomarker trends")
         await self._evaluate_trends(context, patient_id, patient_token)
 
         # Get program ruleset (Part of Phase 4 preparation)
@@ -58,7 +76,8 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         context.masked_context = self.masker.mask_data(context.raw_context)
 
         # Phase 4: Recommendation
-        await self._generate_recommendation(context, force_rule_based=force_rule_based)
+        if on_stage: await on_stage(4, "Running program rules")
+        await self._generate_recommendation(context, force_rule_based=force_rule_based, on_stage=on_stage)
 
         # Phase 5: Finalize
         context.rehydration_map = self.masker.get_rehydration_map()
@@ -92,7 +111,7 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         trends = await self._call_mcp_tool("get_biomarker_trends", self._mcp_args(patient_token, patient_id))
         context.raw_context["get_biomarker_trends"] = trends
 
-    async def _generate_recommendation(self, context: WorkflowContext, force_rule_based: bool = False) -> None:
+    async def _generate_recommendation(self, context: WorkflowContext, force_rule_based: bool = False, on_stage: Any = None) -> None:
         """Phase 4: Rule evaluation + 3-agent AI chain with rule-based fallback."""
         logger.debug(f"Phase 4: Generating recommendation (force_rule_based={force_rule_based})")
 
@@ -122,22 +141,27 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             return
 
         try:
-            risk_profile = await b.AnalyzeClinicalRisks(
-                clinical_signals=json.dumps(context.masked_context.get("get_clinical_signals"), indent=2),
-                biomarker_trends=json.dumps(context.masked_context.get("get_biomarker_trends"), indent=2),
-                hard_constraints=json.dumps(context.masked_context.get("get_hard_constraints"), indent=2),
-                program_ruleset=json.dumps(context.masked_context.get("get_program_ruleset"), indent=2),
-            )
-            recommendation_plan = await b.MatchProgramRules(
+            if on_stage: await on_stage(5, "Matching profile and composing recommendation")
+            _ai_start = time.monotonic()
+            _cache_key = _risk_profile_cache_key(context.masked_context)
+            _found, risk_profile = cache_service.get(_cache_key)
+            if not _found:
+                risk_profile = await b.AnalyzeClinicalRisks(
+                    clinical_signals=json.dumps(context.masked_context.get("get_clinical_signals"), indent=2),
+                    biomarker_trends=json.dumps(context.masked_context.get("get_biomarker_trends"), indent=2),
+                    hard_constraints=json.dumps(context.masked_context.get("get_hard_constraints"), indent=2),
+                    program_ruleset=json.dumps(context.masked_context.get("get_program_ruleset"), indent=2),
+                )
+                cache_service.set(_cache_key, risk_profile, settings.cache_signal_store_ttl_seconds)
+            else:
+                logger.debug("risk_profile cache hit — skipping AnalyzeClinicalRisks LLM call")
+            result = await b.MatchAndCompose(
                 risk_profile=risk_profile,
                 program_ruleset=json.dumps(context.masked_context.get("get_program_ruleset"), indent=2),
             )
-            final_recommendation = await b.ComposeRecommendation(
-                risk_profile=risk_profile,
-                plan=recommendation_plan,
-            )
+            context.metadata["ai_chain_ms"] = int((time.monotonic() - _ai_start) * 1000)
             context.ai_output = self._map_final_to_ai_output(
-                final=final_recommendation,
+                result=result,
                 risk_profile=risk_profile,
                 rule_result=rule_result,
                 demographics=demographics,
@@ -145,6 +169,7 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             )
         except Exception as exc:
             logger.exception(f"AI recommendation chain failed. Falling back to rule-based output: {exc}")
+            context.metadata["ai_chain_ms"] = 0
             context.ai_output = self._build_rule_based_output(
                 rule_result=rule_result,
                 clinical_signals=clinical_signals,
@@ -160,20 +185,20 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
     def _map_final_to_ai_output(
         self,
         *,
-        final: Any,
+        result: Any,
         risk_profile: Any,
         rule_result: dict[str, Any],
         demographics: dict[str, Any],
         package_resolution_map: dict[str, Any],
     ) -> dict[str, Any]:
-        ai_tier = final.plan.ai_recommended_tier.value
+        ai_tier = result.ai_recommended_tier.value
         resolved_package = resolve_package(
             ai_tier,
             demographics.get("gender", "other"),
             demographics.get("age", 0),
             package_resolution_map,
         )
-        policy_reasoning = getattr(final.plan, "policy_reasoning", None) or ""
+        policy_reasoning = getattr(result, "policy_reasoning", None) or ""
         bullets = getattr(risk_profile, "clinical_summary_bullets", []) or []
         reasoning_lines = [f"- {line}" for line in bullets]
         if policy_reasoning:
@@ -181,7 +206,7 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
 
         return {
             "ai_recommended_tier": ai_tier,
-            "tier_deviation_justification": final.plan.tier_deviation_justification,
+            "tier_deviation_justification": result.tier_deviation_justification,
             "add_ons": [
                 {
                     "item_id": item.item_id,
@@ -192,16 +217,16 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
                     "category": item.category,
                     "rationale": item.rationale,
                 }
-                for item in final.plan.selected_add_ons
+                for item in result.selected_add_ons
             ],
             "reasoning_trace": "\n".join(reasoning_lines),
             "supporting_signals": risk_profile.supporting_signal_ids,
             "missing_signals": risk_profile.missing_signal_ids,
             "communication_script": {
-                "health_summary": final.communication_script.health_summary,
-                "recommendation_rationale": final.communication_script.recommendation_rationale,
-                "addon_highlights": final.communication_script.addon_highlights,
-                "next_steps": final.communication_script.next_steps,
+                "health_summary": result.communication_script.health_summary,
+                "recommendation_rationale": result.communication_script.recommendation_rationale,
+                "addon_highlights": result.communication_script.addon_highlights,
+                "next_steps": result.communication_script.next_steps,
             },
             "rule_preliminary_tier": rule_result["rule_tier"],
             "recommendation_source": "AI",

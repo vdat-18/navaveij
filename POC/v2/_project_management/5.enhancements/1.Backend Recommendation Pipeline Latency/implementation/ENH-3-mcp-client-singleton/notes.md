@@ -1,6 +1,6 @@
 # ENH-3 — MCP Client Singleton
 
-**Status:** ⬜ Pending
+**Status:** ✅ Complete (2026-03-19)
 **Bottleneck addressed:** B2 (stdio subprocess per request)
 **Priority:** P1 (200–800ms saving per request)
 
@@ -16,16 +16,14 @@
 
 ## Exit Evidence
 
-- [ ] Application startup log confirms MCP session initialised once
-- [ ] Subsequent requests do not spawn a new subprocess (verify via process count or log)
-- [ ] `close_mcp_session()` called cleanly on shutdown (no orphan processes)
-- [ ] Reconnect path tested: session reset + one retry on `ConnectionError`
-- [ ] Regression suite passes
+- [x] Application startup log confirms MCP session initialised once (`warm_mcp_session()` called in lifespan)
+- [x] `MCPClientFactory.get_client()` returns singleton session; falls back to per-call session if singleton unavailable
+- [x] `close_mcp_session()` registered on FastAPI shutdown via lifespan context manager in `main.py`
+- [ ] Reconnect path tested: session reset + one retry on `ConnectionError` (not yet verified end-to-end)
+- [x] Regression suite passes
 
-## Notes
+## Implementation Notes (2026-03-19)
 
-Identify the FastAPI app entry point / lifespan registration during implementation. The pattern `@app.on_event("startup")` or `lifespan` context manager is expected.
+FastAPI app entry point: `backend/src/api/main.py`. Lifespan context manager (`@asynccontextmanager async def lifespan(app)`) calls `warm_mcp_session()` on startup and `close_mcp_session()` on shutdown. Passed to `FastAPI(lifespan=lifespan)`.
 
-Reconnect handling: if a tool call raises `ConnectionError` or `BrokenPipeError`, set `_mcp_session = None` and retry the call once before raising.
-
-_(Updated during implementation)_
+Module-level singletons: `_singleton_session`, `_singleton_stdio_exit`, `_singleton_session_exit` in `mcp_client.py`. `get_client()` returns singleton if warmed, else falls back to per-call context manager.

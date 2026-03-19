@@ -54,6 +54,45 @@ TIMELINE_SAMPLE_PATH = _resolve_existing_path(
 )
 PATIENT_REGISTRY_PATH = V2_ROOT / "assets/patient_registry.json"
 
+_signal_store_index: dict[str, Path] = {}  # patient_id → file path
+_registry_token_index: dict[str, dict] = {}  # patient_token → registry entry
+_registry_id_index: dict[str, dict] = {}  # patient_id → registry entry
+
+
+def _build_signal_store_index() -> None:
+    """Scan SIGNAL_STORE_DIR once at import time; map patient_id → file path."""
+    global _signal_store_index
+    if not SIGNAL_STORE_DIR.exists():
+        return
+    index: dict[str, Path] = {}
+    for p in SIGNAL_STORE_DIR.glob("**/record_*.json"):
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            pid = data.get("patient_id") or data.get("hard_constraints", {}).get("patient_id")
+            if pid:
+                index[pid] = p
+        except Exception:
+            pass
+    _signal_store_index = index
+
+
+def _build_registry_index() -> None:
+    """Load patient_registry.json once at import time; build O(1) lookup dicts."""
+    global _registry_token_index, _registry_id_index
+    if not PATIENT_REGISTRY_PATH.exists():
+        return
+    try:
+        with open(PATIENT_REGISTRY_PATH, encoding="utf-8") as f:
+            registry = json.load(f)
+        _registry_token_index = {item["patient_token"]: item for item in registry if "patient_token" in item}
+        _registry_id_index = {item["patient_id"]: item for item in registry if "patient_id" in item}
+    except Exception:
+        pass
+
+
+_build_signal_store_index()  # run once at module import
+_build_registry_index()  # run once at module import
+
 
 def _resolve_ttl(ttl_seconds: int) -> int:
     if ttl_seconds > 0:
@@ -85,14 +124,12 @@ def load_patient_registry() -> list[dict]:
 
 
 def resolve_patient_id(patient_token: str) -> str | None:
-    registry = load_patient_registry()
-    patient = next((item for item in registry if item.get("patient_token") == patient_token), None)
+    patient = _registry_token_index.get(patient_token)
     return patient.get("patient_id") if patient else None
 
 
 def resolve_patient_token(patient_id: str) -> str | None:
-    registry = load_patient_registry()
-    patient = next((item for item in registry if item.get("patient_id") == patient_id), None)
+    patient = _registry_id_index.get(patient_id)
     return patient.get("patient_token") if patient else None
 
 
@@ -118,33 +155,25 @@ def load_signal_store_record(patient_token: str | None = None, patient_id: str |
         if hit:
             return cached
 
-    if not SIGNAL_STORE_DIR.exists():
-        logger.warning(f"Signal Store directory not found: {SIGNAL_STORE_DIR}")
+    file_path = _signal_store_index.get(resolved_id)
+    if file_path is None:
+        logger.warning(f"Record not found for ID: {resolved_id}")
         if settings.cache_enabled:
             cache_service.set(cache_key, None, _resolve_ttl(settings.cache_signal_store_ttl_seconds))
         return None
 
-    # Search recursively for record_*.json in all scenario subdirectories
-    for file_path in SIGNAL_STORE_DIR.glob("**/record_*.json"):
+    try:
         with open(file_path, encoding="utf-8") as f:
-            try:
-                record = json.load(f)
-                # Check both top-level and inside hard_constraints
-                actual_id = record.get("patient_id") or record.get("hard_constraints", {}).get("patient_id")
-                
-                if actual_id == resolved_id:
-                    logger.debug(f"Found Signal Store record: {file_path.parent.name}/{file_path.name}")
-                    if settings.cache_enabled:
-                        cache_service.set(cache_key, record, _resolve_ttl(settings.cache_signal_store_ttl_seconds))
-                    return record
-            except Exception as e:
-                logger.error(f"Error reading {file_path}: {e}")
-                continue
-
-    logger.warning(f"Record not found for ID: {resolved_id}")
-    if settings.cache_enabled:
-        cache_service.set(cache_key, None, _resolve_ttl(settings.cache_signal_store_ttl_seconds))
-    return None
+            record = json.load(f)
+        logger.debug(f"Found Signal Store record: {file_path.parent.name}/{file_path.name}")
+        if settings.cache_enabled:
+            cache_service.set(cache_key, record, _resolve_ttl(settings.cache_signal_store_ttl_seconds))
+        return record
+    except Exception as e:
+        logger.error(f"Error reading {file_path}: {e}")
+        if settings.cache_enabled:
+            cache_service.set(cache_key, None, _resolve_ttl(settings.cache_signal_store_ttl_seconds))
+        return None
 
 
 def extract_hard_constraints(record: dict) -> dict:

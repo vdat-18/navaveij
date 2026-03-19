@@ -20,12 +20,12 @@ audit logging, and signal pool traceability.
 | GAP-R5 | Stage 2 Completeness | ✅ Complete — 23/23 tests passed |
 | GAP-R6 | Graceful Degradation | ✅ Complete — 23/23 tests passed |
 | GAP-R7 | Audit Logger 5 Dimensions | ✅ Complete — 23/23 tests passed |
-| GAP-R8 | Signal Pool Alignment | ⏳ Pending clinical team input |
+| GAP-R8 | Signal Pool Alignment | ✅ Complete — 3/3 tests passed |
 
 **Full test run:** `python -m pytest scripts/tests/test_api_contract_routes.py -v` → **23 passed in 0.64s**
+**GAP-R8 test run:** `python -m pytest scripts/tests/test_ruleset_signal_pool_alignment_r8.py -v` → **3 passed in 0.02s**
 
-GAP-R8 is not blocked by implementation — it is pending clinical team confirmation of signal
-pool sources and boundary conditions. No code changes are blocked on it.
+All 8 gaps are closed. No open items remain in this workstream.
 
 ---
 

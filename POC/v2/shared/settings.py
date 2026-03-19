@@ -33,6 +33,7 @@ class LLMSettings(ProjectBaseSettings):
     llm_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
     llm_model: str = "gemini-1.5-flash"
     llm_provider: str = "openai"
+    llm_timeout_ms: int = 15000
 
 
 class MCPSettings(ProjectBaseSettings):

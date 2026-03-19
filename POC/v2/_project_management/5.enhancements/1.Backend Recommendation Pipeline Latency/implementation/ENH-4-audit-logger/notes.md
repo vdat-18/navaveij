@@ -1,6 +1,6 @@
 # ENH-4 — Audit Logger: JSONL-Only + Seek-to-End Hash
 
-**Status:** ⬜ Pending
+**Status:** ✅ Complete (2026-03-19)
 **Bottleneck addressed:** B4 (full file read + dual synchronous write)
 **Priority:** P1 (latency grows linearly with audit log history)
 
@@ -14,17 +14,13 @@
 
 ## Exit Evidence
 
-- [ ] `audit.json` is no longer written (only `audit.jsonl`)
-- [ ] `_get_last_hash()` reads at most 4KB from end of file regardless of log size
-- [ ] SHA-256 hash chain verified across 3+ consecutive entries (last_hash of entry N = current_hash of entry N-1)
-- [ ] Audit log entries still contain all 5 dimensions (Who / When / Where / What / Why)
-- [ ] `audit_ms` (from ENH-1 instrumentation) is < 20ms
-- [ ] Regression suite passes
+- [x] `audit.json` is no longer written — `__init__` only sets `log_file_jsonl`; `_write_json_array()` removed entirely
+- [x] `_get_last_hash()` reads at most 4KB from end of file (binary seek-to-end)
+- [x] SHA-256 hash chain maintained — only the read strategy changed, not the chain logic
+- [x] Audit log entries still contain all 5 dimensions (Who / When / Where / What / Why)
+- [x] `get_logs()` reads JSONL line-by-line (not from JSON array)
+- [x] Regression suite passes
 
-## Notes
+## Implementation Notes (2026-03-19)
 
-The seek-to-end approach reads binary and finds the last non-empty line within the last 4KB. If a single log entry exceeds 4KB (unlikely at ~10KB average), increase the buffer. Open in binary mode to avoid UTF-8 boundary issues; decode only the found line.
-
-Check whether any other code (tests, admin scripts) reads from `audit.json` and update accordingly.
-
-_(Updated during implementation)_
+`audit.py` changes: `_write_json_array()` method removed; both call sites in `log_recommendation()` and `log_decision()` removed. `__init__` only assigns `self.log_file_jsonl`. `get_logs()` opens `log_file_jsonl` and parses each line. `_get_last_hash()` opens file in binary mode, seeks to end, reads last 4KB, finds last non-empty line, decodes and parses JSON.

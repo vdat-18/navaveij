@@ -2,15 +2,10 @@
 
 import React, { useState } from "react";
 
-import { PatientList } from "@/components/dashboard/PatientList";
+import { PatientDirectoryColumn } from "@/components/dashboard/PatientDirectoryColumn";
 import { TrendTimelineScreen } from "@/components/trend-timeline/TrendTimelineScreen";
 import { usePrivacyMode } from "@/shared/privacy-mode";
-
-interface Patient {
-  patient_id: string;
-  patient_name: string;
-  patient_token: string;
-}
+import { Patient } from "@/types/patient";
 
 export default function TrendTimelinePage() {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -42,16 +37,12 @@ export default function TrendTimelinePage() {
         </div>
       </div>
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-        <div className="xl:col-span-3">
-          <div className="bg-[#fcfdfe] p-4 rounded-[20px] border border-navavej-border min-h-[640px] shadow-inner">
-            <PatientList
-              onSelectPatient={setSelectedPatient}
-              selectedId={selectedPatient?.patient_id}
-              privacyMode={privacyMode}
-            />
-          </div>
-        </div>
-        <div className="xl:col-span-9">
+        <PatientDirectoryColumn
+          onSelectPatient={setSelectedPatient}
+          selectedId={selectedPatient?.patient_id}
+          privacyMode={privacyMode}
+        />
+        <div className="xl:col-span-10">
           {selectedPatient ? (
             <TrendTimelineScreen
               patientName={selectedPatient.patient_name}

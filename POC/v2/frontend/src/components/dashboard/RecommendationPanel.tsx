@@ -271,7 +271,18 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
 
     if (!data) return null;
     const criticalAlerts = normalizeCriticalAlerts(data.patient_high_alert);
+    const maskedOutput = data.security_metadata?.masked_ai_output;
     const reasoningTrace = ((privacyMode ? data.security_metadata?.masked_ai_output?.reasoning_trace : data.reasoning_trace) || data.reasoning_trace || "").toString();
+    const maskedPackageName =
+        typeof maskedOutput?.package_name === "string" && maskedOutput.package_name.trim()
+            ? maskedOutput.package_name
+            : patientToken || "N/A";
+    const maskedPriceValue =
+        typeof maskedOutput?.price_thb === "number"
+            ? `฿${maskedOutput.price_thb.toLocaleString()}`
+            : (typeof maskedOutput?.price_thb === "string" && maskedOutput.price_thb.trim()
+                ? maskedOutput.price_thb
+                : patientToken || "N/A");
 
     return (
         <AnimatePresence mode="wait">
@@ -316,13 +327,13 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                                 <div className="flex flex-col">
                                     <span className="text-[9px] font-black text-navavej-gray-med uppercase tracking-[0.2em] mb-1">Recommended Package</span>
                                     <span className={cn("text-xl font-black uppercase tracking-wide", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-gray-dark")}>
-                                        {privacyMode ? "Masked" : (data.resolved_package?.name || "Unknown Package")}
+                                        {privacyMode ? maskedPackageName : (data.resolved_package?.name || data.resolved_package?.package_name || "Unknown Package")}
                                     </span>
                                 </div>
                                 <div className="flex flex-col items-end">
                                     <span className="text-[9px] font-black text-navavej-gray-med uppercase tracking-[0.2em] mb-1">Program Value</span>
                                     <span className={cn("text-3xl font-black italic", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-teal")}>
-                                        {privacyMode ? "Masked" : (data.resolved_package?.price_thb ? `฿${data.resolved_package.price_thb.toLocaleString()}` : "Price TBD")}
+                                        {privacyMode ? maskedPriceValue : (data.resolved_package?.price_thb ? `฿${data.resolved_package.price_thb.toLocaleString()}` : "Price TBD")}
                                     </span>
                                 </div>
                             </div>

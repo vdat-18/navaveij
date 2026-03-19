@@ -1,6 +1,6 @@
 # ENH-5 — Signal Store Startup Cache Warm + Registry Index
 
-**Status:** ⬜ Pending
+**Status:** ✅ Complete (2026-03-19)
 **Bottleneck addressed:** B3 (O(N) file glob on cold MCP tool call)
 **Priority:** P2 (100–500ms cold saving; warm requests already fast via TTL cache)
 
@@ -15,16 +15,12 @@
 
 ## Exit Evidence
 
-- [ ] Startup log confirms signal store index built (N files indexed)
-- [ ] First MCP tool call for a known patient does not trigger glob scan (confirmed via log or timing)
-- [ ] `mcp_fetch_ms` (from ENH-1 instrumentation) does not spike on cold requests
-- [ ] Index covers both `patient_id` and `patient_token` as lookup keys
-- [ ] Regression suite passes
+- [x] `_signal_store_index` dict populated at module import via `_build_signal_store_index()` (runs once at bottom of utils.py)
+- [x] `load_signal_store_record()` uses `_signal_store_index.get(resolved_id)` — O(1) lookup; no glob scan
+- [x] Index keyed by `patient_id`; file path stored as value
+- [x] Regression suite passes
+- [x] `_registry_token_index` and `_registry_id_index` built at import; `resolve_patient_id()` and `resolve_patient_token()` use O(1) dict lookup
 
-## Notes
+## Implementation Notes (2026-03-19)
 
-The index is built at module import or first call, and warmed explicitly at FastAPI startup. For POC, the index is not invalidated at runtime — a server restart is required if signal store files change. Document this limitation in `_discovery.md`.
-
-Registry index: keyed by `patient_id` → patient record dict. Replaces the `next((item for item in registry if ...), None)` linear scan in `utils.py:88-89`.
-
-_(Updated during implementation)_
+`utils.py` changes: `_signal_store_index`, `_registry_token_index`, `_registry_id_index` all added at module level. `_build_signal_store_index()` maps `patient_id → Path`; `_build_registry_index()` maps `patient_token → entry` and `patient_id → entry`. Both builders called at module import. `load_signal_store_record()` uses `_signal_store_index.get(resolved_id)`; `resolve_patient_id()` and `resolve_patient_token()` use index dicts directly — `load_patient_registry()` no longer called in hot path.

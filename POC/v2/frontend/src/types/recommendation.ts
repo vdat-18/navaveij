@@ -50,6 +50,8 @@ export interface RecommendationSecurityMetadata {
   rehydration_map?: Record<string, string>;
   masked_ai_output?: {
     reasoning_trace?: string;
+    package_name?: string;
+    price_thb?: number | string | null;
     [key: string]: unknown;
   };
   [key: string]: unknown;

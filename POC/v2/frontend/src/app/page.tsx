@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { PatientList } from "@/components/dashboard/PatientList";
+import { PatientDirectoryColumn } from "@/components/dashboard/PatientDirectoryColumn";
 import { RecommendationPanel } from "@/components/dashboard/RecommendationPanel";
 import { Bell, Search, User, Globe, Phone, ShoppingCart, Menu, Info, Activity, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
@@ -46,7 +46,7 @@ export default function DashboardPage() {
     return `${day} ${month} ${year} • ${time}`;
   };
 
-  const getDisplayValue = (originalValue: string | null | undefined, fallbackToken: string) => {
+  const getDisplayValue = (originalValue: string | null | undefined) => {
     const normalizedOriginal = typeof originalValue === "string" ? originalValue : "";
     if (!privacyMode) return normalizedOriginal || "N/A";
 
@@ -57,7 +57,7 @@ export default function DashboardPage() {
         return token;
       }
     }
-    return fallbackToken;
+    return selectedPatient?.patient_token || "N/A";
   };
 
   const handleSelectPatient = (patient: Patient) => {
@@ -139,15 +139,11 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
 
           {/* Patient Directory Sidebar */}
-          <div className="xl:col-span-2">
-            <div className="bg-[#fcfdfe] p-4 rounded-[20px] border border-navavej-border min-h-[600px] shadow-inner">
-              <PatientList
-                onSelectPatient={handleSelectPatient}
-                selectedId={selectedPatient?.patient_id}
-                privacyMode={privacyMode}
-              />
-            </div>
-          </div>
+          <PatientDirectoryColumn
+            onSelectPatient={handleSelectPatient}
+            selectedId={selectedPatient?.patient_id}
+            privacyMode={privacyMode}
+          />
 
           {/* Core Analysis Area */}
           <div className="xl:col-span-10">
@@ -175,7 +171,7 @@ export default function DashboardPage() {
                     <div className="w-20 h-20 bg-white rounded-[20px] flex items-center justify-center shadow-xl border border-navavej-teal/10 group overflow-hidden">
                       <div className="absolute top-0 right-0 w-8 h-8 bg-navavej-teal/10 rounded-bl-[20px]" />
                       <span className="text-4xl font-black text-navavej-teal tracking-tighter relative z-10">
-                        {getDisplayValue(selectedPatient.patient_name, "tok_name_entity").charAt(0)}
+                        {getDisplayValue(selectedPatient.patient_name).charAt(0)}
                       </span>
                     </div>
                     <div className={cn(
@@ -190,13 +186,13 @@ export default function DashboardPage() {
                       "text-3xl font-black tracking-tighter uppercase",
                       privacyMode ? "text-navavej-red font-mono" : "text-navavej-gray-dark"
                     )}>
-                      {getDisplayValue(selectedPatient.patient_name, "tok_name_entity")}
+                      {getDisplayValue(selectedPatient.patient_name)}
                     </h3>
                     <div className="flex items-center gap-6 mt-2">
                       <div className="flex flex-col">
                         <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest">Medical ID</span>
                         <span className={cn("text-xs font-bold", privacyMode ? "text-navavej-red/70" : "text-navavej-teal")}>
-                          {getDisplayValue(selectedPatient.patient_id, "tok_id_entity")}
+                          {getDisplayValue(selectedPatient.patient_id)}
                         </span>
                       </div>
                       <div className="w-[1px] h-6 bg-navavej-border" />
@@ -210,7 +206,7 @@ export default function DashboardPage() {
                       <div className="flex flex-col">
                         <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest">MRN</span>
                         <span className={cn("text-xs font-bold", privacyMode ? "text-navavej-red/70" : "text-navavej-gray-dark")}>
-                          {getDisplayValue(selectedPatient?.mrn, "tok_mrn_entity")}
+                          {getDisplayValue(selectedPatient?.mrn)}
                         </span>
                       </div>
                     </div>
@@ -222,10 +218,10 @@ export default function DashboardPage() {
                     <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest mb-1">Contact Information</span>
                     <div className="flex flex-col gap-0.5">
                       <span className={cn("text-[10px] font-bold", privacyMode ? "text-navavej-red/70" : "text-navavej-gray-dark")}>
-                        Tel: {getDisplayValue(selectedPatient?.phone, "tok_phone_entity")}
+                        Tel: {getDisplayValue(selectedPatient?.phone)}
                       </span>
                       <span className={cn("text-[10px] font-bold", privacyMode ? "text-navavej-red/70" : "text-navavej-gray-dark")}>
-                        Email: {getDisplayValue(selectedPatient?.email, "tok_email_entity")}
+                        Email: {getDisplayValue(selectedPatient?.email)}
                       </span>
                     </div>
                   </div>

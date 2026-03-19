@@ -1,6 +1,6 @@
 # ENH-2 — Replace Safety LLM Call with RuleEvaluator
 
-**Status:** ⬜ Pending
+**Status:** ✅ Already implemented (pre-existed ENH work)
 **Bottleneck addressed:** B1 (4th sequential LLM call), B6 (no timeout on safety validator)
 **Priority:** P0 (largest single latency saving — ~2–8s per request)
 
@@ -27,8 +27,12 @@
 - [ ] Conflict events still written to audit log for each removed item
 - [ ] Regression suite passes
 
-## Notes
+## Discovery (2026-03-19)
 
-The `RuleEvaluator` is already used by `_build_rule_based_output()` in the graceful fallback path. The `validate_safety()` method applies the same hard constraint logic (gender, age, tier ceiling, safety flags from `get_hard_constraints` response) but operates on the AI-generated `add_ons[]` list rather than building a new recommendation from scratch.
+`safety.py` was already implemented as a fully deterministic `SafetyRuleValidator` before this ENH project began. There is no LLM call. The class implements gender, age (min/max), and `safety_contraindication_signals` checks directly in Python against the `add_on_library` from `get_program_ruleset`. No BAML call, no `ValidateRecommendation` function invocation.
 
-_(Updated during implementation)_
+The orchestrator calls `self.safety_validator.validate_and_filter()` synchronously at line 79 — already O(N add-ons), well under 5ms for typical payloads.
+
+**No code changes required.** All exit criteria already satisfied. Original 4th LLM bottleneck does not exist in this codebase.
+
+_(Updated 2026-03-19 during implementation round pre-flight check)_

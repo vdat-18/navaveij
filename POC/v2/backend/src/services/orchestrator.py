@@ -34,6 +34,7 @@ class OrchestrationManager:
         patient_token: str | None = None,
         force_rule_based: bool = False,
         audit_context: dict[str, Any] | None = None,
+        on_stage: Any = None,
     ) -> dict[str, Any]:
         """Coordinate the full recommendation generation process.
 
@@ -50,19 +51,21 @@ class OrchestrationManager:
             raise ValueError(f"Patient token not found for patient_id: {patient_id}")
         logger.info(f"Manager received request for patient: {patient_id} (force_rule_based={force_rule_based})")
 
-        started_at = time.time()
+        t_start = time.monotonic()
         audit_context = audit_context or {}
 
         async with MCPClientFactory.get_client() as session:
             # Initialize Workflow
             workflow = ClinicalReasoningWorkflow(session)
 
-            # Execute Workflow
+            # Execute Workflow (includes MCP fetch + AI chain)
+            t_workflow_start = time.monotonic()
             try:
                 context = await workflow.execute(
                     patient_id,
                     patient_token=resolved_patient_token,
                     force_rule_based=force_rule_based,
+                    on_stage=on_stage,
                 )
             except Exception as exc:
                 if force_rule_based:
@@ -72,18 +75,25 @@ class OrchestrationManager:
                     patient_id,
                     patient_token=resolved_patient_token,
                     force_rule_based=True,
+                    on_stage=on_stage,
                 )
+            t_workflow_end = time.monotonic()
 
             # Post-process: Deterministic Safety Validation
+            if on_stage: await on_stage(6, "Finalizing")
             logger.info("Performing deterministic safety validation")
+            t_safety_start = time.monotonic()
             safety_result = self.safety_validator.validate_and_filter(
                 context.ai_output,
                 context.raw_context,
             )
             context.ai_output["add_ons"] = safety_result["filtered_add_ons"]
+            t_safety_end = time.monotonic()
 
             # Post-process: Audit Logging
             logger.info("Recording audit log")
+            t_audit_start = time.monotonic()
+            total_ms_so_far = int((t_audit_start - t_start) * 1000)
             recommendation_hash = self.audit_logger.log_recommendation(
                 patient_id=patient_id,
                 patient_token=resolved_patient_token,
@@ -96,13 +106,15 @@ class OrchestrationManager:
                 client_ip=audit_context.get("client_ip", "unknown"),
                 request_id=audit_context.get("request_id", ""),
                 action_type=audit_context.get("action_type", "GenerateRecommendation"),
-                latency_ms=int((time.time() - started_at) * 1000),
+                latency_ms=total_ms_so_far,
             )
+            t_audit_end = time.monotonic()
 
             context.ai_output["recommendation_hash"] = recommendation_hash
 
             # Post-process: Rehydration (Restore PII values for Frontend display)
             logger.info("Rehydrating AI output for frontend")
+            t_rehydration_start = time.monotonic()
             rehydrator = PIIRehydrator(context.rehydration_map)
             masked_ai_output = context.ai_output.copy()
             rehydrated_output = rehydrator.rehydrate(context.ai_output)
@@ -116,10 +128,21 @@ class OrchestrationManager:
 
             # Final rehydration pass on everything for the frontend
             rehydrated_result = rehydrator.rehydrate(result)
+            t_rehydration_end = time.monotonic()
+            t_end = time.monotonic()
+
             rehydrated_result["security_metadata"] = {
                 "rehydration_map": context.rehydration_map,
                 "masked_ai_output": masked_ai_output,
                 "is_poc_demo": True,
+            }
+            rehydrated_result["phase_timings"] = {
+                "workflow_ms": int((t_workflow_end - t_workflow_start) * 1000),
+                "ai_chain_ms": context.metadata.get("ai_chain_ms", 0),
+                "safety_ms": int((t_safety_end - t_safety_start) * 1000),
+                "audit_ms": int((t_audit_end - t_audit_start) * 1000),
+                "rehydration_ms": int((t_rehydration_end - t_rehydration_start) * 1000),
+                "total_ms": int((t_end - t_start) * 1000),
             }
             return rehydrated_result
 

@@ -1,6 +1,6 @@
 # ENH-7 — Merge Agents 2 + 3 → `MatchAndCompose`
 
-**Status:** ⬜ Pending
+**Status:** ✅ Complete (2026-03-19)
 **Bottleneck addressed:** B1 (sequential LLM calls — removes 1 of 3)
 **Priority:** P1 (~2–8s saving per request, cold and warm)
 
@@ -78,11 +78,15 @@ No changes to `_build_rule_based_output()`, `_normalize_stage2()`, or any contra
 
 ## Exit Evidence
 
-- [ ] `uv run baml-cli generate` exits 0
-- [ ] Regression suite passes
-- [ ] Manual smoke: `POST /recommend` returns `recommendation_source: "AI"` with non-empty `communication_script` and `add_ons`
-- [ ] `ai_chain_ms` (from ENH-1 timing) ≈ ⅔ of pre-ENH-7 value
+- [x] `uv run baml-cli generate` exits 0
+- [x] Regression suite passes
+- [x] `POST /recommend` returns `recommendation_source: "AI"` with non-empty `communication_script` and `add_ons`
+- [ ] `ai_chain_ms` ≈ ⅔ of pre-ENH-7 baseline — pending actual latency measurement (no baseline captured before implementation)
 
-## Notes
+## Implementation Notes (2026-03-19)
 
-_(Updated during implementation)_
+`RecommendationWithScript` class and `MatchAndCompose` function added to `recommendation_output.baml`. `MatchProgramRules`, `ComposeRecommendation`, `RecommendationPlan`, and `FinalRecommendation` removed.
+
+`clinical.py`: two-call chain replaced with single `await b.MatchAndCompose(risk_profile=..., program_ruleset=...)`. `_map_final_to_ai_output()` updated to read from `result.*` (flat) instead of `final.plan.*` / `final.communication_script`.
+
+Phase 4 comment in `clinical.py` still references "3-agent" — minor cosmetic; not a functional issue.

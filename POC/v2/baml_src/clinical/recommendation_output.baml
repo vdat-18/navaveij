@@ -1,5 +1,5 @@
 // Multi-Agent Clinical Recommendation System
-// Based on 3-Agent Architecture: Risk Analysis -> Rule Matching -> Communication Composition
+// Architecture: Agent 1 (Risk Analysis) -> Agent 2 (MatchAndCompose: Policy Matching + Communication)
 
 enum Tier {
   Standard
@@ -64,7 +64,7 @@ function AnalyzeClinicalRisks(
   "#
 }
 
-// ── AGENT 2: POLICY & PACKAGE RESOLVER ─────────────────────────────────────
+// ── AGENT 2: POLICY MATCHER + COMMUNICATOR (merged) ─────────────────────────
 
 class AddOnItem {
   item_id string
@@ -76,45 +76,6 @@ class AddOnItem {
   rationale string
 }
 
-class RecommendationPlan {
-  ai_recommended_tier Tier
-  tier_deviation_justification string?
-  selected_add_ons AddOnItem[]
-  policy_reasoning string
-}
-
-function MatchProgramRules(
-  risk_profile: ClinicalRiskProfile,
-  program_ruleset: string
-) -> RecommendationPlan {
-  client NavaveijClient
-  prompt #"
-    You are a Hospital Program Director AI. Your task is to match a patient's 
-    Clinical Risk Profile with the hospital's specific Program Ruleset.
-
-    ── INPUT DATA ─────────────────────────────────────────────────────────────
-    CLINICAL RISK PROFILE: {{ risk_profile }}
-    PROGRAM RULESET: {{ program_ruleset }}
-
-    ── INSTRUCTIONS ───────────────────────────────────────────────────────────
-    1. Determine the optimal Final Tier (Standard, Advanced, or Premium).
-       - Evaluate the 'suggested_tier' from the Risk Profile.
-       - Compare it against the 'tier_selection_rules' and 'rule_preliminary_tier' in the ruleset.
-       - You have the authority to OVERRIDE the rule-based preliminary tier if the 
-         Clinical Risk Profile shows medical complexity that the rules missed.
-    2. Select Add-on Items from the 'add_on_library' in the ruleset.
-       - Trigger an add-on ONLY if the patient's supporting_signal_ids intersect with the trigger_signals in the library.
-       - Assign Priority: Red (Urgent/Overdue), Orange (Moderate), Yellow (Indicated), Green (Optional).
-       - For each selected add-on, populate:
-         item_id (from ruleset item_code), label, product_code, price_thb, category, priority, rationale.
-    3. Write 'policy_reasoning' explaining why this specific package combination was chosen.
-
-    {{ ctx.output_format }}
-  "#
-}
-
-// ── AGENT 3: CLINICAL COMMUNICATOR ──────────────────────────────────────────
-
 class CommunicationScript {
   health_summary string
   recommendation_rationale string
@@ -122,38 +83,54 @@ class CommunicationScript {
   next_steps string
 }
 
-class FinalRecommendation {
-  plan RecommendationPlan
+class RecommendationWithScript {
+  ai_recommended_tier Tier
+  tier_deviation_justification string?
+  selected_add_ons AddOnItem[]
+  policy_reasoning string
   communication_script CommunicationScript
 }
 
-function ComposeRecommendation(
+function MatchAndCompose(
   risk_profile: ClinicalRiskProfile,
-  plan: RecommendationPlan
-) -> FinalRecommendation {
+  program_ruleset: string
+) -> RecommendationWithScript {
   client NavaveijClient
   prompt #"
-    You are a Patient Communication Specialist AI. Your task is to draft 
-    a professional consultation script based on the Clinical Risk Profile 
-    and the finalized Recommendation Plan.
+    Role: Navavej Program Specialist and Clinical Communicator.
+    You have two responsibilities in a single pass:
 
     ── INPUT DATA ─────────────────────────────────────────────────────────────
-    RISK PROFILE: {{ risk_profile }}
-    RECOMMENDATION PLAN: {{ plan }}
+    CLINICAL RISK PROFILE: {{ risk_profile }}
+    PROGRAM RULESET: {{ program_ruleset }}
 
-    ── INSTRUCTIONS ───────────────────────────────────────────────────────────
-    1. Write a 'health_summary' (concise paragraph) starting directly with the most significant findings.
-    2. Write 'recommendation_rationale' explaining the chosen Tier and selected Add-ons.
-    3. Provide concise 'addon_highlights' as short phrases.
-    4. Provide actionable 'next_steps' (concise paragraph).
+    ── PART 1 — POLICY MATCHING ───────────────────────────────────────────────
+    1. Determine the optimal Final Tier (Standard, Advanced, or Premium).
+       - Evaluate the 'suggested_tier' from the Risk Profile.
+       - Compare it against the 'tier_selection_rules' and 'rule_preliminary_tier' in the ruleset.
+       - You have the authority to OVERRIDE the rule-based preliminary tier if the
+         Clinical Risk Profile shows medical complexity that the rules missed.
+         Record your justification in 'tier_deviation_justification'.
+    2. Select Add-on Items from the 'add_on_library' in the ruleset.
+       - Trigger an add-on ONLY if the patient's supporting_signal_ids intersect with the trigger_signals in the library.
+       - Assign Priority: Red (Urgent/Overdue), Orange (Moderate), Yellow (Indicated), Green (Optional).
+       - For each selected add-on, populate:
+         item_id (from ruleset item_code), label, product_code, price_thb, category, priority, rationale.
+    3. Write 'policy_reasoning' explaining why this specific package combination was chosen.
+
+    ── PART 2 — PATIENT COMMUNICATION SCRIPT ──────────────────────────────────
+    4. Write a 'health_summary' (concise paragraph) starting directly with the most significant findings.
+    5. Write 'recommendation_rationale' explaining the chosen Tier and selected Add-ons.
+    6. Provide concise 'addon_highlights' as short phrases.
+    7. Provide actionable 'next_steps' (concise paragraph).
 
     ── CONSTRAINTS (MANDATORY) ───────────────────────────────────────────────
-    1. NO greetings like "Hello" or "Dear patient".
-    2. NO conversational filler or small talk.
-    3. Use Markdown bolding (**text**) ONLY for important clinical terms, medications, and key risk factors.
-    4. Write as clean paragraphs (prose). 
-    5. STRICTLY FORBIDDEN: Do NOT use bullet markers ('-','*') or numbered lists ('1.', '2.', '(1)') anywhere in health_summary or next_steps. Write only full sentences.
-    6. Professional, direct, and empathetic medical English.
+    - NO greetings like "Hello" or "Dear patient".
+    - NO conversational filler or small talk.
+    - Use Markdown bolding (**text**) ONLY for important clinical terms, medications, and key risk factors.
+    - Write health_summary and next_steps as clean prose paragraphs.
+    - STRICTLY FORBIDDEN: Do NOT use bullet markers ('-','*') or numbered lists in health_summary or next_steps.
+    - Professional, direct, and empathetic medical English. No raw snake_case identifiers.
 
     {{ ctx.output_format }}
   "#

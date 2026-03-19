@@ -1,6 +1,10 @@
 """Routes for clinical AI recommendations."""
 
+import asyncio
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from loguru import logger
 
@@ -46,6 +50,48 @@ async def get_recommendation(request: RecommendationRequest, _auth: AuthContext 
     except Exception as e:
         logger.error(f"Error during clinical orchestration for {request.patient_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/recommend/stream")
+async def stream_recommendation(request: RecommendationRequest, _auth: AuthContext = Depends(require_recommendation_access)):
+    """Stream recommendation progress as SSE events, then emit the final result."""
+    patient = find_patient_by_id(request.patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    patient_token = resolve_patient_token(request.patient_id)
+    if not patient_token:
+        raise HTTPException(status_code=404, detail="Patient token not found")
+
+    queue: asyncio.Queue = asyncio.Queue()
+    _DONE = object()
+
+    async def on_stage(num: int, label: str) -> None:
+        await queue.put({"type": "stage", "stage": num, "label": label})
+
+    async def _run() -> None:
+        try:
+            result = await orchestrator.generate_recommendation(
+                patient_id=request.patient_id,
+                patient_token=patient_token,
+                on_stage=on_stage,
+            )
+            result["patient_name"] = patient["patient_name"]
+            await queue.put({"type": "result", **result})
+        except Exception as exc:
+            logger.error(f"SSE orchestration error for {request.patient_id}: {exc}")
+            await queue.put({"type": "error", "detail": str(exc)})
+        finally:
+            await queue.put(_DONE)
+
+    async def generate():
+        asyncio.create_task(_run())
+        while True:
+            item = await asyncio.wait_for(queue.get(), timeout=120.0)
+            if item is _DONE:
+                break
+            yield f"data: {json.dumps(item)}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
 
 class DecisionRequest(BaseModel):
     patient_id: str

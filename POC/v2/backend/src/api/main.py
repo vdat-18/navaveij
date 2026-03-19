@@ -1,6 +1,7 @@
 """Main entry point for the Navaveij API."""
 
 import uvicorn
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,12 +10,28 @@ from loguru import logger
 load_dotenv()
 
 from src.api.routes import clinical, contracts, patients
+from src.services.mcp_client import close_mcp_session, warm_mcp_session
 from shared.settings import settings
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Warm long-lived resources on startup; clean up on shutdown."""
+    logger.info("Startup: warming MCP singleton session")
+    try:
+        await warm_mcp_session()
+    except Exception as exc:
+        logger.warning(f"MCP singleton warm failed (will fall back to per-call sessions): {exc}")
+    yield
+    logger.info("Shutdown: closing MCP singleton session")
+    await close_mcp_session()
+
 
 app = FastAPI(
     title="Navaveij Clinical AI API",
     description="Backend API for clinical recommendations and patient management",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Configure CORS for Frontend

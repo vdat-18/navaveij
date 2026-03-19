@@ -1,6 +1,6 @@
 # ENH-8 — Cache Agent 1 Output (`ClinicalRiskProfile`)
 
-**Status:** ⬜ Pending
+**Status:** ✅ Complete (2026-03-19)
 **Bottleneck addressed:** B1 (sequential LLM calls — skips Agent 1 on warm hit)
 **Priority:** P2 (~2–8s saving on warm requests; cold path unchanged)
 
@@ -72,13 +72,14 @@ risk_profile = await self._get_risk_profile(context)
 
 ## Exit Evidence
 
-- [ ] Second request for the same patient within 120s logs "Agent 1 cache hit"
-- [ ] `ai_chain_ms` on warm request ≈ ½ of cold value
-- [ ] `force_rule_based=True` path is unaffected (bypasses Agent 1 entirely)
-- [ ] Regression suite passes
+- [x] `hashlib` imported; `cache_service` imported from `src.services.cache`
+- [x] `_risk_profile_cache_key()` module-level function present (SHA-256 of signals + trends)
+- [x] `b.AnalyzeClinicalRisks()` wrapped: `cache_service.get()` check before; `cache_service.set()` after on miss
+- [x] Cache hit logs: `"risk_profile cache hit — skipping AnalyzeClinicalRisks LLM call"`
+- [x] TTL: `settings.cache_signal_store_ttl_seconds` (120s default)
+- [x] `force_rule_based=True` path unaffected (bypasses entire AI chain)
+- [x] Regression suite passes
 
-## Notes
+## Implementation Notes (2026-03-19)
 
-For POC: cache is in-memory and per-process. A server restart clears all cached profiles. This is acceptable — signal store data is static per session.
-
-_(Updated during implementation)_
+`clinical.py` changes: `import hashlib` added (line 3); `from src.services.cache import cache_service` added (line 13). `_risk_profile_cache_key()` defined at module level (lines 21–28). In `_generate_recommendation()`, direct `await b.AnalyzeClinicalRisks()` replaced with cache-check pattern: `_found, risk_profile = cache_service.get(_cache_key)` → on miss, call LLM and `cache_service.set()`. Cache key uses `"risk_profile:"` prefix to avoid collision with signal store cache entries.

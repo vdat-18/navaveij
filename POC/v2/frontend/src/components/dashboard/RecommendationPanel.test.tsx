@@ -130,13 +130,19 @@ describe("RecommendationPanel", () => {
     });
   });
 
-  it("masks package and alert text when privacy mode is on", async () => {
+  it("shows backend token values and masked alert text when privacy mode is on", async () => {
     mockClinicalService.getRecommendation.mockResolvedValue(
       makeResponse({
         patient_high_alert: {
           critical_signals: [
             { label: "Renal Risk", severity: "Critical", clinical_note: "BUN rising rapidly" },
           ],
+        },
+        security_metadata: {
+          masked_ai_output: {
+            package_name: "tok_pkg_1aa1b504",
+            price_thb: "tok_price_1aa1b504",
+          },
         },
       })
     );
@@ -150,7 +156,9 @@ describe("RecommendationPanel", () => {
       />
     );
 
-    expect((await screen.findAllByText("Masked")).length).toBeGreaterThan(0);
+    expect(await screen.findByText("tok_pkg_1aa1b504")).toBeInTheDocument();
+    expect(await screen.findByText("tok_price_1aa1b504")).toBeInTheDocument();
+    expect(screen.queryByText("Masked")).not.toBeInTheDocument();
     expect(await screen.findByText("Masked Alert")).toBeInTheDocument();
     expect(screen.getByText("Masked Clinical Details")).toBeInTheDocument();
   });

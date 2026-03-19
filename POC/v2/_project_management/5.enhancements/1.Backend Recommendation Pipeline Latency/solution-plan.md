@@ -585,11 +585,11 @@ The enhancement set is complete when:
 
 | ENH | Status | Evidence |
 |-----|--------|---------|
-| ENH-1 | ⬜ Pending | — |
-| ENH-2 | ⬜ Pending | — |
-| ENH-3 | ⬜ Pending | — |
-| ENH-4 | ⬜ Pending | — |
-| ENH-5 | ⬜ Pending | — |
-| ENH-6 | ⬜ Pending | — |
-| ENH-7 | ⬜ Pending | — |
-| ENH-8 | ⬜ Pending | — |
+| ENH-1 | ✅ Complete | `phase_timings` in orchestrator.py response; `/recommend/stream` SSE endpoint in clinical.py |
+| ENH-2 | ✅ Complete (pre-existed) | `SafetyRuleValidator.validate_and_filter()` — no LLM call; already deterministic from project start |
+| ENH-3 | ✅ Complete | `warm_mcp_session()` / `close_mcp_session()` wired into FastAPI lifespan in `main.py` |
+| ENH-4 | ✅ Complete | `_write_json_array()` removed; `_get_last_hash()` seek-to-end (4KB binary); `get_logs()` reads JSONL |
+| ENH-5 | ✅ Complete | `_signal_store_index` + `_build_signal_store_index()` at import; O(1) lookup in `load_signal_store_record()` |
+| ENH-6 | ✅ Complete | `timeout_ms 15000` in `clients.baml`; existing fallback handler covers timeout (gap: not env-configurable) |
+| ENH-7 | ✅ Complete | `MatchAndCompose` in `recommendation_output.baml`; `clinical.py` updated; `baml-cli generate` ✓ |
+| ENH-8 | ✅ Complete | `_risk_profile_cache_key()` + `cache_service` wrapping `b.AnalyzeClinicalRisks()` in clinical.py; 120s TTL |
