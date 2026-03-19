@@ -28,13 +28,18 @@ This platform empowers physicians to provide personalized, data-driven health ch
 - **PII Masking**: Automatic pseudonymization of patient identity before cloud-AI processing.
 - **HMAC Tokens**: Security-first tokenization for cross-system data exchange.
 
+### 5. Resilient LLM Client Layer
+- **Multi-Provider Fallback**: Primary LLM (TrollLLM) with automatic failover to OpenRouter. Configured via `NavaveijWithFallback` in `baml_src/clients.baml`.
+- **Bounded Latency**: `LLM_TIMEOUT_MS` caps each LLM HTTP call; worst-case end-to-end pipeline completes in ≤42s.
+- **Deterministic Output**: Per-call timeout ensures the backend always resolves before the frontend's 60s limit, eliminating inconsistent AI/rule-based cache races.
+
 ---
 
 ## 🏗️ System Architecture
 
 - **Frontend**: Next.js 15+, Tailwind CSS, Framer Motion, Recharts, Lucide Icons.
 - **Backend API**: Python 3.10+, FastAPI, Loguru.
-- **Intelligence Layer**: BAML (Structured LLM prompting), Model Context Protocol (MCP).
+- **Intelligence Layer**: BAML (Structured LLM prompting), Model Context Protocol (MCP), multi-provider fallback (TrollLLM → OpenRouter).
 - **Data Governance**: SHA-256 Hash Chaining Auditor.
 
 ---
@@ -44,7 +49,7 @@ This platform empowers physicians to provide personalized, data-driven health ch
 ### Prerequisites
 - Python 3.10+ and `uv` package manager.
 - Node.js 18+ and `npm`.
-- OpenAI or compatible LLM API Key (configured in `.env`).
+- Primary LLM API key (`LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`) and optional fallback (`OPENROUTER_API_KEY`, `OPENROUTER_MODEL`) — see `.env.example`.
 
 ### 1. Backend Setup & Run
 ```bash
@@ -76,10 +81,10 @@ npm run dev
 ## 📂 Repository Structure
 
 - `backend/src/`: Core Python logic (API, Orchestrator, MCP).
-- `baml_src/`: BAML prompt templates and LLM schema definitions (at root).
+- `baml_src/`: BAML prompt templates, LLM schema definitions, and client configuration (primary + OpenRouter fallback).
 - `baml_client/`: Auto-generated BAML client for Python (at root).
 - `frontend/`: Next.js frontend application.
-- `scripts/`: Integration tests and helper scripts.
+- `scripts/`: Integration tests, helper scripts, and pipeline profile tests.
 - `assets/`: Clinical Signal Store (JSON database).
 - `doc_outputs/`: Ruleset configurations and clinical samples.
 - `logs/audit.jsonl`: The immutable ledger of all clinical decisions.

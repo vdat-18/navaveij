@@ -11,3 +11,22 @@ client<llm> NavaveijClient {
     timeout_ms env.LLM_TIMEOUT_MS
   }
 }
+
+// Fallback Client — OpenRouter (broad model access, used when NavaveijClient fails)
+client<llm> OpenRouterClient {
+  provider openai-generic
+  options {
+    base_url "https://openrouter.ai/api/v1"
+    api_key env.OPENROUTER_API_KEY
+    model env.OPENROUTER_MODEL
+    timeout_ms env.LLM_TIMEOUT_MS
+  }
+}
+
+// Retry policy: try NavaveijClient first, fall back to OpenRouterClient on failure
+client<llm> NavaveijWithFallback {
+  provider fallback
+  options {
+    strategy [NavaveijClient, OpenRouterClient]
+  }
+}

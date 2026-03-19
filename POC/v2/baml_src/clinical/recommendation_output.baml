@@ -32,7 +32,7 @@ function AnalyzeClinicalRisks(
   hard_constraints: string,
   program_ruleset: string
 ) -> ClinicalRiskProfile {
-  client NavaveijClient
+  client NavaveijWithFallback
   prompt #"
     You are a Senior Medical Consultant AI. Your task is to analyze raw patient data 
     and produce a high-level clinical risk profile. Do NOT consider hospital prices or 
@@ -95,7 +95,7 @@ function MatchAndCompose(
   risk_profile: ClinicalRiskProfile,
   program_ruleset: string
 ) -> RecommendationWithScript {
-  client NavaveijClient
+  client NavaveijWithFallback
   prompt #"
     Role: Navavej Program Specialist and Clinical Communicator.
     You have two responsibilities in a single pass:

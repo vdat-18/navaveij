@@ -12,7 +12,7 @@ export default function TrendTimelinePage() {
   const { privacyMode, togglePrivacyMode } = usePrivacyMode();
 
   return (
-    <main className="w-full px-8 lg:px-16 py-10 min-h-screen bg-white">
+    <main className="w-full pl-4 pr-8 lg:pl-8 lg:pr-16 py-10 min-h-screen bg-white">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-black text-navavej-gray-dark uppercase tracking-tighter">
           Trend & Timeline

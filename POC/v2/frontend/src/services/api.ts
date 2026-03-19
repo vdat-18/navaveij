@@ -35,7 +35,7 @@ interface ScreeningGapsResponse {
 
 const API_BASE_URL_V1 = process.env.NEXT_PUBLIC_API_URL_V1 || "http://localhost:8000/api/v1";
 const API_BASE_URL_V3 = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
-const API_TIMEOUT_MS = 30000;
+const API_TIMEOUT_MS = 60000;
 
 /**
  * apiV1 serves legacy routes under /api/v1/*
@@ -65,8 +65,9 @@ const handleResponseError = (error: AxiosError<{ detail?: string; message?: stri
     const detail = error.response?.data?.detail || error.response?.data?.message;
     const isTimeout = error.code === "ECONNABORTED";
 
+    const timeoutSeconds = Math.round((error.config?.timeout ?? API_TIMEOUT_MS) / 1000);
     const normalizedMessage =
-        (isTimeout && "Request timed out after 30 seconds.") ||
+        (isTimeout && `Request timed out after ${timeoutSeconds} seconds.`) ||
         detail ||
         (status ? `Request failed with status ${status}.` : "Network error. Please check backend connectivity.");
 

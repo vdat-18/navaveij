@@ -135,7 +135,7 @@ export default function DashboardPage() {
       </header>
 
       {/* Clinical Workbench Layout */}
-      <main className="w-full px-8 lg:px-16 py-10">
+      <main className="w-full pl-4 pr-8 lg:pl-8 lg:pr-16 py-10">
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
 
           {/* Patient Directory Sidebar */}
