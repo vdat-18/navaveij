@@ -39,6 +39,45 @@ interface NormalizedAlert {
     value: string;
 }
 
+const CLINICAL_ACRONYMS: Record<string, string> = {
+    bmi: "BMI",
+    bp: "BP",
+    hba1c: "HbA1c",
+    ascvd: "ASCVD",
+    hdl: "HDL",
+    ldl: "LDL",
+    cad: "CAD",
+    ckd: "CKD",
+    ct: "CT",
+    sbp: "SBP",
+    dbp: "DBP",
+    hx: "Hx",
+    htn: "Hypertension"
+};
+
+const normalizeClinicalToken = (token: string) =>
+    token
+        .split("_")
+        .map((segment) => {
+            const normalized = segment.toLowerCase();
+            if (normalized in CLINICAL_ACRONYMS) {
+                return CLINICAL_ACRONYMS[normalized];
+            }
+            if (/^stage\d+$/.test(normalized)) {
+                return `Stage ${normalized.replace("stage", "")}`;
+            }
+            return segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase();
+        })
+        .join(" ");
+
+const splitConsultationSentences = (value: string) =>
+    value
+        .split(/\.(?!\d)(?=\s+[A-Z0-9]|$)|(?:\n|^)\s*-\s+|(?<=\.)\s*-\s+/g)
+        .map((sentence) => sentence.trim().replace(/^(?:[*-]|\d+[\.\)])\s*/, ""))
+        .filter((sentence) => sentence.length > 2)
+        .filter((sentence) => !/^\d+(?:[.,]\d+)?[%)]?$/.test(sentence))
+        .map((sentence) => sentence.endsWith(".") ? sentence : `${sentence}.`);
+
 const renderBoldText = (text: string | string[] | null | undefined) => {
     if (!text) return null;
 
@@ -71,11 +110,18 @@ const renderBoldText = (text: string | string[] | null | undefined) => {
         }
     });
 
+    content = content.replace(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g, (token) => `**${normalizeClinicalToken(token)}**`);
+
     // 3. CLEANUP: Normalize multiple asterisks (e.g., ****Text**** to **Text**)
     content = content.replace(/\*{3,}/g, '**');
 
     // 4. FIX: Normalize common AI mistake where it does *Text:** or **Text*
     content = content.replace(/\*+([^*]+):\*+/g, '**$1:**');
+
+    const boldMarkerCount = (content.match(/\*\*/g) || []).length;
+    if (boldMarkerCount % 2 !== 0) {
+        content = content.replace(/\*\*/g, "");
+    }
 
     // 5. RENDER: Split by ** markers and render bold parts
     return content.split(/(\*\*.*?\*\*)/g).map((part, i) =>
@@ -548,18 +594,18 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                         <div className="space-y-8">
                             <div>
                                 <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Clinical Conclusion</h4>
-                                <p className="text-sm font-black text-navavej-teal leading-relaxed italic text-justify">
+                                <p className="text-sm font-black text-navavej-teal leading-relaxed italic text-left">
                                     {renderBoldText(data.communication_script?.opening || data.communication_script?.clinical_conclusion)}
                                 </p>
                             </div>
                             <div>
                                 <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Core Health Insights</h4>
                                 <div className="space-y-2">
-                                    {(data.communication_script?.health_summary || "").split('.').filter((s: string) => s.trim().length > 0).map((sentence: string, i: number) => (
+                                    {splitConsultationSentences(data.communication_script?.health_summary || "").map((sentence: string, i: number) => (
                                         <div key={i} className="flex gap-2">
                                             <div className="mt-1.5 w-1 h-1 rounded-full bg-navavej-teal shrink-0" />
                                             <p className="text-sm font-medium text-navavej-gray-dark leading-relaxed">
-                                                {renderBoldText(sentence.trim() + ".")}
+                                                {renderBoldText(sentence)}
                                             </p>
                                         </div>
                                     ))}

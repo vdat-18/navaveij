@@ -162,4 +162,56 @@ describe("RecommendationPanel", () => {
     expect(await screen.findByText("Masked Alert")).toBeInTheDocument();
     expect(screen.getByText("Masked Clinical Details")).toBeInTheDocument();
   });
+
+  it("uses left-aligned clinical conclusion text instead of justified spacing", async () => {
+    mockClinicalService.getRecommendation.mockResolvedValue(makeResponse());
+
+    const { container } = render(
+      <RecommendationPanel
+        patientId="p-1"
+        patientToken="tok-1"
+        privacyMode={false}
+        isRuleBasedForced={false}
+      />
+    );
+
+    await screen.findByText("Clinical Conclusion");
+    const clinicalConclusion = container.querySelector("p.text-sm.font-black.text-navavej-teal.leading-relaxed.italic");
+    expect(clinicalConclusion).toBeInTheDocument();
+    expect(clinicalConclusion).toHaveClass("text-left");
+    expect(clinicalConclusion).not.toHaveClass("text-justify");
+  });
+
+  it("normalizes core insights tokens and keeps decimal values in one sentence", async () => {
+    mockClinicalService.getRecommendation.mockResolvedValue(
+      makeResponse({
+        communication_script: {
+          opening: "Start",
+          clinical_conclusion: "Conclusion",
+          health_summary:
+            "bp_stage2_htn is worsening (SBP 151 mmHg, DBP 93 mmHg) and prediabetes_confirmed is progressing (Fasting glucose 115.8 mg/dL, HbA1c 6.3%). family_hx_premature_cad increases risk. LDL cholesterol has risen to **149.5 mg/dL** with low_hdl.",
+          recommendation_explanation: "Explain.",
+          add_on_highlights: [],
+          next_steps: "Next.",
+        },
+      })
+    );
+
+    const { container } = render(
+      <RecommendationPanel
+        patientId="p-1"
+        patientToken="tok-1"
+        privacyMode={false}
+        isRuleBasedForced={false}
+      />
+    );
+
+    expect(await screen.findByText("Stage 2 Hypertension")).toBeInTheDocument();
+    expect(screen.getByText("Prediabetes Confirmed")).toBeInTheDocument();
+    expect(screen.getByText("Family History of Premature CAD")).toBeInTheDocument();
+    expect(screen.queryByText(/\*\*/)).not.toBeInTheDocument();
+    expect(container.textContent).toContain("115.8 mg/dL");
+    expect(container.textContent).toContain("6.3%");
+    expect(screen.queryByText(/^3%\)\.$/)).not.toBeInTheDocument();
+  });
 });
