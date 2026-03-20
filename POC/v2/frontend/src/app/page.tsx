@@ -3,11 +3,13 @@
 import React, { useState } from "react";
 import { PatientDirectoryColumn } from "@/components/dashboard/PatientDirectoryColumn";
 import { RecommendationPanel } from "@/components/dashboard/RecommendationPanel";
-import { Bell, Search, User, Globe, Phone, ShoppingCart, Menu, Info, Activity, ShieldCheck, Eye, EyeOff } from "lucide-react";
+import { Bell, Search, User, Globe, Phone, Activity, Eye, EyeOff, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { cn } from "@/shared/utils";
 import { usePrivacyMode } from "@/shared/privacy-mode";
+import { usePatient } from "@/shared/patient-context";
+import { useAuth } from "@/shared/auth-context";
 import { Patient } from "@/types/patient";
 import { RecommendationResponse, RecommendationSecurityMetadata } from "@/types/recommendation";
 
@@ -27,8 +29,9 @@ const NavavejBrand = () => (
 );
 
 export default function DashboardPage() {
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const { selectedPatient, setSelectedPatient } = usePatient();
   const { privacyMode, togglePrivacyMode } = usePrivacyMode();
+  const { user, logout } = useAuth();
   const [securityMetadata, setSecurityMetadata] = useState<RecommendationSecurityMetadata | null>(null);
   const [analysisTimestamp, setAnalysisTimestamp] = useState<string | null>(null);
   const [isRuleBasedForced, setIsRuleBasedForced] = useState(false);
@@ -65,6 +68,7 @@ export default function DashboardPage() {
     setSecurityMetadata(null);
     setAnalysisTimestamp(null);
   };
+
 
   return (
     <div className="min-h-screen bg-white">
@@ -122,15 +126,26 @@ export default function DashboardPage() {
             <span className="absolute top-2 right-2 w-2 h-2 bg-navavej-red rounded-full border-2 border-white shadow-sm"></span>
           </button>
           <div className="h-6 w-[1px] bg-navavej-border mx-1" />
-          <button className="flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-full border-2 border-navavej-teal/20 flex items-center justify-center bg-navavej-gray-light group-hover:border-navavej-teal transition-colors">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-full border-2 border-navavej-teal/20 flex items-center justify-center bg-navavej-gray-light">
               <User className="w-5 h-5 text-navavej-teal" />
             </div>
             <div className="text-left hidden sm:block">
-              <p className="text-[10px] font-black text-navavej-gray-med uppercase tracking-tighter leading-none mb-1">Physician</p>
-              <p className="text-xs font-black text-navavej-gray-dark leading-none">DR. CLINICIAN</p>
+              <p className="text-[10px] font-black text-navavej-gray-med uppercase tracking-tighter leading-none mb-1">
+                {user?.role ?? "—"} · <span className="text-navavej-teal">{user?.fhir_scopes.length ?? 0} scopes</span>
+              </p>
+              <p className="text-xs font-black text-navavej-gray-dark leading-none uppercase tracking-tight">
+                {user?.name ?? "—"}
+              </p>
             </div>
-          </button>
+            <button
+              onClick={logout}
+              title="Logout"
+              className="ml-1 p-1.5 rounded-full text-navavej-gray-med hover:text-navavej-red hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </header>
 

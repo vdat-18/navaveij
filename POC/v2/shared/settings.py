@@ -34,6 +34,9 @@ class LLMSettings(ProjectBaseSettings):
     llm_model: str = "gemini-1.5-flash"
     llm_provider: str = "openai"
     llm_timeout_ms: int = 15000
+    # Pluggable AI — TOR §4.3: active BAML client name (no code deploy required to switch)
+    # Valid values: GPT4o | Claude35Sonnet | LocalLlama | NavaveijClient
+    ai_active_client: str = "GPT4o"
 
 
 class MCPSettings(ProjectBaseSettings):

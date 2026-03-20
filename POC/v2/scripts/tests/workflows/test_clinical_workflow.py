@@ -49,7 +49,7 @@ async def test_clinical_workflow_ai_path(mock_session):
         supporting_signal_ids=["signal_1"],
         missing_signal_ids=["signal_missing"],
     )
-    match_result = SimpleNamespace(
+    policy_result = SimpleNamespace(
         ai_recommended_tier=SimpleNamespace(value="Advanced"),
         tier_deviation_justification="Policy-aligned escalation",
         selected_add_ons=[
@@ -64,12 +64,14 @@ async def test_clinical_workflow_ai_path(mock_session):
             )
         ],
         policy_reasoning="Program matrix matched elevated risk profile.",
-        communication_script=SimpleNamespace(
-            health_summary="There is elevated metabolic risk.",
+        policy_script=SimpleNamespace(
             recommendation_rationale="A higher tier improves screening coverage.",
             addon_highlights=["AON001"],
-            next_steps="Book the advanced package this month.",
         ),
+    )
+    narrative = SimpleNamespace(
+        health_summary="There is elevated metabolic risk.",
+        next_steps="Book the advanced package this month.",
     )
 
     with (
@@ -83,7 +85,8 @@ async def test_clinical_workflow_ai_path(mock_session):
             },
         ),
         patch("baml_client.async_client.b.AnalyzeClinicalRisks", AsyncMock(return_value=risk_profile)),
-        patch("baml_client.async_client.b.MatchAndCompose", AsyncMock(return_value=match_result)),
+        patch("baml_client.async_client.b.MatchPolicy", AsyncMock(return_value=policy_result)),
+        patch("baml_client.async_client.b.WriteNarrative", AsyncMock(return_value=narrative)),
     ):
         workflow = ClinicalReasoningWorkflow(mock_session)
         result = await workflow.execute(patient_id, patient_token=patient_token)
@@ -112,7 +115,8 @@ async def test_clinical_workflow_force_rule_based(mock_session):
     mock_session.call_tool.side_effect = _mock_mcp_side_effect()
 
     analyze_mock = AsyncMock()
-    match_and_compose_mock = AsyncMock()
+    match_policy_mock = AsyncMock()
+    write_narrative_mock = AsyncMock()
 
     with (
         patch(
@@ -125,7 +129,8 @@ async def test_clinical_workflow_force_rule_based(mock_session):
             },
         ),
         patch("baml_client.async_client.b.AnalyzeClinicalRisks", analyze_mock),
-        patch("baml_client.async_client.b.MatchAndCompose", match_and_compose_mock),
+        patch("baml_client.async_client.b.MatchPolicy", match_policy_mock),
+        patch("baml_client.async_client.b.WriteNarrative", write_narrative_mock),
     ):
         workflow = ClinicalReasoningWorkflow(mock_session)
         result = await workflow.execute(patient_id, patient_token=patient_token, force_rule_based=True)
@@ -135,7 +140,8 @@ async def test_clinical_workflow_force_rule_based(mock_session):
     assert result.ai_output["review_required"] is True
     assert result.ai_output["supporting_signals"] == ["signal_1"]
     analyze_mock.assert_not_awaited()
-    match_and_compose_mock.assert_not_awaited()
+    match_policy_mock.assert_not_awaited()
+    write_narrative_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio

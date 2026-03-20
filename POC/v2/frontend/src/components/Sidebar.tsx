@@ -8,14 +8,16 @@ import {
     LayoutDashboard,
     LineChart,
     ShieldCheck,
+    ClipboardList,
     HelpCircle
 } from "lucide-react";
 import { cn } from "@/shared/utils";
 
 const menuItems = [
-    { icon: LayoutDashboard, label: "Clinical Dashboard", id: "dashboard", href: "/" },
-    { icon: LineChart, label: "Trend & Timeline", id: "timeline", href: "/trend-timeline" },
-    { icon: ShieldCheck, label: "Access Monitoring", id: "monitoring", href: "/access-monitoring" },
+    { icon: LayoutDashboard, label: "Clinical Dashboard", id: "dashboard",  href: "/" },
+    { icon: LineChart,       label: "Trend & Timeline",   id: "timeline",   href: "/trend-timeline" },
+    { icon: ShieldCheck,     label: "Access Monitoring",  id: "monitoring", href: "/access-monitoring" },
+    { icon: ClipboardList,   label: "Audit Log",          id: "audit",      href: "/audit" },
 ];
 
 export function Sidebar() {

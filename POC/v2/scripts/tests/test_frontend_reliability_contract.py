@@ -8,7 +8,7 @@ def _read(path: str) -> str:
 
 
 def test_dashboard_primary_nav_has_real_routes():
-    source = _read("frontend/src/app/page.tsx")
+    source = _read("frontend/src/components/Sidebar.tsx")
     assert 'href: "/"' in source
     assert 'href: "/trend-timeline"' in source
     assert 'href: "/access-monitoring"' in source
@@ -67,27 +67,29 @@ def test_mig5_api_sends_force_rule_based_payload():
 
 def test_mig6_page_has_privacy_mode_and_masks_patient_fields():
     source = _read("frontend/src/app/page.tsx")
-    assert "const [privacyMode, setPrivacyMode] = useState(false);" in source
-    assert "const [securityMetadata, setSecurityMetadata] = useState<any>(null);" in source
-    assert "const getDisplayValue = (originalValue: string | null | undefined, fallbackToken: string) => {" in source
-    assert "onClick={() => setPrivacyMode((prev) => !prev)}" in source
-    assert "getDisplayValue(selectedPatient.patient_name, \"tok_name_entity\")" in source
-    assert "getDisplayValue(selectedPatient.patient_id, \"tok_id_entity\")" in source
-    assert "getDisplayValue(selectedPatient?.mrn, \"tok_mrn_entity\")" in source
-    assert "getDisplayValue(selectedPatient?.phone, \"tok_phone_entity\")" in source
-    assert "getDisplayValue(selectedPatient?.email, \"tok_email_entity\")" in source
+    assert "usePrivacyMode" in source
+    assert "const { privacyMode" in source
+    assert "const [securityMetadata, setSecurityMetadata] = useState" in source
+    assert "const getDisplayValue = (originalValue: string | null | undefined) => {" in source
+    assert "onClick={togglePrivacyMode}" in source
+    assert "getDisplayValue(selectedPatient.patient_name)" in source
+    assert "getDisplayValue(selectedPatient.patient_id)" in source
+    assert "getDisplayValue(selectedPatient?.mrn)" in source
+    assert "getDisplayValue(selectedPatient?.phone)" in source
+    assert "getDisplayValue(selectedPatient?.email)" in source
 
 
 def test_mig6_page_wires_recommendation_metadata_callback():
     source = _read("frontend/src/app/page.tsx")
     assert "setSecurityMetadata(null);" in source
-    assert "onSecurityMetadata={setSecurityMetadata}" in source
+    assert "onRecommendationLoad=" in source
+    assert "setSecurityMetadata(data?.security_metadata || null);" in source
 
 
 def test_mig6_panel_masks_reasoning_trace_and_lifts_security_metadata():
     source = _read("frontend/src/components/dashboard/RecommendationPanel.tsx")
     assert "privacyMode: boolean;" in source
-    assert "onSecurityMetadata?: (securityMetadata: any) => void;" in source
-    assert "onSecurityMetadata?.(result?.security_metadata || null);" in source
-    assert "const reasoningTrace = ((privacyMode ? data.security_metadata?.masked_ai_output?.reasoning_trace : data.reasoning_trace) || data.reasoning_trace || \"\").toString();" in source
-    assert "reasoningTrace.split('\\n').map" in source
+    assert "onRecommendationLoad?: (data: RecommendationResponse | null) => void;" in source
+    assert "onRecommendationLoad?.(result);" in source
+    assert 'const reasoningTrace = ((privacyMode ? data.security_metadata?.masked_ai_output?.reasoning_trace : data.reasoning_trace) || data.reasoning_trace || "").toString();' in source
+    assert "reasoningTrace?.split('\\n')" in source

@@ -4,6 +4,7 @@ import { BiomarkerTrendsResponse } from "@/types/biomarker-trends";
 import { Patient } from "@/types/patient";
 import { RecommendationResponse } from "@/types/recommendation";
 import { TimelinePayload } from "@/types/timeline";
+import { AUTH_STORAGE_KEY, decodeToken } from "@/shared/auth-context";
 
 interface AuthContext {
     user_id: string;
@@ -91,10 +92,21 @@ const mergeScopes = (...scopeGroups: string[]): string => {
 
 let cachedAuthContext: AuthContext | null = null;
 
+const getSmartTokenFromStorage = (): string | null => {
+    try {
+        return sessionStorage.getItem(AUTH_STORAGE_KEY);
+    } catch {
+        return null;
+    }
+};
+
 export const getAuthContext = async (): Promise<AuthContext> => {
     if (cachedAuthContext) return cachedAuthContext;
     try {
-        const res = await axios.get<AuthContext>("/api/auth/context", { timeout: API_TIMEOUT_MS });
+        const token = getSmartTokenFromStorage();
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const res = await axios.get<AuthContext>("/api/auth/context", { timeout: API_TIMEOUT_MS, headers });
         cachedAuthContext = res.data;
         return cachedAuthContext;
     } catch (e) {
@@ -108,6 +120,27 @@ export const getAuthContext = async (): Promise<AuthContext> => {
 };
 
 const buildAuthHeaders = async (roleOverride?: string, scopeOverride?: string): Promise<Record<string, string>> => {
+    const token = getSmartTokenFromStorage();
+    // If a SMART token is present, derive context directly from it (avoids extra round-trip)
+    if (token) {
+        const payload = decodeToken(token);
+        if (payload) {
+            const role = (roleOverride || payload.role).toLowerCase();
+            const roleScopes: Record<string, string> = {
+                physician: "recommendation:read,recommendation:write",
+                nurse: "recommendation:read,recommendation:write",
+                pharmacist: "recommendation:read",
+                dpo: "recommendation:read,monitoring:read",
+                admin: "recommendation:read,recommendation:write,monitoring:read",
+            };
+            return {
+                "Authorization": `Bearer ${token}`,
+                "X-Auth-User-Id": payload.sub,
+                "X-Auth-Role": role,
+                "X-Auth-Scopes": mergeScopes(roleScopes[role] ?? "recommendation:read", scopeOverride || ""),
+            };
+        }
+    }
     const context = await getAuthContext();
     const role = (roleOverride || context.role).toLowerCase();
     return {

@@ -32,7 +32,7 @@ function AnalyzeClinicalRisks(
   hard_constraints: string,
   program_ruleset: string
 ) -> ClinicalRiskProfile {
-  client NavaveijWithFallback
+  client ActiveModel
   prompt #"
     You are a Senior Medical Consultant AI. Your task is to analyze raw patient data 
     and produce a high-level clinical risk profile. Do NOT consider hospital prices or 
@@ -64,7 +64,9 @@ function AnalyzeClinicalRisks(
   "#
 }
 
-// ── AGENT 2: POLICY MATCHER + COMMUNICATOR (merged) ─────────────────────────
+// ── AGENT 2a: POLICY MATCHER ─────────────────────────────────────────────────
+// Runs in parallel with WriteNarrative (Agent 2b) after AnalyzeClinicalRisks.
+// Responsible for: tier selection, add-on selection, and add-on-dependent communication text.
 
 class AddOnItem {
   item_id string
@@ -76,35 +78,34 @@ class AddOnItem {
   rationale string
 }
 
-class CommunicationScript {
-  health_summary string
+class PolicyScript {
   recommendation_rationale string
   addon_highlights string[]
-  next_steps string
 }
 
-class RecommendationWithScript {
+class PolicyMatchResult {
   ai_recommended_tier Tier
   tier_deviation_justification string?
   selected_add_ons AddOnItem[]
   policy_reasoning string
-  communication_script CommunicationScript
+  policy_script PolicyScript
 }
 
-function MatchAndCompose(
+function MatchPolicy(
   risk_profile: ClinicalRiskProfile,
   program_ruleset: string
-) -> RecommendationWithScript {
-  client NavaveijWithFallback
+) -> PolicyMatchResult {
+  client ActiveModel
   prompt #"
-    Role: Navavej Program Specialist and Clinical Communicator.
-    You have two responsibilities in a single pass:
+    Role: Navavej Program Specialist.
+    Given a clinical risk profile and the hospital program ruleset, determine the optimal
+    care package, select appropriate add-ons, and write the policy communication.
 
     ── INPUT DATA ─────────────────────────────────────────────────────────────
     CLINICAL RISK PROFILE: {{ risk_profile }}
     PROGRAM RULESET: {{ program_ruleset }}
 
-    ── PART 1 — POLICY MATCHING ───────────────────────────────────────────────
+    ── INSTRUCTIONS ───────────────────────────────────────────────────────────
     1. Determine the optimal Final Tier (Standard, Advanced, or Premium).
        - Evaluate the 'suggested_tier' from the Risk Profile.
        - Compare it against the 'tier_selection_rules' and 'rule_preliminary_tier' in the ruleset.
@@ -117,21 +118,62 @@ function MatchAndCompose(
        - For each selected add-on, populate:
          item_id (from ruleset item_code), label, product_code, price_thb, category, priority, rationale.
     3. Write 'policy_reasoning' explaining why this specific package combination was chosen.
-
-    ── PART 2 — PATIENT COMMUNICATION SCRIPT ──────────────────────────────────
-    4. Write a 'health_summary' (concise paragraph) starting directly with the most significant findings.
-    5. Write 'recommendation_rationale' explaining the chosen Tier and selected Add-ons.
-    6. Provide concise 'addon_highlights' as short phrases.
-    7. Provide actionable 'next_steps' (concise paragraph).
+    4. In 'policy_script', write:
+       - 'recommendation_rationale': explain the chosen Tier and selected Add-ons.
+       - 'addon_highlights': concise short phrases summarising each selected add-on.
 
     ── CONSTRAINTS (MANDATORY) ───────────────────────────────────────────────
-    - NO greetings like "Hello" or "Dear patient".
-    - NO conversational filler or small talk.
-    - Use Markdown bolding (**text**) ONLY for important clinical terms, medications, and key risk factors.
-    - Write health_summary and next_steps as clean prose paragraphs.
-    - STRICTLY FORBIDDEN: Do NOT use bullet markers ('-','*') or numbered lists in health_summary or next_steps.
-    - Professional, direct, and empathetic medical English. No raw snake_case identifiers.
+    - NO greetings or conversational filler.
+    - Professional, direct medical English. No raw snake_case identifiers.
+    - Use Markdown bolding (**text**) ONLY for important clinical terms and key risk factors.
 
     {{ ctx.output_format }}
   "#
 }
+
+// ── AGENT 2b: NARRATIVE WRITER ───────────────────────────────────────────────
+// Runs in parallel with MatchPolicy (Agent 2a) after AnalyzeClinicalRisks.
+// Responsible for: health_summary and next_steps — derived from risk_profile alone,
+// no ruleset or add-on context required.
+
+class NarrativeScript {
+  health_summary string
+  next_steps string
+}
+
+function WriteNarrative(
+  risk_profile: ClinicalRiskProfile
+) -> NarrativeScript {
+  client ActiveModel
+  prompt #"
+    Role: Clinical Communicator.
+    Write a patient-facing clinical narrative based on the provided risk profile.
+
+    ── INPUT DATA ─────────────────────────────────────────────────────────────
+    CLINICAL RISK PROFILE: {{ risk_profile }}
+
+    ── INSTRUCTIONS ───────────────────────────────────────────────────────────
+    1. Write 'health_summary': a concise paragraph starting directly with the most significant
+       clinical findings. Summarise the patient's current health status and key risks.
+    2. Write 'next_steps': an actionable paragraph describing what the patient should do
+       based on the identified risks and clinical findings.
+
+    ── CONSTRAINTS (MANDATORY) ────────────────────────────────────────────────
+    - NO greetings like "Hello" or "Dear patient".
+    - NO conversational filler or small talk.
+    - Write BOTH fields as clean prose paragraphs.
+    - STRICTLY FORBIDDEN: Do NOT use bullet markers ('-','*') or numbered lists in either field.
+    - Professional, direct, and empathetic medical English.
+    - Use Markdown bolding (**text**) ONLY for important clinical terms and diagnoses.
+
+    {{ ctx.output_format }}
+  "#
+}
+
+// ── DEPRECATED: MatchAndCompose ───────────────────────────────────────────────
+// Replaced by MatchPolicy (Agent 2a) + WriteNarrative (Agent 2b) running in parallel.
+// Kept for reference only — not called by any production code.
+//
+// class CommunicationScript { ... }
+// class RecommendationWithScript { ... }
+// function MatchAndCompose(...) -> RecommendationWithScript { ... }

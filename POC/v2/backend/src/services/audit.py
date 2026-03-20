@@ -34,10 +34,14 @@ class AuditLogger:
                 chunk = f.read().decode("utf-8", errors="ignore")
             for line in reversed(chunk.splitlines()):
                 line = line.strip()
-                if line:
+                if not line:
+                    continue
+                try:
                     return json.loads(line).get("current_hash", "0" * 64)
+                except (json.JSONDecodeError, ValueError):
+                    continue
         except Exception as e:
-            logger.warning(f"Could not parse last audit hash: {e}")
+            logger.warning(f"Could not read audit log: {e}")
         return "0" * 64
 
     def log_recommendation(

@@ -1,5 +1,5 @@
 // Recommendation Pipeline Integration Tests
-// Validates Agent 1 (AnalyzeClinicalRisks) and Agent 2 (MatchAndCompose)
+// Validates Agent 1 (AnalyzeClinicalRisks), Agent 2a (MatchPolicy), and Agent 2b (WriteNarrative)
 // using real Signal Store fixture data from MetabolicSyndromeRisk and HealthyRoutineCheckup.
 //
 // Patient Fixtures:
@@ -286,18 +286,18 @@ test AnalyzeRisks_MetabolicSyndrome {
 }
 
 
-// ── TEST 2: MatchAndCompose — Metabolic Syndrome Recommendation (Fai Siriwat) ─
+// ── TEST 2: MatchPolicy — Metabolic Syndrome Policy Matching (Fai Siriwat) ────
 //
 // Input: pre-constructed ClinicalRiskProfile (representative of Agent 1 output).
 // Program ruleset includes 8 add-on items with trigger_signals matching signals_fired.
 // Expected assertions:
 //   - ai_recommended_tier = Advanced or Premium
 //   - selected_add_ons non-empty (mammogram + shingrix directly triggered)
-//   - communication_script fully populated
+//   - policy_script.recommendation_rationale non-empty
 //   - policy_reasoning non-empty
 
-test MatchAndCompose_MetabolicSyndrome {
-  functions [MatchAndCompose]
+test MatchPolicy_MetabolicSyndrome {
+  functions [MatchPolicy]
   args {
     risk_profile {
       primary_risks [
@@ -467,14 +467,56 @@ test MatchAndCompose_MetabolicSyndrome {
   @@assert( {{ this.ai_recommended_tier == "Advanced" or this.ai_recommended_tier == "Premium" }} )
   // Must select at least one add-on (mammogram and shingrix are directly triggered by signals_fired)
   @@assert( {{ this.selected_add_ons|length > 0 }} )
-  // Communication script: health_summary must be a non-empty clinical paragraph
-  @@assert( {{ this.communication_script.health_summary|length > 0 }} )
-  // Communication script: recommendation_rationale must be populated
-  @@assert( {{ this.communication_script.recommendation_rationale|length > 0 }} )
-  // Communication script: next_steps must be actionable
-  @@assert( {{ this.communication_script.next_steps|length > 0 }} )
+  // Policy script: recommendation_rationale must be populated
+  @@assert( {{ this.policy_script.recommendation_rationale|length > 0 }} )
   // Policy reasoning must explain the tier and add-on selection
   @@assert( {{ this.policy_reasoning|length > 0 }} )
+}
+
+
+// ── TEST 2b: WriteNarrative — Metabolic Syndrome Narrative (Fai Siriwat) ──────
+//
+// Input: same ClinicalRiskProfile as Test 2 — no ruleset needed.
+// Expected assertions:
+//   - health_summary non-empty prose paragraph referencing clinical findings
+//   - next_steps non-empty and actionable
+
+test WriteNarrative_MetabolicSyndrome {
+  functions [WriteNarrative]
+  args {
+    risk_profile {
+      primary_risks [
+        "Active Pre-diabetes (FBS 111 mg/dL, HbA1c 6.2%) with accelerating worsening trend",
+        "Stage 1 Hypertension (BP 139/88 mmHg, rising +3 mmHg SBP/yr) — untreated",
+        "Atherogenic Dyslipidemia — LDL 149 mg/dL borderline high (+8/yr despite Atorvastatin 10mg), HDL 37 mg/dL critically low, TG 194 mg/dL borderline high",
+        "Metabolic Syndrome Cluster — central obesity (waist 94 cm) + Stage 1 HTN + atherogenic dyslipidemia",
+        "Intermediate ASCVD 10-year Risk (8.2%) amplified by co-occurring metabolic syndrome burden"
+      ]
+      severity_assessment "High — five converging cardiometabolic risk factors across glucose metabolism, blood pressure, lipids, and adiposity with worsening biomarker trajectories indicating progressive multi-system risk accumulation."
+      biomarker_interpretation "BMI 29.3 kg/m2 (Asian-adjusted obese, +0.6/yr). BP 139/88 mmHg Stage 1 HTN rising +3 mmHg SBP/yr over 3 measurements. FBS 111 mg/dL and HbA1c 6.2% both prediabetic, FBS rising +4.5 mg/dL/yr. LDL 149 mg/dL borderline high despite Atorvastatin 10mg (+8 mg/dL/yr); HDL critically low 37 mg/dL (female reference >= 50). TG 194 mg/dL borderline high. ASCVD 10-yr 8.2% intermediate. eGFR 86 mL/min/1.73m2 CKD G2 (mild decline -1.2/yr, not rapid)."
+      clinical_summary_bullets [
+        "**Pre-diabetes confirmed**: FBS 111 mg/dL and HbA1c 6.2% both in prediabetic range; FBS rising +4.5 mg/dL/yr — trajectory toward Type 2 DM without lifestyle intervention",
+        "**Stage 1 Hypertension on no treatment**: BP 139/88 mmHg, SBP rising +3 mmHg/yr over 3 consecutive measurements; end-organ assessment warranted",
+        "**Residual dyslipidemia on statin therapy**: LDL 149 mg/dL (+8/yr) despite Atorvastatin 10mg; HDL 37 mg/dL critically low (female threshold 50); TG 194 mg/dL borderline high — inadequate lipid control",
+        "**Metabolic syndrome confirmed**: central obesity (waist 94 cm, above female Asian threshold), elevated BP, and atherogenic dyslipidemia — 3 of 5 IDF criteria met",
+        "**Intermediate ASCVD cardiovascular risk**: 10-year risk 8.2% amplified beyond individual factor contribution by metabolic syndrome"
+      ]
+      suggested_tier Advanced
+      supporting_signal_ids [
+        "bmi_obese_asian", "bp_stage1_htn", "ascvd_risk_intermediate",
+        "prediabetes_confirmed", "metabolic_syndrome_cluster",
+        "ldl_borderline_high", "hdl_low_female", "tg_borderline_high"
+      ]
+      missing_signal_ids [
+        "sleep_apnea_screen_result", "frax_bone_density_risk",
+        "dm_organ_complication_screening", "fibroscan_indication"
+      ]
+    }
+  }
+  // health_summary must be a non-empty clinical paragraph
+  @@assert( {{ this.health_summary|length > 0 }} )
+  // next_steps must be actionable
+  @@assert( {{ this.next_steps|length > 0 }} )
 }
 
 

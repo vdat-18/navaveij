@@ -1,14 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
-
 import { PatientDirectoryColumn } from "@/components/dashboard/PatientDirectoryColumn";
 import { TrendTimelineScreen } from "@/components/trend-timeline/TrendTimelineScreen";
 import { usePrivacyMode } from "@/shared/privacy-mode";
-import { Patient } from "@/types/patient";
+import { usePatient } from "@/shared/patient-context";
 
 export default function TrendTimelinePage() {
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const { selectedPatient, setSelectedPatient } = usePatient();
   const { privacyMode, togglePrivacyMode } = usePrivacyMode();
 
   return (

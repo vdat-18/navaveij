@@ -1,13 +1,17 @@
-"""BAML Recommendation Pipeline — Sequential Profile Test.
+"""BAML Recommendation Pipeline — Parallel Profile Test.
 
-Runs AnalyzeClinicalRisks → MatchAndCompose in strict sequence for each
-clinical scenario and reports per-step and total wall-clock durations in a
-single summary table at the end of the session.
+Runs AnalyzeClinicalRisks → (MatchPolicy ∥ WriteNarrative) for each clinical scenario
+and reports per-step wall-clock durations in a single summary table at the end.
+
+Each parallel agent's completion time is measured from a shared start (t1) via inner
+async wrappers, so both columns reflect real individual latencies even though the calls
+run concurrently.
 
 Usage:
     uv run pytest scripts/tests/test_baml_recommendation_profile.py -v -s
 """
 
+import asyncio
 import json
 import os
 import sys
@@ -63,7 +67,14 @@ class ScenarioProfile:
 
     @property
     def total_ms(self) -> int:
-        return sum(s.duration_ms for s in self.steps)
+        """Wall-clock total: Agent 1 (sequential) + max(Agent 2a, 2b) (parallel)."""
+        a1  = next((s for s in self.steps if s.name == "AnalyzeClinicalRisks"), None)
+        a2a = next((s for s in self.steps if s.name == "MatchPolicy"), None)
+        a2b = next((s for s in self.steps if s.name == "WriteNarrative"), None)
+        a1_ms  = a1.duration_ms  if a1  and a1.success  else 0
+        a2a_ms = a2a.duration_ms if a2a and a2a.success else 0
+        a2b_ms = a2b.duration_ms if a2b and a2b.success else 0
+        return a1_ms + max(a2a_ms, a2b_ms)
 
     @property
     def passed(self) -> bool:
@@ -95,22 +106,24 @@ def print_profile_summary(profile_collector: list[ScenarioProfile]):
     fallback = os.getenv("OPENROUTER_MODEL", "?")
 
     print("\n")
-    print("=" * 76)
-    print("  BAML RECOMMENDATION PIPELINE — PROFILE SUMMARY")
+    print("=" * 92)
+    print("  BAML RECOMMENDATION PIPELINE — PROFILE SUMMARY (parallel Agent 2a/2b)")
     print(f"  primary : {primary}  (TrollLLM)")
     print(f"  fallback: {fallback}  (OpenRouter)")
-    print("=" * 76)
-    print(f"  {'Scenario':<32} {'Agent 1 (ms)':>14} {'Agent 2 (ms)':>14} {'Total (ms)':>12}")
-    print("-" * 76)
+    print("=" * 92)
+    print(f"  {'Scenario':<32} {'Agent 1 (ms)':>14} {'2a Policy (ms)':>16} {'2b Narr (ms)':>14} {'Total (ms)':>12}")
+    print("-" * 92)
     for p in profiles:
-        a1 = next((s for s in p.steps if s.name == "AnalyzeClinicalRisks"), None)
-        a2 = next((s for s in p.steps if s.name == "MatchAndCompose"), None)
-        a1_str = f"{a1.duration_ms:,}" if a1 and a1.success else ("ERR" if a1 else "—")
-        a2_str = f"{a2.duration_ms:,}" if a2 and a2.success else ("ERR" if a2 else "—")
+        a1  = next((s for s in p.steps if s.name == "AnalyzeClinicalRisks"), None)
+        a2a = next((s for s in p.steps if s.name == "MatchPolicy"), None)
+        a2b = next((s for s in p.steps if s.name == "WriteNarrative"), None)
+        a1_str  = f"{a1.duration_ms:,}"  if a1  and a1.success  else ("ERR" if a1  else "—")
+        a2a_str = f"{a2a.duration_ms:,}" if a2a and a2a.success else ("ERR" if a2a else "—")
+        a2b_str = f"{a2b.duration_ms:,}" if a2b and a2b.success else ("ERR" if a2b else "—")
         total_str = f"{p.total_ms:,}" if p.passed else "FAILED"
         status = "✅" if p.passed else "❌"
-        print(f"  {status} {p.scenario:<30} {a1_str:>14} {a2_str:>14} {total_str:>12}")
-    print("=" * 76)
+        print(f"  {status} {p.scenario:<30} {a1_str:>14} {a2a_str:>16} {a2b_str:>14} {total_str:>12}")
+    print("=" * 92)
     passed = sum(1 for p in profiles if p.passed)
     print(f"  {passed}/{len(profiles)} scenarios passed\n")
 
@@ -141,7 +154,7 @@ async def test_recommendation_pipeline_profile(
     patient_token: str,
     profile_collector: list[ScenarioProfile],
 ):
-    """Run the full two-agent recommendation pipeline sequentially and assert timing."""
+    """Run the full pipeline (Agent 1 → parallel Agent 2a/2b) and assert timing."""
     fixture = _load_fixture(scenario)
     ruleset = get_program_ruleset(patient_token, patient_id)
 
@@ -155,7 +168,7 @@ async def test_recommendation_pipeline_profile(
 
     timeout_budget_ms = int(os.getenv("LLM_TIMEOUT_MS", "20000")) + 5000
 
-    # ── Agent 1: AnalyzeClinicalRisks ──────────────────────────────────────
+    # ── Agent 1: AnalyzeClinicalRisks ─────────────────────────────────────
     t0 = time.monotonic()
     try:
         risk_profile = await b.AnalyzeClinicalRisks(
@@ -173,31 +186,65 @@ async def test_recommendation_pipeline_profile(
             pytest.xfail(f"[{scenario}] Agent 1 — external LLM error: {exc}")
         raise
 
-    # ── Agent 2: MatchAndCompose ────────────────────────────────────────────
+    # ── Agent 2a + 2b in parallel: MatchPolicy + WriteNarrative ──────────
+    # Each inner coroutine records its own completion time from a shared t1,
+    # giving accurate individual latencies despite running concurrently.
     t1 = time.monotonic()
-    try:
-        result = await b.MatchAndCompose(
+    a2a_ms_holder: list[int] = [0]
+    a2b_ms_holder: list[int] = [0]
+
+    async def _timed_policy():
+        result = await b.MatchPolicy(
             risk_profile=risk_profile,
             program_ruleset=program_ruleset,
         )
-        a2_ms = int((time.monotonic() - t1) * 1000)
-        profile.steps.append(StepResult("MatchAndCompose", a2_ms, True))
-    except Exception as exc:
-        a2_ms = int((time.monotonic() - t1) * 1000)
-        profile.steps.append(StepResult("MatchAndCompose", a2_ms, False, str(exc)))
-        if _is_external_error(exc):
-            pytest.xfail(f"[{scenario}] Agent 2 — external LLM error: {exc}")
-        raise
+        a2a_ms_holder[0] = int((time.monotonic() - t1) * 1000)
+        return result
 
-    # ── Assertions ─────────────────────────────────────────────────────────
+    async def _timed_narr():
+        result = await b.WriteNarrative(risk_profile=risk_profile)
+        a2b_ms_holder[0] = int((time.monotonic() - t1) * 1000)
+        return result
+
+    policy_result, narrative = await asyncio.gather(
+        _timed_policy(),
+        _timed_narr(),
+        return_exceptions=True,
+    )
+    a2a_ms = a2a_ms_holder[0]
+    a2b_ms = a2b_ms_holder[0]
+
+    if isinstance(policy_result, Exception):
+        profile.steps.append(StepResult("MatchPolicy", a2a_ms, False, str(policy_result)))
+        if _is_external_error(policy_result):
+            pytest.xfail(f"[{scenario}] Agent 2a — external LLM error: {policy_result}")
+        raise policy_result
+    else:
+        profile.steps.append(StepResult("MatchPolicy", a2a_ms, True))
+
+    if isinstance(narrative, Exception):
+        profile.steps.append(StepResult("WriteNarrative", a2b_ms, False, str(narrative)))
+        if _is_external_error(narrative):
+            pytest.xfail(f"[{scenario}] Agent 2b — external LLM error: {narrative}")
+        raise narrative
+    else:
+        profile.steps.append(StepResult("WriteNarrative", a2b_ms, True))
+
+    # ── Assertions ────────────────────────────────────────────────────────
     assert risk_profile.suggested_tier in ("Standard", "Advanced", "Premium"), \
         f"Agent 1 returned unexpected tier: {risk_profile.suggested_tier}"
-    assert result.ai_recommended_tier in ("Standard", "Advanced", "Premium"), \
-        f"Agent 2 returned unexpected tier: {result.ai_recommended_tier}"
-    assert result.communication_script is not None, \
-        "Agent 2 returned no communication_script"
+    assert policy_result.ai_recommended_tier in ("Standard", "Advanced", "Premium"), \
+        f"Agent 2a returned unexpected tier: {policy_result.ai_recommended_tier}"
+    assert policy_result.policy_script is not None, \
+        "Agent 2a returned no policy_script"
+    assert narrative.health_summary, \
+        "Agent 2b returned empty health_summary"
+    assert narrative.next_steps, \
+        "Agent 2b returned empty next_steps"
 
     assert a1_ms <= timeout_budget_ms, \
         f"Agent 1 took {a1_ms}ms — exceeded budget of {timeout_budget_ms}ms"
-    assert a2_ms <= timeout_budget_ms, \
-        f"Agent 2 took {a2_ms}ms — exceeded budget of {timeout_budget_ms}ms"
+    assert a2a_ms <= timeout_budget_ms, \
+        f"Agent 2a took {a2a_ms}ms — exceeded budget of {timeout_budget_ms}ms"
+    assert a2b_ms <= timeout_budget_ms, \
+        f"Agent 2b took {a2b_ms}ms — exceeded budget of {timeout_budget_ms}ms"
