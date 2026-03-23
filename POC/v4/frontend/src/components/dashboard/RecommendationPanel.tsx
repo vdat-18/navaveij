@@ -16,10 +16,14 @@ import {
     ChevronDown,
     MessageSquare,
     Search,
-    XCircle
+    XCircle,
+    Database,
+    ClipboardList,
+    CheckCircle,
+    Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { clinicalService } from "@/services/api";
+import { clinicalService, StageUpdate } from "@/services/api";
 import { cn } from "@/shared/utils";
 import { BiomarkerCharts } from "./BiomarkerCharts";
 import { LabResultsGrid } from "./LabResultsGrid";
@@ -213,9 +217,71 @@ const normalizeCriticalAlerts = (patientHighAlert: PatientHighAlert | CriticalSi
     return [];
 };
 
+// ─── Pipeline stage configuration ────────────────────────────────────────────
+const PIPELINE_STAGES: {
+    num: number;
+    shortLabel: string;
+    description: string;
+    color: string;          // Tailwind bg class for active badge
+    textColor: string;      // Tailwind text class for icon/label
+    borderColor: string;    // Tailwind border class
+    bgCard: string;         // Tailwind bg class for the card
+    Icon: React.ElementType;
+    hint?: string;
+}[] = [
+    {
+        num: 1,
+        shortLabel: "Fetching Data",
+        description: "Reading patient history, lab results, and risk signals from all data sources…",
+        color: "bg-teal-500",
+        textColor: "text-teal-600",
+        borderColor: "border-teal-300",
+        bgCard: "bg-teal-50",
+        Icon: Database,
+        hint: "Usually under 2 seconds",
+    },
+    {
+        num: 2,
+        shortLabel: "Applying Rules",
+        description: "Checking eligibility constraints and your hospital's clinical ruleset…",
+        color: "bg-amber-500",
+        textColor: "text-amber-600",
+        borderColor: "border-amber-300",
+        bgCard: "bg-amber-50",
+        Icon: ClipboardList,
+        hint: "Under 1 second",
+    },
+    {
+        num: 3,
+        shortLabel: "AI Reasoning",
+        description: "AI is analysing the patient's risk profile and composing the recommendation…",
+        color: "bg-violet-500",
+        textColor: "text-violet-600",
+        borderColor: "border-violet-300",
+        bgCard: "bg-violet-50",
+        Icon: BrainCircuit,
+        hint: "This step typically takes 7–20 seconds — the AI is thinking carefully",
+    },
+    {
+        num: 6,
+        shortLabel: "Finalising",
+        description: "Running safety validation and writing the audit log…",
+        color: "bg-emerald-500",
+        textColor: "text-emerald-600",
+        borderColor: "border-emerald-300",
+        bgCard: "bg-emerald-50",
+        Icon: ShieldCheck,
+        hint: "Almost done!",
+    },
+];
+
+// Map raw stage number → index in PIPELINE_STAGES array
+const STAGE_INDEX: Record<number, number> = { 1: 0, 2: 1, 3: 2, 6: 3 };
+
 export function RecommendationPanel({ patientId, patientToken, privacyMode, onRecommendationLoad, isRuleBasedForced }: RecommendationPanelProps) {
     const [data, setData] = useState<RecommendationResponse | null>(null);
     const [loading, setLoading] = useState(false);
+    const [currentStage, setCurrentStage] = useState<StageUpdate | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submissionError, setSubmissionError] = useState<string | null>(null);
@@ -231,6 +297,7 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
         }
         const fetchRecommendation = async () => {
             setLoading(true);
+            setCurrentStage(null);
             setError(null);
             setDecisionOutcome(null);
             setNotes("");
@@ -238,7 +305,11 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
             setShowRejectModal(false);
             setRejectReason("patient_refusal");
             try {
-                const result = await clinicalService.getRecommendation(patientToken, isRuleBasedForced);
+                const result = await clinicalService.streamRecommendation(
+                    patientToken,
+                    (update) => setCurrentStage(update),
+                    isRuleBasedForced,
+                );
                 setData(result);
                 onRecommendationLoad?.(result);
             } catch (err) {
@@ -246,6 +317,7 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                 setError(err instanceof Error ? err.message : "Failed to load clinical recommendation");
             } finally {
                 setLoading(false);
+                setCurrentStage(null);
             }
         };
         fetchRecommendation();
@@ -301,28 +373,103 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
     }
 
     if (loading) {
+        const activeIdx = currentStage ? (STAGE_INDEX[currentStage.stage] ?? -1) : -1;
+        // Progress: 0 before any stage, then 25% per completed/active stage
+        const progressPct = activeIdx >= 0 ? Math.round(((activeIdx + 1) / PIPELINE_STAGES.length) * 100) : 5;
+        const activeStageConfig = activeIdx >= 0 ? PIPELINE_STAGES[activeIdx] : null;
+
         return (
-            <div className="h-[650px] flex flex-col items-center justify-center navavej-card relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-navavej-teal/10 overflow-hidden">
+            <div className="h-[650px] flex flex-col items-center justify-center navavej-card relative overflow-hidden px-8">
+                {/* Top progress bar */}
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-navavej-border overflow-hidden">
                     <motion.div
-                        animate={{ x: ["-100%", "100%"] }}
-                        transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                        className="w-1/3 h-full bg-navavej-teal"
+                        className={`h-full ${activeStageConfig?.color ?? "bg-navavej-teal"}`}
+                        initial={{ width: "0%" }}
+                        animate={{ width: `${progressPct}%` }}
+                        transition={{ duration: 0.6, ease: "easeOut" }}
                     />
                 </div>
+
+                {/* Active stage icon */}
                 <motion.div
-                    animate={{ scale: [1, 1.05, 1], rotate: [0, 5, -5, 0] }}
-                    transition={{ duration: 4, repeat: Infinity }}
-                    className="relative z-10"
+                    key={activeIdx}
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.4 }}
+                    className="mb-6"
                 >
-                    <div className="w-28 h-28 bg-navavej-gray-light rounded-[30px] flex items-center justify-center shadow-xl border border-navavej-border">
-                        <BrainCircuit className="w-14 h-14 text-navavej-teal animate-pulse" />
+                    <div className={`w-24 h-24 rounded-[28px] flex items-center justify-center shadow-xl border-2 ${activeStageConfig ? `${activeStageConfig.bgCard} ${activeStageConfig.borderColor}` : "bg-navavej-gray-light border-navavej-border"}`}>
+                        {activeStageConfig
+                            ? <activeStageConfig.Icon className={`w-12 h-12 ${activeStageConfig.textColor} animate-pulse`} />
+                            : <Loader2 className="w-12 h-12 text-navavej-teal animate-spin" />
+                        }
                     </div>
                 </motion.div>
-                <p className="mt-10 text-lg font-black tracking-[0.1em] text-navavej-gray-dark uppercase">
-                    Synthesizing Clinical Intelligence
-                </p>
-                <p className="text-[10px] font-bold text-navavej-gray-med uppercase tracking-widest mt-2">Checking signal store & rulesets...</p>
+
+                {/* Active stage label */}
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={currentStage?.stage ?? "init"}
+                        initial={{ y: 10, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: -10, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="text-center mb-6"
+                    >
+                        <p className="text-base font-black tracking-[0.08em] text-navavej-gray-dark uppercase">
+                            {activeStageConfig?.shortLabel ?? "Preparing…"}
+                        </p>
+                        <p className="text-[11px] font-medium text-navavej-gray-med mt-1 max-w-xs mx-auto leading-relaxed">
+                            {activeStageConfig?.description ?? "Connecting to clinical data sources…"}
+                        </p>
+                        {activeStageConfig?.hint && (
+                            <p className={`text-[10px] font-bold mt-2 uppercase tracking-widest ${activeStageConfig.textColor}`}>
+                                ⏱ {activeStageConfig.hint}
+                            </p>
+                        )}
+                    </motion.div>
+                </AnimatePresence>
+
+                {/* Step indicator row */}
+                <div className="flex items-center gap-2 w-full max-w-sm">
+                    {PIPELINE_STAGES.map((stage, idx) => {
+                        const isDone = idx < activeIdx;
+                        const isActive = idx === activeIdx;
+                        const isPending = idx > activeIdx;
+                        return (
+                            <React.Fragment key={stage.num}>
+                                <div className="flex flex-col items-center gap-1 flex-1">
+                                    <motion.div
+                                        animate={isActive ? { scale: [1, 1.15, 1] } : {}}
+                                        transition={isActive ? { duration: 1.2, repeat: Infinity } : {}}
+                                        className={`w-8 h-8 rounded-full flex items-center justify-center border-2 shadow-sm ${
+                                            isDone
+                                                ? "bg-emerald-500 border-emerald-500"
+                                                : isActive
+                                                    ? `${stage.color} ${stage.borderColor}`
+                                                    : "bg-navavej-gray-light border-navavej-border"
+                                        }`}
+                                    >
+                                        {isDone
+                                            ? <CheckCircle className="w-4 h-4 text-white" />
+                                            : isActive
+                                                ? <stage.Icon className="w-4 h-4 text-white" />
+                                                : <span className="text-[10px] font-black text-navavej-gray-med">{idx + 1}</span>
+                                        }
+                                    </motion.div>
+                                    <span className={`text-[9px] font-bold uppercase tracking-wide text-center leading-tight ${
+                                        isDone ? "text-emerald-600" : isActive ? stage.textColor : "text-navavej-gray-med opacity-50"
+                                    }`}>
+                                        {stage.shortLabel}
+                                    </span>
+                                </div>
+                                {idx < PIPELINE_STAGES.length - 1 && (
+                                    <div className={`h-[2px] flex-1 mb-4 rounded-full transition-all duration-500 ${idx < activeIdx ? "bg-emerald-400" : "bg-navavej-border"}`} />
+                                )}
+                            </React.Fragment>
+                        );
+                    })}
+                </div>
             </div>
         );
     }

@@ -337,6 +337,28 @@ Route-->>Client : 200 OK + Response Body
 - [backend/src/api/routes/contracts.py:423-558](file://backend/src/api/routes/contracts.py#L423-L558)
 - [backend/src/services/cache.py:18-33](file://backend/src/services/cache.py#L18-L33)
 
+#### POST /recommend/stream
+- Description: Same as `POST /recommend` but delivers pipeline progress as SSE events before the final result. Used by the frontend to show a live step-by-step loading panel.
+- Authentication: Recommendation scope required.
+- Request Schema: Same as `POST /recommend` (`patient_token`, `force_rule_based`).
+- Response: `text/event-stream` (SSE). Each event is a JSON object on a `data:` line followed by a blank line.
+  - Stage events (emitted during execution):
+    ```json
+    {"type": "stage", "stage": 1, "label": "Fetching patient data"}
+    {"type": "stage", "stage": 2, "label": "Running program rules"}
+    {"type": "stage", "stage": 3, "label": "Matching profile and composing recommendation"}
+    {"type": "stage", "stage": 6, "label": "Finalizing"}
+    ```
+  - Result event (emitted on success): `{"type": "result", ...full RecommendResponse fields...}`
+  - Error event (emitted on failure): `{"type": "error", "detail": "..."}`
+- Notes:
+  - Stream timeout is 120 seconds.
+  - The full result payload is identical in shape to the `POST /recommend` response plus the `"type": "result"` field.
+
+**Section sources**
+- [backend/src/api/routes/contracts.py:696-752](file://backend/src/api/routes/contracts.py#L696-L752)
+- [frontend/src/services/api.ts](file://frontend/src/services/api.ts)
+
 #### GET /timeline/{patient_token}
 - Description: Retrieve the patient event timeline.
 - Authentication: Recommendation scope required.

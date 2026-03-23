@@ -173,6 +173,11 @@ export const patientService = {
     },
 };
 
+export interface StageUpdate {
+    stage: number;
+    label: string;
+}
+
 export const clinicalService = {
     getRecommendation: async (patientToken: string, forceRuleBased: boolean = false): Promise<RecommendationResponse> => {
         const headers = await buildAuthHeaders(undefined, "recommendation:read");
@@ -185,6 +190,76 @@ export const clinicalService = {
             { headers }
         );
         return response.data;
+    },
+
+    /**
+     * Stream recommendation progress via SSE.
+     * Calls onStage() for each pipeline step, then resolves with the final result.
+     */
+    streamRecommendation: async (
+        patientToken: string,
+        onStage: (update: StageUpdate) => void,
+        forceRuleBased: boolean = false,
+    ): Promise<RecommendationResponse> => {
+        const headers = await buildAuthHeaders(undefined, "recommendation:read");
+        const baseUrl = API_BASE_URL_V3;
+
+        const response = await fetch(`${baseUrl}/recommend/stream`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                ...headers,
+            },
+            body: JSON.stringify({
+                patient_token: patientToken,
+                force_rule_based: forceRuleBased,
+            }),
+        });
+
+        if (!response.ok) {
+            const text = await response.text().catch(() => "");
+            throw new Error(`Stream request failed (${response.status}): ${text}`);
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("Stream body is not readable");
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+
+            // SSE messages are separated by double newlines
+            const parts = buffer.split("\n\n");
+            buffer = parts.pop() ?? "";
+
+            for (const part of parts) {
+                const line = part.trim();
+                if (!line.startsWith("data:")) continue;
+                const jsonStr = line.slice("data:".length).trim();
+                let event: Record<string, unknown>;
+                try {
+                    event = JSON.parse(jsonStr);
+                } catch {
+                    continue;
+                }
+
+                if (event.type === "stage") {
+                    onStage({ stage: event.stage as number, label: event.label as string });
+                } else if (event.type === "result") {
+                    const { type: _t, ...result } = event;
+                    return result as unknown as RecommendationResponse;
+                } else if (event.type === "error") {
+                    throw new Error((event.detail as string) ?? "Unknown streaming error");
+                }
+            }
+        }
+
+        throw new Error("Stream ended without a result");
     },
     recordDecision: async (patientId: string, recommendationHash: string, decision: "Approve" | "Reject", notes: string = ""): Promise<Record<string, unknown>> => {
         const context = await getAuthContext();

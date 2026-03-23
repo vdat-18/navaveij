@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import json
 import time
@@ -7,10 +8,12 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from src.api.security import AuthContext, parse_roles, require_access
+from shared.settings import settings
 from src.api.routes.patients import find_patient_by_token, load_registry
+from src.api.security import AuthContext, parse_roles, require_access
 from src.mcp_server.tools.biomarker_trends import get_biomarker_trends
 from src.mcp_server.tools.clinical_signals import get_clinical_signals
 from src.mcp_server.tools.patient_event_timeline import get_patient_event_timeline
@@ -18,7 +21,6 @@ from src.mcp_server.tools.program_ruleset import get_program_ruleset
 from src.mcp_server.utils import load_ruleset_add_on_items
 from src.services.cache import cache_service
 from src.services.orchestrator import OrchestrationManager
-from shared.settings import settings
 
 router = APIRouter()
 orchestrator = OrchestrationManager()
@@ -169,11 +171,15 @@ def _load_monitoring_fixture() -> dict[str, Any]:
 MONITORING_FIXTURE = _load_monitoring_fixture()
 require_monitoring_access = require_access(
     allowed_roles=MONITORING_ALLOWED_ROLES,
-    required_scopes={scope.strip().lower() for scope in settings.monitoring_required_scopes.split(",") if scope.strip()},
+    required_scopes={
+        scope.strip().lower() for scope in settings.monitoring_required_scopes.split(",") if scope.strip()
+    },
 )
 require_recommendation_access = require_access(
     allowed_roles=RECOMMENDATION_ALLOWED_ROLES,
-    required_scopes={scope.strip().lower() for scope in settings.recommendation_required_scopes.split(",") if scope.strip()},
+    required_scopes={
+        scope.strip().lower() for scope in settings.recommendation_required_scopes.split(",") if scope.strip()
+    },
 )
 
 
@@ -359,7 +365,7 @@ def _build_critical_signals(clinical_signals: dict[str, Any]) -> list[dict[str, 
                 "signal_id": flag.get("flag_id", ""),
                 "label": flag.get("label", ""),
                 "severity": "Critical" if normalized_severity == "critical" else "High",
-                "clinical_note": f'{flag.get("guideline", "")} | source_signals: {sources}',
+                "clinical_note": f"{flag.get('guideline', '')} | source_signals: {sources}",
             }
         )
     return critical
@@ -469,10 +475,7 @@ def _normalize_stage2(
     )
     ai_tier = ai_output.get("ai_recommended_tier", "Standard")
 
-    addon_map = {
-        item.get("item_code") or item.get("item_id"): item
-        for item in ruleset.get("add_on_library", [])
-    }
+    addon_map = {item.get("item_code") or item.get("item_id"): item for item in ruleset.get("add_on_library", [])}
     enriched_add_ons = []
     for item in ai_output.get("add_ons", []):
         item_id = item.get("item_id") or item.get("item_code", "")
@@ -530,9 +533,7 @@ def _normalize_stage2(
             return isinstance(value, str) and bool(value.strip())
         return True
 
-    required_fields_present = sum(
-        1 for name, value in required_fields.items() if _field_present(name, value)
-    )
+    required_fields_present = sum(1 for name, value in required_fields.items() if _field_present(name, value))
     data_completeness = required_fields_present / len(required_fields)
     rule_agreement = 1.0 if ai_tier == rule_preliminary_tier else 0.0
     confidence_score = round(0.4 * signal_coverage + 0.4 * data_completeness + 0.2 * rule_agreement, 3)
@@ -690,6 +691,65 @@ async def recommend(
     if settings.cache_enabled:
         cache_service.set(cache_key, payload, cache_ttl)
     return payload
+
+
+@router.post("/recommend/stream")
+async def recommend_stream(
+    request: RecommendRequest,
+    http_request: Request,
+    _auth: AuthContext = Depends(require_recommendation_access),
+):
+    """Stream recommendation pipeline stages as SSE events, then emit the final result."""
+    patient = _resolve_patient_by_token(request.patient_token)
+    patient_id = patient["patient_id"]
+
+    queue: asyncio.Queue = asyncio.Queue()
+    _DONE = object()
+
+    async def on_stage(num: int, label: str) -> None:
+        await queue.put({"type": "stage", "stage": num, "label": label})
+
+    async def _run() -> None:
+        try:
+            ruleset = get_program_ruleset(request.patient_token, patient_id=patient_id)
+            audit_context = {
+                "user_id": _auth.user_id,
+                "user_role": _auth.role,
+                "client_ip": http_request.client.host if http_request.client else "unknown",
+                "request_id": f"req_{uuid.uuid4().hex[:12]}",
+                "action_type": "GenerateRecommendation",
+            }
+            started_at = time.time()
+            ai_output = await orchestrator.generate_recommendation(
+                patient_id=patient_id,
+                patient_token=request.patient_token,
+                force_rule_based=request.force_rule_based,
+                audit_context=audit_context,
+                on_stage=on_stage,
+            )
+            latency_ms = int((time.time() - started_at) * 1000)
+            payload = _normalize_stage2(
+                patient_token=request.patient_token,
+                ai_output=ai_output,
+                ruleset=ruleset,
+                latency_ms=latency_ms,
+            )
+            payload["type"] = "result"
+            await queue.put(payload)
+        except Exception as exc:
+            await queue.put({"type": "error", "detail": str(exc)})
+        finally:
+            await queue.put(_DONE)
+
+    async def generate():
+        asyncio.create_task(_run())
+        while True:
+            item = await asyncio.wait_for(queue.get(), timeout=120.0)
+            if item is _DONE:
+                break
+            yield f"data: {json.dumps(item)}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 @router.get("/timeline/{patient_token}", response_model=TimelineResponse)
@@ -858,16 +918,31 @@ def get_system_config(_auth: AuthContext = Depends(require_monitoring_access)):
         all_clients=[
             BamlClientInfo(name="NavaveijClient", provider="openai-generic", model=settings.llm_model, status="active"),
             BamlClientInfo(name="GPT4o", provider="openai", model="gpt-4o", status="standby"),
-            BamlClientInfo(name="Claude35Sonnet", provider="anthropic", model="claude-3-5-sonnet-20241022", status="standby"),
+            BamlClientInfo(
+                name="Claude35Sonnet", provider="anthropic", model="claude-3-5-sonnet-20241022", status="standby"
+            ),
             BamlClientInfo(name="LocalLlama", provider="openai-generic", model="llama3.1:70b", status="standby"),
-            BamlClientInfo(name="OpenRouterClient", provider="openai-generic", model="openai/gpt-oss-120b", status="standby"),
-            BamlClientInfo(name="ActiveModel", provider="fallback", model="NavaveijClient→GPT4o→Claude35Sonnet→LocalLlama→OpenRouterClient", status="fallback-chain"),
+            BamlClientInfo(
+                name="OpenRouterClient", provider="openai-generic", model="openai/gpt-oss-120b", status="standby"
+            ),
+            BamlClientInfo(
+                name="ActiveModel",
+                provider="fallback",
+                model="NavaveijClient→GPT4o→Claude35Sonnet→LocalLlama→OpenRouterClient",
+                status="fallback-chain",
+            ),
         ],
         mcp_tools=[
-            McpToolInfo(name="get_biomarker_trends", type="READ-ONLY", description="Fetch biomarker trend series for a patient"),
+            McpToolInfo(
+                name="get_biomarker_trends", type="READ-ONLY", description="Fetch biomarker trend series for a patient"
+            ),
             McpToolInfo(name="get_clinical_signals", type="READ-ONLY", description="Compute clinical risk signals"),
-            McpToolInfo(name="get_hard_constraints", type="READ-ONLY", description="Evaluate hard clinical constraints"),
-            McpToolInfo(name="get_patient_event_timeline", type="READ-ONLY", description="Retrieve patient event timeline"),
+            McpToolInfo(
+                name="get_hard_constraints", type="READ-ONLY", description="Evaluate hard clinical constraints"
+            ),
+            McpToolInfo(
+                name="get_patient_event_timeline", type="READ-ONLY", description="Retrieve patient event timeline"
+            ),
             McpToolInfo(name="get_program_ruleset", type="READ-ONLY", description="Load tier + add-on ruleset"),
         ],
         auth_mode=settings.api_auth_mode,

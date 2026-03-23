@@ -245,8 +245,8 @@ Responsibilities:
 flowchart TD
 Start(["Mount/Token Change"]) --> CheckToken{"Has patientToken?"}
 CheckToken --> |No| EmptyState["Show 'Patient Analysis Pending'"]
-CheckToken --> |Yes| Fetch["Call clinicalService.getRecommendation()"]
-Fetch --> Loading["Show loading animation"]
+CheckToken --> |Yes| Fetch["Call clinicalService.streamRecommendation()"]
+Fetch --> Loading["Show live 4-step animated loading panel (stage-aware)"]
 Fetch --> Ok{"Success?"}
 Ok --> |No| Error["Show error panel"]
 Ok --> |Yes| Render["Render intelligence HUD, charts, reasoning, alerts, add-ons, consultation guide"]
@@ -310,21 +310,25 @@ BiomarkerTrendGrid --> chartConfig : "uses"
 - Centralized request/response interceptors for timeouts and normalized errors
 - Authentication headers built from a cached auth context with user_id, role, and scopes
 - Typed service methods for recommendations, decisions, timelines, trends, screening gaps, monitoring snapshots, anomaly alerts, audit logs, RBAC, mapping codes, and master programs
+- `streamRecommendation()` uses native `fetch()` + `ReadableStream` to consume SSE events from `POST /api/recommend/stream`, calling an `onStage` callback for each pipeline stage update
 
 ```mermaid
 sequenceDiagram
 participant UI as "UI Component"
 participant SVC as "clinicalService"
 participant AUTH as "Auth Headers"
-participant AX as "axios client"
+participant FETCH as "fetch() + ReadableStream"
 participant BE as "Backend API"
-UI->>SVC : getRecommendation(token, forceRuleBased)
+UI->>SVC : streamRecommendation(token, onStage, forceRuleBased)
 SVC->>AUTH : buildAuthHeaders()
 AUTH-->>SVC : {X-Auth-* headers}
-SVC->>AX : POST /api/recommend
-AX->>BE : request with headers
-BE-->>AX : response
-AX-->>SVC : RecommendationResponse
+SVC->>FETCH : POST /api/recommend/stream (SSE)
+FETCH->>BE : request with headers
+BE-->>FETCH : data: {"type":"stage","stage":1,...}
+FETCH-->>SVC : onStage({stage:1, label:"Fetching patient data"})
+SVC-->>UI : setCurrentStage({stage:1,...}) → loading panel updates
+BE-->>FETCH : data: {"type":"result",...}
+FETCH-->>SVC : resolve RecommendationResponse
 SVC-->>UI : data
 ```
 
