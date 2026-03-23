@@ -4,11 +4,15 @@
 **Referenced Files in This Document**
 - [layout.tsx](file://frontend/src/app/layout.tsx)
 - [page.tsx](file://frontend/src/app/page.tsx)
+- [RoleAwareMain.tsx](file://frontend/src/app/RoleAwareMain.tsx)
 - [Providers.tsx](file://frontend/src/app/Providers.tsx)
 - [package.json](file://frontend/package.json)
 - [next.config.ts](file://frontend/next.config.ts)
+- [Sidebar.tsx](file://frontend/src/components/Sidebar.tsx)
 - [RecommendationPanel.tsx](file://frontend/src/components/dashboard/RecommendationPanel.tsx)
+- [PatientSearchEntry.tsx](file://frontend/src/components/dashboard/PatientSearchEntry.tsx)
 - [BiomarkerCharts.tsx](file://frontend/src/components/dashboard/BiomarkerCharts.tsx)
+- [ClinicalDrawer.tsx](file://frontend/src/components/ClinicalDrawer.tsx)
 - [BiomarkerTrendGrid.tsx](file://frontend/src/components/trend-timeline/BiomarkerTrendGrid.tsx)
 - [api.ts](file://frontend/src/services/api.ts)
 - [privacy-mode.tsx](file://frontend/src/shared/privacy-mode.tsx)
@@ -132,12 +136,43 @@ BC --> CCNS
 - RecommendationPanel renders risk gauges, strategy assignment, reasoning trace, critical alerts, add-on recommendations, and consultation guide. It integrates with the API service and supports rule-based fallback modes.
 - BiomarkerCharts visualizes BMI progression and blood pressure trends using Recharts with shared chart defaults and tooltips.
 - BiomarkerTrendGrid displays individual biomarker series with optional reference lines and trend direction indicators.
+- PatientSearchEntry provides a full-page centered search entry point for physician and nurse roles, replacing the patient list column.
+- ClinicalDrawer is a slide-up overlay panel that wraps TrendTimelineScreen; it is opened on-demand from the physician/nurse Clinical Hub.
 
 **Section sources**
 - [page.tsx:29-280](file://frontend/src/app/page.tsx#L29-L280)
 - [RecommendationPanel.tsx:169-603](file://frontend/src/components/dashboard/RecommendationPanel.tsx#L169-L603)
 - [BiomarkerCharts.tsx:32-141](file://frontend/src/components/dashboard/BiomarkerCharts.tsx#L32-L141)
 - [BiomarkerTrendGrid.tsx:23-65](file://frontend/src/components/trend-timeline/BiomarkerTrendGrid.tsx#L23-L65)
+- [PatientSearchEntry.tsx](file://frontend/src/components/dashboard/PatientSearchEntry.tsx)
+- [ClinicalDrawer.tsx](file://frontend/src/components/ClinicalDrawer.tsx)
+
+## Role-Split UX (Physician/Nurse vs Admin)
+
+The application renders a different interface depending on the user's role, determined by `useAuth().role`.
+
+**Roles `physician` and `nurse` — Single-entry-point search flow:**
+1. On login, user lands on a clean centered search screen (`PatientSearchEntry`). No sidebar is shown.
+2. User types a name to filter, then clicks a patient card.
+3. The full-width Clinical Hub for that patient is shown, including AI recommendations and screening gaps.
+4. A "View Charts & Timeline" button opens `ClinicalDrawer` — a slide-up panel containing `TrendTimelineScreen`.
+5. A "← Search" button in the navbar returns the user to the search screen.
+
+**Roles `admin` and `dpo` — Original 3-column layout:**
+- Sidebar navigation is visible.
+- Patient list column, recommendation panel, and trend charts are all shown simultaneously.
+
+**Implementation files:**
+- `RoleAwareMain.tsx` — client component in `app/` that conditionally applies sidebar left-padding only for admin/DPO.
+- `Sidebar.tsx` — returns `null` for physician/nurse roles, hiding the sidebar entirely.
+- `page.tsx` — `SEARCH_FLOW_ROLES = new Set(["physician", "nurse"])` drives the render branch.
+
+**Section sources**
+- [page.tsx](file://frontend/src/app/page.tsx)
+- [RoleAwareMain.tsx](file://frontend/src/app/RoleAwareMain.tsx)
+- [Sidebar.tsx](file://frontend/src/components/Sidebar.tsx)
+- [PatientSearchEntry.tsx](file://frontend/src/components/dashboard/PatientSearchEntry.tsx)
+- [ClinicalDrawer.tsx](file://frontend/src/components/ClinicalDrawer.tsx)
 
 ## Architecture Overview
 The frontend follows a layered architecture:

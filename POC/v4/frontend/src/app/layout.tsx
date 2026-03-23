@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Sidebar } from "@/components/Sidebar";
 import { Providers } from "./Providers";
+import { RoleAwareMain } from "./RoleAwareMain";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,13 +33,13 @@ export default function RootLayout({
       >
         <Providers>
           <Sidebar />
-          <main className="min-h-screen bg-white" style={{ paddingLeft: "var(--sidebar-width)" }}>
+          <RoleAwareMain>
             <ErrorBoundary>
               <div className="w-full">
                 {children}
               </div>
             </ErrorBoundary>
-          </main>
+          </RoleAwareMain>
         </Providers>
       </body>
     </html>

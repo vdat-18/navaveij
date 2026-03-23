@@ -11,6 +11,7 @@ import {
     HelpCircle
 } from "lucide-react";
 import { cn } from "@/shared/utils";
+import { useAuth } from "@/shared/auth-context";
 
 const menuItems = [
     { icon: LayoutDashboard, label: "Clinical Dashboard", id: "dashboard",  href: "/" },
@@ -19,8 +20,22 @@ const menuItems = [
     { icon: ShieldCheck,     label: "Access Monitoring & Audit Log", id: "monitoring", href: "/access-monitoring" },
 ];
 
+/** Roles that use the single-entry-point flow (no sidebar). */
+const SIDEBAR_HIDDEN_ROLES = new Set(["physician", "nurse"]);
+
 export function Sidebar() {
     const pathname = usePathname();
+    const { user } = useAuth();
+
+    // Physicians and nurses use the new single-entry-point search flow — no sidebar needed.
+    if (user && SIDEBAR_HIDDEN_ROLES.has(user.role)) {
+        return null;
+    }
+
+    // While auth is loading (user === null on login page), also hide sidebar.
+    if (!user) {
+        return null;
+    }
 
     return (
         <aside aria-label="Main navigation" className="w-[var(--sidebar-width)] glass-sidebar h-screen flex flex-col p-6 fixed left-0 top-0 z-50">
