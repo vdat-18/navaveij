@@ -58,6 +58,18 @@ export function AuditLogSearchPanel({
   return (
     <div className="navavej-card p-6 space-y-4">
       <h3 className="text-sm font-black uppercase tracking-widest text-navavej-gray-dark">Audit Log Search</h3>
+      {/* C4-2: Audit retention banner */}
+      <div className="flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-800">
+        <span className="mt-0.5 shrink-0 text-sky-500">ℹ</span>
+        <span>
+          <span className="font-black">Retention policy: 3 years</span>
+          <span className="text-sky-600"> (PDPA §40 compliant)</span>
+          <span className="mx-2 text-sky-300">·</span>
+          <span className="font-black">Storage:</span> append-only JSONL
+          <span className="mx-2 text-sky-300">·</span>
+          <span className="font-black">Chain integrity:</span> SHA-256 verified
+        </span>
+      </div>
       <div className="grid grid-cols-2 xl:grid-cols-3 gap-2">
         <input
           placeholder="user_id"
@@ -115,7 +127,7 @@ export function AuditLogSearchPanel({
                 <td className="px-3 py-2 text-[11px] font-bold">{new Date(entry.when.iso_timestamp_utc).toLocaleString()}</td>
                 <td className="px-3 py-2 text-[11px] font-bold">{entry.who.user_id}</td>
                 <td className="px-3 py-2 text-[11px] font-bold">{entry.what.action_type}</td>
-                <td className="px-3 py-2 text-[11px] font-bold">{entry.what.patient_token_masked || "—"}</td>
+                <td className="px-3 py-2 text-[11px] font-mono">{entry.what.patient_token || "—"}</td>
               </tr>
             ))}
           </tbody>

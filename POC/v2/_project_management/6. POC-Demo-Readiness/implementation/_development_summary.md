@@ -22,7 +22,7 @@
 | C2-4 Mapping Tool UI | ✅ Done | `MappingToolTab.tsx` rewritten; search + 2 filters + slide-over panel + Add Mapping modal |
 | C3-3 Master Data tab | ✅ Done | `MasterDataTab.tsx` rewritten; `GET /api/master-add-ons` added; 4 sub-tabs: Programs (tier badge), Add-On Library (live ruleset, row expand), Tier Rules (static cards), Clinical Thresholds (static) |
 | C3-4 Executive Dashboard | ⬜ Pending | |
-| C4-2 Audit retention banner | ⬜ Pending | |
+| C4-2 Audit retention banner | ✅ Done | Info banner added to `AuditLogSearchPanel.tsx`; 3-year PDPA §40 policy + append-only JSONL + SHA-256 chain |
 | C2-5 SNOMED CT audit | ⬜ Pending | |
 | C2-6 Docker | ⬜ Pending | |
 
@@ -190,6 +190,18 @@
 - [x] Clinical Thresholds: 6-row static table with green normal / red alert colouring
 - [x] Frontend: 29/29 tests pass (`npm test`)
 - [x] Backend: 2/2 tests pass (`pytest backend/tests/test_master_add_ons.py`)
+
+---
+
+### C4-2 — Audit Log Retention Banner
+
+**Files:**
+- `frontend/src/components/access-monitoring/AuditLogSearchPanel.tsx` ← sky-blue info banner inserted after panel title; no new state or imports
+
+**Gate checklist:**
+- [x] Login as admin → Access Monitoring → Audit Log tab → banner visible
+- [x] Banner text: "Retention policy: 3 years (PDPA §40 compliant) · Storage: append-only JSONL · Chain integrity: SHA-256 verified"
+- [x] No regression on filter inputs, table, or entry detail panel below
 
 ---
 

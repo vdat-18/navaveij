@@ -16,14 +16,14 @@ export function PatientDirectoryColumn({
   privacyMode = false,
 }: PatientDirectoryColumnProps) {
   return (
-    <div className="xl:col-span-2">
-      <div className="bg-[#fcfdfe] p-4 rounded-[20px] border border-navavej-border min-h-[600px] shadow-inner">
+    <aside className="xl:col-span-2">
+      <section className="bg-[#fcfdfe] p-4 rounded-[20px] border border-navavej-border min-h-[600px] shadow-inner h-full flex flex-col">
         <PatientList
           onSelectPatient={onSelectPatient}
           selectedId={selectedId}
           privacyMode={privacyMode}
         />
-      </div>
-    </div>
+      </section>
+    </aside>
   );
 }
