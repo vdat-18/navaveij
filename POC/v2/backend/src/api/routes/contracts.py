@@ -135,6 +135,10 @@ def _patient_token_map() -> dict[str, str]:
     return {item.get("patient_id"): item.get("patient_token") for item in load_registry()}
 
 
+def _token_to_patient_id_map() -> dict[str, str]:
+    return {token: pid for pid, token in _patient_token_map().items()}
+
+
 def _read_audit_logs() -> list[dict[str, Any]]:
     return orchestrator.audit_logger.get_logs()
 
@@ -243,6 +247,7 @@ def _normalize_runtime_audit_entries() -> list[dict[str, Any]]:
                 "resource_type": what.get("resource_type", "RecommendationOutput"),
                 "patient_token": patient_token,
                 "patient_token_masked": patient_token_masked,
+                "patient_id": patient_id,
                 "model_id": what.get("model_id") or entry.get("how", {}).get("model_id"),
                 "template_version": "v1.0",
                 "latency_ms": what.get("latency_ms"),
@@ -281,12 +286,13 @@ def _audit_dataset() -> list[dict[str, Any]]:
 def _filter_audit_entries(
     *,
     user_id: str | None,
-    patient_token_prefix: str | None,
+    patient_id: str | None,
     action_type: str | None,
     resource_type: str | None,
     start_date: str | None,
     end_date: str | None,
 ) -> list[dict[str, Any]]:
+    token_to_pid = _token_to_patient_id_map()
     logs = _audit_dataset()
     results: list[dict[str, Any]] = []
     for entry in logs:
@@ -294,12 +300,12 @@ def _filter_audit_entries(
         what = entry.get("what", {})
         when = entry.get("when", {})
         timestamp = when.get("iso_timestamp_utc", "")
+        if "patient_id" not in what:
+            what["patient_id"] = token_to_pid.get(what.get("patient_token") or "")
         if user_id and who.get("user_id") != user_id:
             continue
-        if patient_token_prefix:
-            token = what.get("patient_token") or ""
-            if not token.startswith(patient_token_prefix):
-                continue
+        if patient_id and what.get("patient_id") != patient_id:
+            continue
         if action_type and what.get("action_type") != action_type:
             continue
         if resource_type and what.get("resource_type") != resource_type:
@@ -735,7 +741,7 @@ async def monitoring_snapshot(_auth: AuthContext = Depends(require_monitoring_ac
 @router.get("/audit-logs", response_model=AuditLogsResponse)
 async def audit_logs(
     user_id: str | None = Query(None),
-    patient_token_prefix: str | None = Query(None),
+    patient_id: str | None = Query(None),
     action_type: str | None = Query(None),
     resource_type: str | None = Query(None),
     start_date: str | None = Query(None),
@@ -744,7 +750,7 @@ async def audit_logs(
 ):
     results = _filter_audit_entries(
         user_id=user_id,
-        patient_token_prefix=patient_token_prefix,
+        patient_id=patient_id,
         action_type=action_type,
         resource_type=resource_type,
         start_date=start_date,

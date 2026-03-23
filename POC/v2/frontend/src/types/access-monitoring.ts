@@ -36,7 +36,7 @@ export interface AnomalyAlert {
 
 export interface AuditLogFilters {
   user_id?: string;
-  patient_token_prefix?: string;
+  patient_id?: string;
   action_type?: string;
   resource_type?: string;
   start_date?: string;
@@ -68,6 +68,7 @@ export interface AuditLogEntry {
     resource_type: string;
     patient_token: string | null;
     patient_token_masked: string | null;
+    patient_id: string | null;
     model_id: string | null;
     template_version: string | null;
     latency_ms: number | null;
@@ -75,7 +76,7 @@ export interface AuditLogEntry {
     recommendation_source: string | null;
   };
   why: {
-    request_context: string;
+    request_context: string | Record<string, unknown>;
     indication_code: string;
   };
   retention_expiry: string;

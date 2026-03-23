@@ -80,15 +80,9 @@ export function AccessMonitoringScreen({ role }: AccessMonitoringScreenProps) {
   }, [role]);
 
   const runAuditSearch = async () => {
-    try {
-      setErrorMessage(null);
-      const auditData = await clinicalService.searchAuditLogs(filters, role);
-      setEntries(auditData.entries);
-      setTotal(auditData.total);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to run audit search.";
-      setErrorMessage(message);
-    }
+    const auditData = await clinicalService.searchAuditLogs(filters, role);
+    setEntries(auditData.entries);
+    setTotal(auditData.total);
   };
 
   return (
