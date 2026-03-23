@@ -73,6 +73,15 @@ CET["ClinicalEventTimeline.tsx"]
 SGS["ScreeningGapStatus.tsx"]
 TTS["TrendTimelineScreen.tsx"]
 end
+
+### Component Details
+*   **TrendTimelineScreen:** The main container that handles tab navigation between the Timeline, Biomarker Grid, and Screening Gaps. It receives the full `TimelinePayload` from the backend.
+*   **BiomarkerTrendGrid:** Displays sparklines and charts for historical lab results.
+*   **ScreeningGapStatus:** Shows a list of pending/overdue cancer and health screenings.
+*   **ClinicalEventTimeline:** Displays chronological events (labs, diagnoses, screenings).
+    *   **Grouped by Date:** Events occurring on the same day are visually grouped under a prominent date header, reducing cognitive load when analyzing check-up visits.
+    *   **Severity Badges:** Immediate visual cues (colored badges) for abnormal lab results, active diagnoses, or medication changes.
+    *   **Unified Row Data:** The component normalizes heterogeneous data arrays into a single format for rendering.
 subgraph "Charts"
 CT["ChartTooltip.tsx"]
 CC["chartConfig.ts"]
