@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import TrendTimelinePage from "./page";
+import { PatientProvider } from "@/shared/patient-context";
 
 vi.mock("@/shared/privacy-mode", () => ({
   usePrivacyMode: () => ({
@@ -38,7 +39,7 @@ vi.mock("@/components/trend-timeline/TrendTimelineScreen", () => ({
 
 describe("TrendTimelinePage", () => {
   it("uses shared patient directory column and renders trend screen after selection", async () => {
-    render(<TrendTimelinePage />);
+    render(<PatientProvider><TrendTimelinePage /></PatientProvider>);
 
     expect(screen.getByTestId("patient-directory-column")).toBeInTheDocument();
 

@@ -1,20 +1,21 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { clinicalService } from "@/services/api";
-import { AuditLogEntry, AuditLogFilters, AnomalyAlert, MappingCode, MasterProgram, MonitoringSnapshot, RbacRole } from "@/types/access-monitoring";
+import { clinicalService, SystemConfig } from "@/services/api";
+import { AuditLogEntry, AuditLogFilters, AnomalyAlert, MappingCode, MasterAddOn, MasterProgram, MonitoringSnapshot, RbacRole } from "@/types/access-monitoring";
 import { LiveMetricsBar } from "./LiveMetricsBar";
 import { AnomalyAlertsPanel } from "./AnomalyAlertsPanel";
 import { AuditLogSearchPanel } from "./AuditLogSearchPanel";
 import { RoleManagementTab } from "./RoleManagementTab";
 import { MappingToolTab } from "./MappingToolTab";
 import { MasterDataTab } from "./MasterDataTab";
+import { SystemConfigTab } from "./SystemConfigTab";
 
 interface AccessMonitoringScreenProps {
   role: "admin" | "dpo";
 }
 
-type TabKey = "role" | "mapping" | "master";
+type TabKey = "role" | "mapping" | "master" | "sysconfig";
 
 export function AccessMonitoringScreen({ role }: AccessMonitoringScreenProps) {
   const [snapshot, setSnapshot] = useState<MonitoringSnapshot | null>(null);
@@ -24,6 +25,8 @@ export function AccessMonitoringScreen({ role }: AccessMonitoringScreenProps) {
   const [roles, setRoles] = useState<RbacRole[]>([]);
   const [mappings, setMappings] = useState<MappingCode[]>([]);
   const [programs, setPrograms] = useState<MasterProgram[]>([]);
+  const [addOns, setAddOns] = useState<MasterAddOn[]>([]);
+  const [sysConfig, setSysConfig] = useState<SystemConfig | null>(null);
   const [filters, setFilters] = useState<AuditLogFilters>({});
   const [tab, setTab] = useState<TabKey>("role");
   const [isLoading, setIsLoading] = useState(false);
@@ -33,13 +36,15 @@ export function AccessMonitoringScreen({ role }: AccessMonitoringScreenProps) {
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const [snapshotData, alertData, auditData, rbacData, mappingData, masterData] = await Promise.all([
+      const [snapshotData, alertData, auditData, rbacData, mappingData, masterData, addOnsData, sysConfigData] = await Promise.all([
         clinicalService.getMonitoringSnapshot(role),
         clinicalService.getAnomalyAlerts(role),
         clinicalService.searchAuditLogs({}, role),
         clinicalService.getRbac(role),
         clinicalService.getMappingCodes(role),
         clinicalService.getMasterPrograms(role),
+        clinicalService.getMasterAddOns(role),
+        clinicalService.getSystemConfig(role),
       ]);
       setSnapshot(snapshotData);
       setAlerts(alertData.alerts);
@@ -48,6 +53,8 @@ export function AccessMonitoringScreen({ role }: AccessMonitoringScreenProps) {
       setRoles(rbacData.roles);
       setMappings(mappingData.mappings);
       setPrograms(masterData.programs);
+      setAddOns(addOnsData.add_ons);
+      setSysConfig(sysConfigData);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to load access monitoring data.";
       setErrorMessage(message);
@@ -117,11 +124,13 @@ export function AccessMonitoringScreen({ role }: AccessMonitoringScreenProps) {
             <TabButton label="Role Management" active={tab === "role"} onClick={() => setTab("role")} />
             <TabButton label="Mapping Tool" active={tab === "mapping"} onClick={() => setTab("mapping")} />
             <TabButton label="Master Data" active={tab === "master"} onClick={() => setTab("master")} />
+            <TabButton label="System Config" active={tab === "sysconfig"} onClick={() => setTab("sysconfig")} />
           </div>
 
           {tab === "role" && <RoleManagementTab roles={roles} />}
           {tab === "mapping" && <MappingToolTab mappings={mappings} />}
-          {tab === "master" && <MasterDataTab programs={programs} />}
+          {tab === "master" && <MasterDataTab programs={programs} addOns={addOns} />}
+          {tab === "sysconfig" && sysConfig && <SystemConfigTab config={sysConfig} />}
         </>
       )}
     </div>

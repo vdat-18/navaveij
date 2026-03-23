@@ -1,6 +1,6 @@
 # Development Summary Rollup
 
-> Last verified: 2026-03-19
+> Last verified: 2026-03-23
 
 | GAP-UI | Title | Wave | Status |
 |---|---|---|---|
@@ -20,3 +20,5 @@
 | GAP-UI-14 | Accessibility | 3 | Complete |
 | GAP-UI-15 | Test Coverage | 3 | Complete |
 | GAP-UI-16 | Privacy Mode: Incomplete PII Masking | 1 | Complete |
+
+Maintenance note (2026-03-23): Navigation now uses one admin entry, **"Access Monitoring & Audit Log"**, with `/audit` retained as a redirect alias to `/access-monitoring`.

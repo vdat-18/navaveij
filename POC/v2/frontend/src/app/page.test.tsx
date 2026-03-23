@@ -2,12 +2,17 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import DashboardPage from "./page";
+import { PatientProvider } from "@/shared/patient-context";
 
 vi.mock("@/shared/privacy-mode", () => ({
   usePrivacyMode: () => ({
     privacyMode: true,
     togglePrivacyMode: vi.fn(),
   }),
+}));
+
+vi.mock("@/shared/auth-context", () => ({
+  useAuth: () => ({ user: { name: "Dr. Test", role: "physician", fhir_scopes: [] }, logout: vi.fn() }),
 }));
 
 vi.mock("framer-motion", () => ({
@@ -52,15 +57,8 @@ vi.mock("@/components/dashboard/RecommendationPanel", () => ({
     React.useEffect(() => {
       if (!patientToken) return;
       onRecommendationLoad?.({
-        security_metadata: {
-          rehydration_map: {
-            tok_map_name_001: "Jane Privacy",
-            tok_map_id_001: "id_1aa1b504",
-          },
-        },
-        metadata: {
-          generated_at: "2026-03-19T00:00:00Z",
-        },
+        security_metadata: { is_poc_demo: true },
+        metadata: { generated_at: "2026-03-19T00:00:00Z" },
       });
     }, [patientToken]);
     return <div>Recommendation Panel Mock</div>;
@@ -68,18 +66,20 @@ vi.mock("@/components/dashboard/RecommendationPanel", () => ({
 }));
 
 describe("DashboardPage privacy display", () => {
-  it("shows backend tokens and never renders placeholder entity tokens", async () => {
-    render(<DashboardPage />);
+  it("shows '-' for all PII fields in privacy mode", async () => {
+    render(<PatientProvider><DashboardPage /></PatientProvider>);
 
     expect(screen.getByTestId("patient-directory-column")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Select Patient" }));
 
-    expect(await screen.findByText("tok_map_name_001")).toBeInTheDocument();
-    expect(screen.getByText("tok_hmac_1aa1b504")).toBeInTheDocument();
-    expect(screen.queryByText("tok_name_entity")).not.toBeInTheDocument();
-    expect(screen.queryByText("tok_id_entity")).not.toBeInTheDocument();
-    expect(screen.queryByText("tok_mrn_entity")).not.toBeInTheDocument();
-    expect(screen.queryByText("tok_phone_entity")).not.toBeInTheDocument();
-    expect(screen.queryByText("tok_email_entity")).not.toBeInTheDocument();
+    const dashValues = await screen.findAllByText("-");
+    expect(dashValues.length).toBeGreaterThan(0);
+
+    // Medical ID remains visible even in privacy mode
+    expect(screen.getByText("id_1aa1b504")).toBeInTheDocument();
+
+    // All other PII fields are hidden; no tokens exposed
+    expect(screen.queryByText(/^tok_/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Jane Privacy")).not.toBeInTheDocument();
   });
 });

@@ -16,7 +16,6 @@ class WorkflowContext(BaseModel):
     raw_context: dict[str, Any] = Field(default_factory=dict)
     masked_context: dict[str, Any] = Field(default_factory=dict)
     ai_output: dict[str, Any] = Field(default_factory=dict)
-    rehydration_map: dict[str, str] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

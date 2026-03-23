@@ -5,6 +5,7 @@ import { ScreeningGapRow } from "@/types/timeline";
 
 interface ScreeningGapStatusProps {
   screeningGaps: ScreeningGapRow[];
+  title?: string;
 }
 
 const priorityClass = (priority?: string) => {
@@ -15,11 +16,11 @@ const priorityClass = (priority?: string) => {
   return "text-navavej-gray-med";
 };
 
-export function ScreeningGapStatus({ screeningGaps }: ScreeningGapStatusProps) {
+export function ScreeningGapStatus({ screeningGaps, title = "Screening Gap Status" }: ScreeningGapStatusProps) {
   return (
     <div className="navavej-card bg-white p-5">
       <h4 className="text-[11px] font-black text-navavej-gray-dark uppercase tracking-widest mb-4">
-        Screening Gap Status
+        {title}
       </h4>
       <div className="space-y-3">
         {screeningGaps.map((gap, idx) => (

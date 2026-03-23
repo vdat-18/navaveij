@@ -1,37 +1,15 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { AccessMonitoringScreen } from "@/components/access-monitoring/AccessMonitoringScreen";
-import { getAuthContext } from "@/services/api";
+import { useAuth } from "@/shared/auth-context";
 import { usePrivacyMode } from "@/shared/privacy-mode";
 
 export default function AccessMonitoringPage() {
-  const [role, setRole] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const role = user?.role ?? null;
   const { privacyMode, togglePrivacyMode } = usePrivacyMode();
-
-  useEffect(() => {
-    const fetchRole = async () => {
-      try {
-        const context = await getAuthContext();
-        setRole(context.role.toLowerCase());
-      } catch (err) {
-        setRole("unknown");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchRole();
-  }, []);
-
-  if (loading) {
-    return (
-      <main className="w-full px-8 lg:px-16 py-10 min-h-screen bg-white flex items-center justify-center">
-        <p className="text-xs font-black text-navavej-gray-med uppercase tracking-widest">Verifying access...</p>
-      </main>
-    );
-  }
 
   if (role !== "admin" && role !== "dpo") {
     return (
@@ -55,10 +33,10 @@ export default function AccessMonitoringPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-black text-navavej-gray-dark uppercase tracking-tighter">
-            Access Monitoring
+            Access Monitoring & Audit Log
           </h1>
           <p className="text-xs font-bold text-navavej-gray-med mt-2">
-            Admin / DPO dashboard for monitoring, anomaly review, audit forensics, and governance evidence.
+            Admin / DPO workspace for monitoring, anomaly review, audit forensics, and governance evidence.
           </p>
         </div>
         <div className="flex items-center gap-3">

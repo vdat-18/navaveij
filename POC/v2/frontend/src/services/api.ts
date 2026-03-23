@@ -1,5 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
-import { AuditLogEntry, AuditLogFilters, AnomalyAlert, MappingCode, MasterProgram, MonitoringSnapshot, RbacRole } from "@/types/access-monitoring";
+import { AuditLogEntry, AuditLogFilters, AnomalyAlert, MappingCode, MasterAddOn, MasterProgram, MonitoringSnapshot, RbacRole } from "@/types/access-monitoring";
 import { BiomarkerTrendsResponse } from "@/types/biomarker-trends";
 import { Patient } from "@/types/patient";
 import { RecommendationResponse } from "@/types/recommendation";
@@ -10,6 +10,14 @@ interface AuthContext {
     user_id: string;
     role: string;
     scopes: string;
+}
+
+export interface SystemConfig {
+    active_client: string;
+    all_clients: { name: string; provider: string; model: string; status: string }[];
+    mcp_tools: { name: string; type: string; description: string }[];
+    auth_mode: string;
+    template_version: string;
 }
 
 interface ScreeningGapsResponse {
@@ -91,6 +99,8 @@ const mergeScopes = (...scopeGroups: string[]): string => {
 };
 
 let cachedAuthContext: AuthContext | null = null;
+
+export const clearAuthCache = (): void => { cachedAuthContext = null; };
 
 const getSmartTokenFromStorage = (): string | null => {
     try {
@@ -247,5 +257,15 @@ export const clinicalService = {
         const headers = await buildAuthHeaders(role, "monitoring:read");
         const response = await apiV3.get("/master-programs", { headers });
         return response.data;
-    }
+    },
+    getMasterAddOns: async (role: "admin" | "dpo" = "admin"): Promise<{ add_ons: MasterAddOn[] }> => {
+        const headers = await buildAuthHeaders(role, "monitoring:read");
+        const response = await apiV3.get<{ add_ons: MasterAddOn[] }>("/master-add-ons", { headers });
+        return response.data;
+    },
+    getSystemConfig: async (role: "admin" | "dpo" = "admin"): Promise<SystemConfig> => {
+        const headers = await buildAuthHeaders(role, "monitoring:read");
+        const response = await apiV3.get<SystemConfig>("/system-config", { headers });
+        return response.data;
+    },
 };

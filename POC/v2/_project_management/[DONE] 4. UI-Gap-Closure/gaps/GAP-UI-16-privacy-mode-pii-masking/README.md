@@ -31,3 +31,8 @@ GAP-UI-2 — demographics wiring should complete before extending privacy gating
 
 ## TOR Reference
 Security, Privacy & Audit 20% · TOR §5.2 (PII handling)
+
+## Maintenance Update (2026-03-23)
+- Access Monitoring and Audit Log are now presented as one page label: **"Access Monitoring & Audit Log"**.
+- Route `/audit` is intentionally retained as a legacy alias and redirects to `/access-monitoring`.
+- Privacy mode language remains aligned with this unified admin surface.

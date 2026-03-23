@@ -8,7 +8,6 @@ import {
     LayoutDashboard,
     LineChart,
     ShieldCheck,
-    ClipboardList,
     HelpCircle
 } from "lucide-react";
 import { cn } from "@/shared/utils";
@@ -16,8 +15,8 @@ import { cn } from "@/shared/utils";
 const menuItems = [
     { icon: LayoutDashboard, label: "Clinical Dashboard", id: "dashboard",  href: "/" },
     { icon: LineChart,       label: "Trend & Timeline",   id: "timeline",   href: "/trend-timeline" },
-    { icon: ShieldCheck,     label: "Access Monitoring",  id: "monitoring", href: "/access-monitoring" },
-    { icon: ClipboardList,   label: "Audit Log",          id: "audit",      href: "/audit" },
+    // /audit remains available as an alias route and redirects to /access-monitoring.
+    { icon: ShieldCheck,     label: "Access Monitoring & Audit Log", id: "monitoring", href: "/access-monitoring" },
 ];
 
 export function Sidebar() {

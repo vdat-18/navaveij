@@ -8,7 +8,6 @@ from loguru import logger
 from src.api.routes.patients import resolve_patient_token
 from src.services.mcp_client import MCPClientFactory
 from src.services.audit import AuditLogger
-from src.services.privacy import PIIRehydrator
 from src.services.safety import SafetyRuleValidator
 from src.services.workflows.clinical import ClinicalReasoningWorkflow
 from shared.settings import settings
@@ -112,39 +111,26 @@ class OrchestrationManager:
 
             context.ai_output["recommendation_hash"] = recommendation_hash
 
-            # Post-process: Rehydration (Restore PII values for Frontend display)
-            logger.info("Rehydrating AI output for frontend")
-            t_rehydration_start = time.monotonic()
-            rehydrator = PIIRehydrator(context.rehydration_map)
-            masked_ai_output = context.ai_output.copy()
-            rehydrated_output = rehydrator.rehydrate(context.ai_output)
-
             # Expose raw data for visualization/HUDs
             result = {
-                **rehydrated_output,
+                **context.ai_output,
                 "biomarker_trends": context.masked_context.get("get_biomarker_trends", {}),
                 "clinical_signals": context.masked_context.get("get_clinical_signals", {}),
             }
 
-            # Final rehydration pass on everything for the frontend
-            rehydrated_result = rehydrator.rehydrate(result)
-            t_rehydration_end = time.monotonic()
             t_end = time.monotonic()
 
-            rehydrated_result["security_metadata"] = {
-                "rehydration_map": context.rehydration_map,
-                "masked_ai_output": masked_ai_output,
+            result["security_metadata"] = {
                 "is_poc_demo": True,
             }
-            rehydrated_result["phase_timings"] = {
+            result["phase_timings"] = {
                 "workflow_ms": int((t_workflow_end - t_workflow_start) * 1000),
                 "ai_chain_ms": context.metadata.get("ai_chain_ms", 0),
                 "safety_ms": int((t_safety_end - t_safety_start) * 1000),
                 "audit_ms": int((t_audit_end - t_audit_start) * 1000),
-                "rehydration_ms": int((t_rehydration_end - t_rehydration_start) * 1000),
                 "total_ms": int((t_end - t_start) * 1000),
             }
-            return rehydrated_result
+            return result
 
     async def record_decision(
         self,

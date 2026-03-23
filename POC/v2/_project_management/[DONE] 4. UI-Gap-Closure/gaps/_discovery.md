@@ -1,6 +1,6 @@
 # Discovery Rollup
 
-**Verification audit completed:** 2026-03-19 (17 files audited)
+**Verification audit completed:** 2026-03-23 (maintenance update applied)
 
 | Status | Count | Notes |
 |---|---|---|
@@ -10,3 +10,5 @@
 | 🆕 New | 0 | |
 
 See ui-gap-discovery.md for full gap register and verification detail.
+
+Maintenance note (2026-03-23): UI navigation and naming are unified under **"Access Monitoring & Audit Log"**; `/audit` is retained as a legacy redirect route.

@@ -1,7 +1,7 @@
 # Discovery
 
 **Identified:** 2026-03-19 (verification audit — new gap, not in original audit)
-**Verified:** 2026-03-19
+**Verified:** 2026-03-23
 
 | Area | Status |
 |---|---|
@@ -12,5 +12,6 @@
 | Recommendation package details | ✅ Package name and price are masked in privacy mode |
 | Recommendation critical signals | ✅ Alert label/subtitle/value are masked in privacy mode |
 | "Last Analysis Run" value | ✅ Shows placeholder (`"—"`) in privacy mode |
+| Admin route naming | ✅ Unified UI label uses "Access Monitoring & Audit Log"; `/audit` remains redirect alias |
 
 **Notes:** Privacy mode is explicitly labeled as partial de-identification to align with POC constraints.

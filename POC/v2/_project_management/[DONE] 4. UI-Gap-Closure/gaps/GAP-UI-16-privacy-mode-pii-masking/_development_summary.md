@@ -11,6 +11,7 @@
 - Added a "Partial De-identification Active" explicit disclaimer next to the privacy mode toggle in both `page.tsx` and `trend-timeline/page.tsx` to align with POC data limitations.
 - Updated `RecommendationPanel.tsx` to mask recommended package details and critical signal label/subtitle/value when `privacyMode` is active.
 - Updated the dashboard "Last Analysis Run" value to use a placeholder (`"—"`) in privacy mode.
+- Maintenance follow-up (2026-03-23): aligned admin surface naming to **"Access Monitoring & Audit Log"** and kept `/audit` as a legacy redirect alias to `/access-monitoring`.
 
 ### Files Modified
 - `POC/v2/frontend/src/app/layout.tsx`

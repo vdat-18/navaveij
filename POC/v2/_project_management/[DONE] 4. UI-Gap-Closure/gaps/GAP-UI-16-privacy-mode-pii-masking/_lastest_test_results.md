@@ -11,3 +11,4 @@
 6. **Visibility Disclaimer:** Verified the presence of the "Partial De-identification Active" text next to the toggle button.
 7. **Diagnostics Check:** Verified no TypeScript diagnostics are present after changes.
 8. **Regression Tests:** Added and passed component tests for privacy masking behavior in `RecommendationPanel` and de-identified trend header output in `TrendTimelineScreen`.
+9. **Navigation Merge Compatibility:** Verified unified label **"Access Monitoring & Audit Log"** routes to `/access-monitoring`, while `/audit` remains a redirect alias.

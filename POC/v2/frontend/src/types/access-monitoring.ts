@@ -115,3 +115,15 @@ export interface MasterProgram {
   gender: string;
   status: string;
 }
+
+export interface MasterAddOn {
+  item_code: string;
+  label: string;
+  category: string;
+  status: string;
+  gender_constraint: string | null;
+  age_min: number | null;
+  age_max: number | null;
+  trigger_signals: string[];
+  price_thb: number | null;
+}

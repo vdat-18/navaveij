@@ -82,8 +82,6 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         if on_stage: await on_stage(2, "Running program rules")
         await self._generate_recommendation(context, force_rule_based=force_rule_based, on_stage=on_stage)
 
-        # Finalize
-        context.rehydration_map = self.masker.get_rehydration_map()
         return context
 
     async def _generate_recommendation(self, context: WorkflowContext, force_rule_based: bool = False, on_stage: Any = None) -> None:

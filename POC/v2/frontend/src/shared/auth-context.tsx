@@ -2,6 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { clearAuthCache } from "@/services/api";
 
 export type UserRole = "physician" | "nurse" | "dpo" | "admin";
 
@@ -63,6 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    clearAuthCache();
     sessionStorage.removeItem(AUTH_STORAGE_KEY);
     setToken(null);
   }, []);

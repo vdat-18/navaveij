@@ -15,6 +15,7 @@ from src.mcp_server.tools.biomarker_trends import get_biomarker_trends
 from src.mcp_server.tools.clinical_signals import get_clinical_signals
 from src.mcp_server.tools.patient_event_timeline import get_patient_event_timeline
 from src.mcp_server.tools.program_ruleset import get_program_ruleset
+from src.mcp_server.utils import load_ruleset_add_on_items
 from src.services.cache import cache_service
 from src.services.orchestrator import OrchestrationManager
 from shared.settings import settings
@@ -91,6 +92,31 @@ class MappingCodesResponse(BaseModel):
 
 class MasterProgramsResponse(BaseModel):
     programs: list[dict[str, Any]]
+
+
+class MasterAddOnsResponse(BaseModel):
+    add_ons: list[dict[str, Any]]
+
+
+class BamlClientInfo(BaseModel):
+    name: str
+    provider: str
+    model: str
+    status: str
+
+
+class McpToolInfo(BaseModel):
+    name: str
+    type: str
+    description: str
+
+
+class SystemConfigResponse(BaseModel):
+    active_client: str
+    all_clients: list[BamlClientInfo]
+    mcp_tools: list[McpToolInfo]
+    auth_mode: str
+    template_version: str
 
 
 MONITORING_FIXTURE_PATH = Path(__file__).resolve().parents[4] / "assets" / "monitoring.json"
@@ -748,6 +774,26 @@ async def master_programs(_auth: AuthContext = Depends(require_monitoring_access
     return {"programs": MONITORING_FIXTURE.get("master_programs", [])}
 
 
+@router.get("/master-add-ons", response_model=MasterAddOnsResponse)
+async def master_add_ons(_auth: AuthContext = Depends(require_monitoring_access)):
+    raw = load_ruleset_add_on_items()
+    normalized = [
+        {
+            "item_code": item.get("item_code", ""),
+            "label": item.get("label", ""),
+            "category": item.get("category", ""),
+            "status": item.get("status", ""),
+            "gender_constraint": item.get("gender_constraint"),
+            "age_min": item.get("age_min"),
+            "age_max": item.get("age_max"),
+            "trigger_signals": item.get("trigger_signals", []),
+            "price_thb": (item.get("navavej_product") or {}).get("price_thb"),
+        }
+        for item in raw
+    ]
+    return {"add_ons": normalized}
+
+
 @router.get("/admin/monitoring/snapshot", response_model=MonitoringSnapshotResponse)
 async def admin_monitoring_snapshot(_auth: AuthContext = Depends(require_monitoring_access)):
     return await monitoring_snapshot(_auth)
@@ -792,3 +838,32 @@ async def admin_mapping_codes(_auth: AuthContext = Depends(require_monitoring_ac
 @router.get("/admin/master-programs", response_model=MasterProgramsResponse)
 async def admin_master_programs(_auth: AuthContext = Depends(require_monitoring_access)):
     return await master_programs(_auth)
+
+
+@router.get("/admin/master-add-ons", response_model=MasterAddOnsResponse)
+async def admin_master_add_ons(_auth: AuthContext = Depends(require_monitoring_access)):
+    return await master_add_ons(_auth)
+
+
+@router.get("/system-config", response_model=SystemConfigResponse)
+def get_system_config(_auth: AuthContext = Depends(require_monitoring_access)):
+    return SystemConfigResponse(
+        active_client=settings.ai_active_client,
+        all_clients=[
+            BamlClientInfo(name="NavaveijClient", provider="openai-generic", model=settings.llm_model, status="active"),
+            BamlClientInfo(name="GPT4o", provider="openai", model="gpt-4o", status="standby"),
+            BamlClientInfo(name="Claude35Sonnet", provider="anthropic", model="claude-3-5-sonnet-20241022", status="standby"),
+            BamlClientInfo(name="LocalLlama", provider="openai-generic", model="llama3.1:70b", status="standby"),
+            BamlClientInfo(name="OpenRouterClient", provider="openai-generic", model="openai/gpt-oss-120b", status="standby"),
+            BamlClientInfo(name="ActiveModel", provider="fallback", model="NavaveijClient→GPT4o→Claude35Sonnet→LocalLlama→OpenRouterClient", status="fallback-chain"),
+        ],
+        mcp_tools=[
+            McpToolInfo(name="get_biomarker_trends", type="READ-ONLY", description="Fetch biomarker trend series for a patient"),
+            McpToolInfo(name="get_clinical_signals", type="READ-ONLY", description="Compute clinical risk signals"),
+            McpToolInfo(name="get_hard_constraints", type="READ-ONLY", description="Evaluate hard clinical constraints"),
+            McpToolInfo(name="get_patient_event_timeline", type="READ-ONLY", description="Retrieve patient event timeline"),
+            McpToolInfo(name="get_program_ruleset", type="READ-ONLY", description="Load tier + add-on ruleset"),
+        ],
+        auth_mode=settings.api_auth_mode,
+        template_version="v3.1-poc",
+    )

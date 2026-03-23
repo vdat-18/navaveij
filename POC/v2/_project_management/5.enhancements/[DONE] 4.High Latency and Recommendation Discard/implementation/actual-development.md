@@ -73,14 +73,12 @@ Replaced `MatchAndCompose` + `RecommendationWithScript` with two parallel functi
 
 ## Verification
 
-Regression suite:
+Regression suite (after follow-up fixes):
 
 ```
-uv run pytest scripts/tests -v --ignore=scripts/tests/test_baml_recommendation_profile.py
-→ 74 passed, 5 pre-existing frontend failures (test_frontend_reliability_contract.py)
+uv run pytest scripts/tests --ignore=scripts/tests/test_baml_recommendation_profile.py -q
+→ 79 passed, 0 failed
 ```
-
-No new failures introduced. The 2 clinical workflow tests that were failing before this enhancement (due to `MatchAndCompose` removal) are now passing.
 
 ## Expected Latency Improvement
 
@@ -92,3 +90,42 @@ No new failures introduced. The 2 clinical workflow tests that were failing befo
 | **Total cold path** | **~18s** | **~12s** |
 
 Profile run pending against live LLM to confirm timing.
+
+---
+
+## Follow-up Fixes (post-ENH-4 regression pass)
+
+### `POC/v2/backend/src/services/audit.py`
+
+`_get_last_hash()` had a single-line `json.loads` guarded by an outer `except Exception`.
+A non-JSON last line (partial write, BOM) would fire `logger.warning` and abort without
+trying the previous line. Fixed by moving JSON parsing into a per-line inner try/except
+that `continue`s on `JSONDecodeError` — the outer except now only fires on real I/O errors.
+Eliminates the `"Could not parse last audit hash"` startup warning.
+
+### `POC/v2/frontend/src/components/Sidebar.tsx`
+
+Added `/audit` to `menuItems` (using `ClipboardList` icon). The Audit Log page existed at
+`frontend/src/app/audit/page.tsx` but was not linked in the navigation.
+
+### `POC/v2/scripts/tests/test_frontend_reliability_contract.py`
+
+All 5 pre-existing failures resolved:
+
+| Test | Root cause | Fix |
+|------|-----------|-----|
+| `test_dashboard_primary_nav_has_real_routes` | Nav extracted from `page.tsx` to `Sidebar.tsx` | Updated test to read `Sidebar.tsx` |
+| `test_sidebar_navigation_links_to_existing_pages` | `/audit` missing from `Sidebar.tsx` | Added entry to sidebar (see above) |
+| `test_mig6_page_has_privacy_mode_and_masks_patient_fields` | `privacyMode` moved to `usePrivacyMode()` hook; `getDisplayValue` signature changed | Updated assertions to match hook pattern |
+| `test_mig6_page_wires_recommendation_metadata_callback` | Callback renamed `onSecurityMetadata` → `onRecommendationLoad` | Updated assertion |
+| `test_mig6_panel_masks_reasoning_trace_and_lifts_security_metadata` | Prop renamed; optional chaining added | Updated prop name and split pattern |
+
+### `POC/v2/scripts/tests/test_baml_recommendation_profile.py`
+
+Rewrote Agent 2 timing:
+- Inner async wrappers `_timed_policy` / `_timed_narr` each record their own completion
+  time from a shared `t1`, giving real individual durations for both `2a Policy (ms)` and
+  `2b Narr (ms)` columns (previously `2b Narr` was always `0`).
+- `ScenarioProfile.total_ms` updated to `A1 + max(a2a, a2b)` — correct parallel accounting
+  instead of summing all steps.
+- Timeout assertions split into separate per-agent checks (`a2a_ms` and `a2b_ms`).

@@ -1,9 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { PatientDirectoryColumn } from "@/components/dashboard/PatientDirectoryColumn";
 import { RecommendationPanel } from "@/components/dashboard/RecommendationPanel";
-import { Bell, Search, User, Globe, Phone, Activity, Eye, EyeOff, LogOut } from "lucide-react";
+import { ScreeningGapStatus } from "@/components/trend-timeline/ScreeningGapStatus";
+import { Bell, Search, User, Globe, Phone, Activity, Eye, EyeOff, LogOut, ChevronDown } from "lucide-react";
+import { clinicalService } from "@/services/api";
+import { ScreeningGapRow } from "@/types/timeline";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { cn } from "@/shared/utils";
@@ -11,7 +14,7 @@ import { usePrivacyMode } from "@/shared/privacy-mode";
 import { usePatient } from "@/shared/patient-context";
 import { useAuth } from "@/shared/auth-context";
 import { Patient } from "@/types/patient";
-import { RecommendationResponse, RecommendationSecurityMetadata } from "@/types/recommendation";
+import { RecommendationResponse } from "@/types/recommendation";
 
 const NavavejBrand = () => (
   <div className="flex items-center gap-3">
@@ -28,13 +31,49 @@ const NavavejBrand = () => (
   </div>
 );
 
+function SummaryBadges({ screening, vaccination }: { screening: ScreeningGapRow[]; vaccination: ScreeningGapRow[] }) {
+  const all = [...screening, ...vaccination];
+  const counts = { Red: 0, Orange: 0, Yellow: 0, Green: 0 };
+  for (const gap of all) {
+    const c = gap.priority_color as keyof typeof counts;
+    if (c in counts) counts[c]++;
+  }
+  return (
+    <span className="flex gap-2 text-[10px] font-black">
+      {counts.Red > 0 && <span className="text-navavej-red">🔴 {counts.Red}</span>}
+      {counts.Orange > 0 && <span className="text-orange-500">🟠 {counts.Orange}</span>}
+      {counts.Yellow > 0 && <span className="text-yellow-500">🟡 {counts.Yellow}</span>}
+      {counts.Green > 0 && <span className="text-green-600">🟢 {counts.Green}</span>}
+    </span>
+  );
+}
+
 export default function DashboardPage() {
   const { selectedPatient, setSelectedPatient } = usePatient();
   const { privacyMode, togglePrivacyMode } = usePrivacyMode();
   const { user, logout } = useAuth();
-  const [securityMetadata, setSecurityMetadata] = useState<RecommendationSecurityMetadata | null>(null);
   const [analysisTimestamp, setAnalysisTimestamp] = useState<string | null>(null);
   const [isRuleBasedForced, setIsRuleBasedForced] = useState(false);
+  const [screeningGaps, setScreeningGaps] = useState<ScreeningGapRow[]>([]);
+  const [vaccinationGaps, setVaccinationGaps] = useState<ScreeningGapRow[]>([]);
+  const [screeningPanelOpen, setScreeningPanelOpen] = useState(false);
+
+  useEffect(() => {
+    if (!selectedPatient?.patient_token) {
+      setScreeningGaps([]);
+      setVaccinationGaps([]);
+      return;
+    }
+    clinicalService.getScreeningGaps(selectedPatient.patient_token)
+      .then((data) => {
+        setScreeningGaps(data.screening_gaps as ScreeningGapRow[]);
+        setVaccinationGaps(data.vaccination_gaps as ScreeningGapRow[]);
+      })
+      .catch(() => {
+        setScreeningGaps([]);
+        setVaccinationGaps([]);
+      });
+  }, [selectedPatient?.patient_token]);
 
   const formatTimestamp = (isoString: string | null) => {
     if (!isoString) return "Pending Analysis";
@@ -50,22 +89,13 @@ export default function DashboardPage() {
   };
 
   const getDisplayValue = (originalValue: string | null | undefined) => {
+    if (privacyMode) return "-";
     const normalizedOriginal = typeof originalValue === "string" ? originalValue : "";
-    if (!privacyMode) return normalizedOriginal || "N/A";
-
-    const rehydrationMap = securityMetadata?.rehydration_map;
-    if (rehydrationMap && normalizedOriginal) {
-      const token = Object.keys(rehydrationMap).find((key) => rehydrationMap[key] === normalizedOriginal);
-      if (token) {
-        return token;
-      }
-    }
-    return selectedPatient?.patient_token || "N/A";
+    return normalizedOriginal || "N/A";
   };
 
   const handleSelectPatient = (patient: Patient) => {
     setSelectedPatient(patient);
-    setSecurityMetadata(null);
     setAnalysisTimestamp(null);
   };
 
@@ -207,7 +237,7 @@ export default function DashboardPage() {
                       <div className="flex flex-col">
                         <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest">Medical ID</span>
                         <span className={cn("text-xs font-bold", privacyMode ? "text-navavej-red/70" : "text-navavej-teal")}>
-                          {getDisplayValue(selectedPatient.patient_id)}
+                          {selectedPatient.patient_id || "N/A"}
                         </span>
                       </div>
                       <div className="w-[1px] h-6 bg-navavej-border" />
@@ -258,11 +288,34 @@ export default function DashboardPage() {
               patientToken={selectedPatient?.patient_token || null}
               privacyMode={privacyMode}
               onRecommendationLoad={(data: RecommendationResponse | null) => {
-                setSecurityMetadata(data?.security_metadata || null);
                 setAnalysisTimestamp((data?.metadata?.generated_at as string | undefined) || null);
               }}
               isRuleBasedForced={isRuleBasedForced}
             />
+
+            {selectedPatient && (screeningGaps.length > 0 || vaccinationGaps.length > 0) && (
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={() => setScreeningPanelOpen((v) => !v)}
+                  className="w-full flex items-center justify-between px-5 py-3 navavej-card bg-white border border-navavej-border rounded-lg hover:border-navavej-teal/40 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest">
+                      Screening &amp; Vaccination Status
+                    </span>
+                    <SummaryBadges screening={screeningGaps} vaccination={vaccinationGaps} />
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-navavej-gray-med transition-transform ${screeningPanelOpen ? "rotate-180" : ""}`} />
+                </button>
+                {screeningPanelOpen && (
+                  <div className="mt-3 grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    {screeningGaps.length > 0 && <ScreeningGapStatus screeningGaps={screeningGaps} title="Screening Gap Status" />}
+                    {vaccinationGaps.length > 0 && <ScreeningGapStatus screeningGaps={vaccinationGaps} title="Vaccination Gap Status" />}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </main>

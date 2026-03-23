@@ -12,7 +12,8 @@ def test_dashboard_primary_nav_has_real_routes():
     assert 'href: "/"' in source
     assert 'href: "/trend-timeline"' in source
     assert 'href: "/access-monitoring"' in source
-    assert 'href: "/audit"' in source
+    assert "Access Monitoring & Audit Log" in source
+    assert 'href: "/audit"' not in source
     assert 'href="#"' not in source
 
 
@@ -21,7 +22,7 @@ def test_sidebar_navigation_links_to_existing_pages():
     assert 'href: "/"' in source
     assert 'href: "/trend-timeline"' in source
     assert 'href: "/access-monitoring"' in source
-    assert 'href: "/audit"' in source
+    assert "Access Monitoring & Audit Log" in source
     assert "usePathname" in source
     assert "<Link" in source
 

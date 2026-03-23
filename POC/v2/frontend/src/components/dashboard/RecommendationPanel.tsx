@@ -15,7 +15,8 @@ import {
     Stethoscope,
     ChevronDown,
     MessageSquare,
-    Search
+    Search,
+    XCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { clinicalService } from "@/services/api";
@@ -216,10 +217,12 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
     const [data, setData] = useState<RecommendationResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [isApproving, setIsApproving] = useState(false);
-    const [approvalError, setApprovalError] = useState<string | null>(null);
-    const [decided, setDecided] = useState<boolean>(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submissionError, setSubmissionError] = useState<string | null>(null);
+    const [decisionOutcome, setDecisionOutcome] = useState<"approved" | "rejected" | null>(null);
     const [notes, setNotes] = useState("");
+    const [showRejectModal, setShowRejectModal] = useState(false);
+    const [rejectReason, setRejectReason] = useState("patient_refusal");
 
     useEffect(() => {
         if (!patientToken) {
@@ -229,9 +232,11 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
         const fetchRecommendation = async () => {
             setLoading(true);
             setError(null);
-            setDecided(false);
+            setDecisionOutcome(null);
             setNotes("");
-            setApprovalError(null);
+            setSubmissionError(null);
+            setShowRejectModal(false);
+            setRejectReason("patient_refusal");
             try {
                 const result = await clinicalService.getRecommendation(patientToken, isRuleBasedForced);
                 setData(result);
@@ -248,16 +253,33 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
 
     const handleApprove = async () => {
         if (!data?.recommendation_hash || !patientId) return;
-        setIsApproving(true);
-        setApprovalError(null);
+        setIsSubmitting(true);
+        setSubmissionError(null);
         try {
             await clinicalService.recordDecision(patientId, data.recommendation_hash, "Approve", notes);
-            setDecided(true);
+            setDecisionOutcome("approved");
         } catch (err) {
             console.error("Failed to approve:", err);
-            setApprovalError("Approval failed. Please check backend connection.");
+            setSubmissionError("Approval failed. Please check backend connection.");
         } finally {
-            setIsApproving(false);
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleReject = async () => {
+        if (!data?.recommendation_hash || !patientId) return;
+        setIsSubmitting(true);
+        setSubmissionError(null);
+        const encodedNotes = `[REASON: ${rejectReason}] ${notes}`.trim();
+        try {
+            await clinicalService.recordDecision(patientId, data.recommendation_hash, "Reject", encodedNotes);
+            setDecisionOutcome("rejected");
+            setShowRejectModal(false);
+        } catch (err) {
+            console.error("Failed to reject:", err);
+            setSubmissionError("Rejection failed. Please check backend connection.");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -317,18 +339,17 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
 
     if (!data) return null;
     const criticalAlerts = normalizeCriticalAlerts(data.patient_high_alert);
-    const maskedOutput = data.security_metadata?.masked_ai_output;
-    const reasoningTrace = ((privacyMode ? data.security_metadata?.masked_ai_output?.reasoning_trace : data.reasoning_trace) || data.reasoning_trace || "").toString();
-    const maskedPackageName =
-        typeof maskedOutput?.package_name === "string" && maskedOutput.package_name.trim()
-            ? maskedOutput.package_name
-            : patientToken || "N/A";
-    const maskedPriceValue =
-        typeof maskedOutput?.price_thb === "number"
-            ? `฿${maskedOutput.price_thb.toLocaleString()}`
-            : (typeof maskedOutput?.price_thb === "string" && maskedOutput.price_thb.trim()
-                ? maskedOutput.price_thb
-                : patientToken || "N/A");
+    const reasoningTrace = (data.reasoning_trace || "").toString();
+    const parsedReasoningLines = (reasoningTrace?.split('\n') ?? [])
+        .map((line: string) => line.replace(/^[*-]\s*/, '').trim())
+        .filter((line: string) => line.length > 0);
+    const policyReasoningLines = parsedReasoningLines
+        .filter((line: string) => /^policy reasoning\s*:/i.test(line))
+        .map((line: string) => line.replace(/^policy reasoning\s*:\s*/i, "").trim())
+        .filter((line: string) => line.length > 0);
+    const clinicalReasoningLines = parsedReasoningLines.filter((line: string) => !/^policy reasoning\s*:/i.test(line));
+    const maskedPackageName = "-";
+    const maskedPriceValue = "-";
 
     return (
         <AnimatePresence mode="wait">
@@ -432,25 +453,21 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
 
                         <div className="relative z-10 bg-navavej-gray-light/30 rounded-[24px] p-8 border border-navavej-border/50">
                             <div className="space-y-4">
-                                {(reasoningTrace?.split('\n') ?? []).filter((l: string) => l.trim()).length > 0 ? (
-                                    (reasoningTrace?.split('\n') ?? []).map((line: string, idx: number) => {
-                                        const cleanLine = line.replace(/^[*-]\s*/, '').trim();
-                                        if (!cleanLine) return null;
-                                        return (
-                                            <div key={idx} className="flex gap-4">
-                                                <div className={cn(
-                                                    "mt-2 w-2 h-2 rounded-full shrink-0 shadow-[0_0_8px_rgba(45,161,162,0.4)]",
-                                                    privacyMode ? "bg-navavej-red" : "bg-navavej-teal"
-                                                )} />
-                                                <p className={cn(
-                                                    "text-sm font-medium leading-relaxed text-justify flex-1",
-                                                    privacyMode ? "font-mono text-navavej-red/80" : "text-navavej-gray-dark"
-                                                )}>
-                                                    {renderBoldText(cleanLine)}
-                                                </p>
-                                            </div>
-                                        );
-                                    })
+                                {clinicalReasoningLines.length > 0 ? (
+                                    clinicalReasoningLines.map((line: string, idx: number) => (
+                                        <div key={idx} className="flex gap-4">
+                                            <div className={cn(
+                                                "mt-2 w-2 h-2 rounded-full shrink-0 shadow-[0_0_8px_rgba(45,161,162,0.4)]",
+                                                privacyMode ? "bg-navavej-red" : "bg-navavej-teal"
+                                            )} />
+                                            <p className={cn(
+                                                "text-sm font-medium leading-relaxed text-justify flex-1",
+                                                privacyMode ? "font-mono text-navavej-red/80" : "text-navavej-gray-dark"
+                                            )}>
+                                                {renderBoldText(line)}
+                                            </p>
+                                        </div>
+                                    ))
                                 ) : (
                                     <div className="flex flex-col items-center justify-center py-6 opacity-50">
                                         <span className="text-xs font-bold text-navavej-gray-med uppercase tracking-widest">Insufficient reasoning trace data</span>
@@ -458,6 +475,33 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                                 )}
                             </div>
                         </div>
+
+                        {policyReasoningLines.length > 0 && (
+                            <div className="relative z-10 mt-6 bg-navavej-teal/[0.04] rounded-[24px] p-8 border border-navavej-teal/20">
+                                <div className="flex items-center gap-2 mb-5">
+                                    <Activity className={cn("w-4 h-4", privacyMode ? "text-navavej-red" : "text-navavej-teal")} />
+                                    <h4 className={cn(
+                                        "text-xs font-black uppercase tracking-[0.2em]",
+                                        privacyMode ? "text-navavej-red/80" : "text-navavej-teal"
+                                    )}>
+                                        Policy Reasoning
+                                    </h4>
+                                </div>
+                                <div className="space-y-4">
+                                    {policyReasoningLines.map((line: string, idx: number) => (
+                                        <p
+                                            key={idx}
+                                            className={cn(
+                                                "text-sm font-medium leading-relaxed text-justify",
+                                                privacyMode ? "font-mono text-navavej-red/80" : "text-navavej-gray-dark"
+                                            )}
+                                        >
+                                            {renderBoldText(line)}
+                                        </p>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         <div className="mt-8 flex items-center gap-6 text-navavej-gray-med text-[10px] font-black uppercase tracking-[0.2em] opacity-60">
                             <span className="flex items-center gap-2 bg-navavej-gray-light px-3 py-1 rounded-lg"><Search className="w-3 h-3" /> Integrity: Valid</span>
@@ -550,27 +594,51 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                                 <textarea
                                     value={notes}
                                     onChange={(e) => setNotes(e.target.value)}
-                                    disabled={decided || isApproving}
+                                    disabled={!!decisionOutcome || isSubmitting}
                                     placeholder="Add clinical observation..."
                                     className="w-full h-24 bg-white border-2 border-navavej-border rounded-xl p-4 text-[11px] font-medium outline-none transition-all resize-none shadow-sm focus:border-navavej-teal/50"
                                 />
-                                {approvalError && (
-                                    <p className="text-xs text-red-500 font-bold mt-2">{approvalError}</p>
+                                {submissionError && (
+                                    <p className="text-xs text-red-500 font-bold mt-2">{submissionError}</p>
                                 )}
-                                <button
-                                    onClick={handleApprove}
-                                    disabled={isApproving || decided}
-                                    className={cn(
-                                        "navavej-button-primary mt-4 w-full py-4 flex items-center justify-center gap-3 group shadow-lg",
-                                        decided && "bg-green-600 hover:bg-green-600",
-                                        isApproving && "opacity-70 cursor-wait"
-                                    )}
-                                >
-                                    <span className="text-xs uppercase tracking-widest font-black">
-                                        {isApproving ? "..." : decided ? "Approved" : "Confirm Strategy"}
-                                    </span>
-                                    {decided ? <CheckCircle2 className="w-5 h-5" /> : <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
-                                </button>
+                                {/* Post-decision locked state */}
+                                {decisionOutcome ? (
+                                    <button
+                                        disabled
+                                        className={cn(
+                                            "mt-4 w-full py-4 flex items-center justify-center gap-3 rounded-xl font-black text-xs uppercase tracking-widest text-white shadow-lg cursor-not-allowed",
+                                            decisionOutcome === "approved" ? "bg-green-600" : "bg-navavej-red"
+                                        )}
+                                    >
+                                        {decisionOutcome === "approved"
+                                            ? <><CheckCircle2 className="w-5 h-5" /><span>Approved</span></>
+                                            : <><XCircle className="w-5 h-5" /><span>Rejected</span></>
+                                        }
+                                    </button>
+                                ) : (
+                                    <div className="mt-4 flex gap-3">
+                                        <button
+                                            onClick={() => setShowRejectModal(true)}
+                                            disabled={isSubmitting}
+                                            className="flex-shrink-0 px-5 py-4 border-2 border-navavej-red text-navavej-red bg-white hover:bg-red-50 rounded-xl font-black text-xs uppercase tracking-widest transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Reject
+                                        </button>
+                                        <button
+                                            onClick={handleApprove}
+                                            disabled={isSubmitting}
+                                            className={cn(
+                                                "navavej-button-primary flex-1 py-4 flex items-center justify-center gap-3 group shadow-lg",
+                                                isSubmitting && "opacity-70 cursor-wait"
+                                            )}
+                                        >
+                                            <span className="text-xs uppercase tracking-widest font-black">
+                                                {isSubmitting ? "..." : "Confirm Strategy"}
+                                            </span>
+                                            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -654,6 +722,104 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                     </div>
                 </div>
             </motion.div>
+
+            {/* Rejection Reason Modal */}
+            <AnimatePresence>
+                {showRejectModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            transition={{ duration: 0.18 }}
+                            className="bg-white rounded-[24px] shadow-2xl border border-navavej-border w-full max-w-md mx-4 overflow-hidden"
+                        >
+                            {/* Modal Header */}
+                            <div className="flex items-center gap-4 px-8 py-6 border-b border-navavej-border bg-red-50">
+                                <div className="w-10 h-10 bg-navavej-red/10 rounded-xl flex items-center justify-center border border-navavej-red/20">
+                                    <AlertTriangle className="w-5 h-5 text-navavej-red" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-navavej-gray-dark uppercase tracking-tight">Reject Recommendation</h3>
+                                    <p className="text-[10px] font-bold text-navavej-red uppercase tracking-widest mt-0.5">Select a reason to continue</p>
+                                </div>
+                            </div>
+
+                            {/* Reason Radio Group */}
+                            <div className="px-8 pt-6 pb-4 space-y-2">
+                                <p className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3">Rejection Reason</p>
+                                {[
+                                    { value: "patient_refusal", label: "Patient Refusal" },
+                                    { value: "done_elsewhere", label: "Already Done Elsewhere" },
+                                    { value: "cost_concern", label: "Cost / Financial Concern" },
+                                    { value: "clinical_override", label: "Clinical Override" },
+                                    { value: "other", label: "Other" },
+                                ].map(({ value, label }) => (
+                                    <label
+                                        key={value}
+                                        className={cn(
+                                            "flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all",
+                                            rejectReason === value
+                                                ? "border-navavej-red bg-red-50"
+                                                : "border-navavej-border bg-white hover:border-navavej-red/30"
+                                        )}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="rejectReason"
+                                            value={value}
+                                            checked={rejectReason === value}
+                                            onChange={() => setRejectReason(value)}
+                                            className="accent-navavej-red"
+                                        />
+                                        <span className={cn(
+                                            "text-xs font-black uppercase tracking-wide",
+                                            rejectReason === value ? "text-navavej-red" : "text-navavej-gray-dark"
+                                        )}>
+                                            {label}
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+
+                            {/* Additional Notes */}
+                            <div className="px-8 pb-4">
+                                <p className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-2">Additional Notes <span className="font-medium normal-case tracking-normal text-navavej-gray-med/70">(optional)</span></p>
+                                <textarea
+                                    value={notes}
+                                    onChange={(e) => setNotes(e.target.value)}
+                                    placeholder="Add context for this rejection..."
+                                    className="w-full h-20 bg-navavej-gray-light border-2 border-navavej-border rounded-xl p-3 text-[11px] font-medium outline-none transition-all resize-none focus:border-navavej-red/50"
+                                />
+                            </div>
+
+                            {/* Modal Actions */}
+                            <div className="px-8 pb-8 flex gap-3">
+                                <button
+                                    onClick={() => { setShowRejectModal(false); setRejectReason("patient_refusal"); }}
+                                    disabled={isSubmitting}
+                                    className="flex-1 py-3 border-2 border-navavej-border text-navavej-gray-dark bg-white hover:bg-navavej-gray-light rounded-xl font-black text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleReject}
+                                    disabled={isSubmitting}
+                                    className="flex-1 py-3 bg-navavej-red text-white hover:bg-red-700 rounded-xl font-black text-xs uppercase tracking-widest transition-colors flex items-center justify-center gap-2 shadow-lg disabled:opacity-70 disabled:cursor-wait"
+                                >
+                                    <XCircle className="w-4 h-4" />
+                                    <span>{isSubmitting ? "..." : "Confirm Rejection"}</span>
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </AnimatePresence>
     );
 }
