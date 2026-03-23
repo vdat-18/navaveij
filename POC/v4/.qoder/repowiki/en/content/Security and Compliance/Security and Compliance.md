@@ -222,9 +222,24 @@ Recurse --> End(["Return Masked Data"])
 - [privacy.py:22-94](file://backend/src/services/privacy.py#L22-L94)
 
 ### Immutable Audit Trail: SHA-256 Hash Chaining
-- AuditLogger writes entries to JSONL (append-only) and JSON array files.
-- Each entry computes current_hash as SHA-256 over sorted JSON payload and stores previous_hash from the last entry.
-- get_logs reads the JSON array for UI dashboards; last hash retrieval ensures chain continuity.
+
+`AuditLogger` writes every AI inference and physician decision to `logs/audit.jsonl` (append-only) using a SHA-256 hash chain. Each entry includes `previous_hash` from the last entry and computes `current_hash = SHA-256(sorted_payload)`. Any post-write modification produces a detectable hash mismatch across all subsequent entries.
+
+#### 5-Dimension Log Structure (Section 6.3 compliance)
+
+Every audit entry is structured around five mandatory dimensions:
+
+| Dimension | Fields | Purpose |
+|-----------|--------|---------|
+| **Who** | `user_id`, `user_role` | Identity and role of the healthcare staff who triggered the action |
+| **When** | `timestamp` (ISO 8601, UTC) | Precise moment of the inference or physician decision event |
+| **Where** | `service_id`, `client_ip`, `request_id` | Originating service and network location — full source traceability |
+| **What** | `masked_ai_prompt`, `masked_ai_response`, `model_id`, `latency_ms`, `safety_conflict_events` | Full masked transaction record — all patient data appears as pseudonymized tokens |
+| **Why** | `patient_id` (token), `action_type`, `request_id` | Clinical purpose that triggered the inference |
+
+PII enforcement: only masked context and masked AI response are persisted. The PII-to-token mapping is held in process memory only during inference and is never written to any log.
+
+Both `log_recommendation()` (AI inference entries) and `log_decision()` (physician Approve/Reject entries) write the same 5-dimension structure. The physician decision entry additionally stores `recommendation_reference_hash` in `"what"` to link back to the original AI inference.
 
 ```mermaid
 sequenceDiagram
@@ -233,21 +248,22 @@ participant AUD as "AuditLogger"
 participant FS as "Filesystem"
 participant UI as "Dashboard"
 API->>AUD : "log_recommendation(...)"
+AUD->>AUD : "Build 5-dimension payload (who/when/where/what/why)"
 AUD->>AUD : "Sort payload keys"
-AUD->>AUD : "Compute SHA-256(current_hash)"
-AUD->>FS : "Append JSONL line"
-AUD->>FS : "Write JSON array entry"
+AUD->>AUD : "Compute SHA-256(previous_hash + payload)"
+AUD->>FS : "Append JSONL line (append-only)"
+note over AUD,FS: Physician decision follows same flow via log_decision()
 UI->>AUD : "get_logs()"
 AUD-->>UI : "Array of entries"
 ```
 
 **Diagram sources**
-- [audit.py:55-121](file://backend/src/services/audit.py#L55-L121)
-- [audit.py:163-173](file://backend/src/services/audit.py#L163-L173)
+- [audit.py:47-111](file://backend/src/services/audit.py#L47-L111)
+- [audit.py:113-167](file://backend/src/services/audit.py#L113-L167)
 - [audit.jsonl:1-21](file://logs/audit.jsonl#L1-L21)
 
 **Section sources**
-- [audit.py:14-173](file://backend/src/services/audit.py#L14-L173)
+- [audit.py:14-183](file://backend/src/services/audit.py#L14-L183)
 - [audit.jsonl:1-21](file://logs/audit.jsonl#L1-L21)
 
 ### Governance Dashboard and Access Monitoring

@@ -65,29 +65,31 @@ class AuditLogger:
 
         payload = {
             "timestamp": timestamp,
+            # Dimension 1 — WHO: identity and role of the healthcare staff
             "who": {
                 "user_id": user_id,
                 "user_role": user_role,
             },
+            # Dimension 3 — WHERE: originating service and network location
             "where": {
                 "service_id": "recommendation-engine-api",
                 "client_ip": client_ip,
+                "request_id": resolved_request_id,
             },
+            # Dimension 4 — WHAT: full masked transaction record (PII replaced by tokens)
             "what": {
-                "prompt": json.dumps(masked_context, ensure_ascii=False),
-                "masked_context": masked_context,
-                "masked_response": ai_output,
+                "masked_ai_prompt": masked_context,
+                "masked_ai_response": ai_output,
                 "latency_ms": int(latency_ms or 0),
                 "model_id": model_id,
                 "safety_conflict_events": safety_conflict_events or [],
             },
+            # Dimension 5 — WHY: clinical purpose that triggered the inference (flat, not nested)
             "why": {
-                "request_context": {
-                    "patient_id": patient_id,
-                    "patient_token": resolved_patient_token,
-                    "action_type": action_type,
-                    "request_id": resolved_request_id,
-                },
+                "patient_id": patient_id,
+                "patient_token": resolved_patient_token,
+                "action_type": action_type,
+                "request_id": resolved_request_id,
             },
             "how": {"model_provider": settings.llm_provider, "model_id": model_id, "action_type": action_type},
             "confidence": ai_output.get("confidence_score"),
@@ -114,26 +116,42 @@ class AuditLogger:
         recommendation_hash: str,
         decision: str,
         physician_id: str,
-        notes: str = ""
+        notes: str = "",
+        user_role: str = "physician",
+        client_ip: str = "unknown",
+        request_id: str = "",
     ) -> str:
         """Record the human physician's decision linked to the AI recommendation."""
         timestamp = datetime.now(timezone.utc).isoformat()
-        
+        resolved_request_id = request_id or f"req_{timestamp.replace(':', '').replace('-', '')[-12:]}"
+
         payload = {
             "timestamp": timestamp,
+            # Dimension 1 — WHO: consistent with log_recommendation format (user_id + user_role)
             "who": {
-                "patient_id": patient_id,
-                "physician_id": physician_id
+                "user_id": physician_id,
+                "user_role": user_role,
             },
+            # Dimension 3 — WHERE: source traceability for the decision event
+            "where": {
+                "service_id": "recommendation-engine-api",
+                "client_ip": client_ip,
+                "request_id": resolved_request_id,
+            },
+            # Dimension 4 — WHAT: the decision event, linked to original AI inference via hash
             "what": {
                 "event": "PROVISIONING_DECISION",
-                "recommendation_reference_hash": recommendation_hash
+                "recommendation_reference_hash": recommendation_hash,
             },
+            # Dimension 5 — WHY: flat structure — patient, purpose, and decision rationale
             "why": {
+                "patient_id": patient_id,
+                "action_type": "PhysicianDecision",
+                "request_id": resolved_request_id,
                 "decision": decision,
-                "notes": notes
+                "notes": notes,
             },
-            "metadata": {"environment": settings.environment},
+            "metadata": {"environment": settings.environment, "request_id": resolved_request_id},
             "previous_hash": self.last_hash,
         }
 
@@ -154,7 +172,7 @@ class AuditLogger:
             return []
         try:
             entries = []
-            with open(self.log_file_jsonl, "r", encoding="utf-8") as f:
+            with open(self.log_file_jsonl, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if line:
