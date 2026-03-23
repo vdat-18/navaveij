@@ -66,7 +66,19 @@ export function BiomarkerTrendGrid({ series }: BiomarkerTrendGridProps) {
                   <YAxis {...defaultYAxisProps} domain={domain} />
                   <Tooltip content={<ChartTooltip showAll={false} />} />
                   {typeof item.reference === "number" && (
-                    <ReferenceLine y={item.reference} stroke="var(--color-navavej-red)" strokeDasharray="4 4" />
+                    <ReferenceLine
+                      y={item.reference}
+                      stroke="var(--color-navavej-red)"
+                      strokeDasharray="4 4"
+                      strokeWidth={2}
+                      label={{
+                        value: `Ref: ${item.reference}`,
+                        position: "insideTopRight",
+                        fill: "var(--color-navavej-red)",
+                        fontSize: 10,
+                        fontWeight: "bold"
+                      }}
+                    />
                   )}
                   <Line
                     name={item.label}
@@ -74,14 +86,102 @@ export function BiomarkerTrendGrid({ series }: BiomarkerTrendGridProps) {
                     dataKey="value"
                     stroke="var(--color-navavej-teal)"
                     strokeWidth={3}
-                    dot={{ r: 3.5, fill: "var(--color-navavej-teal)", strokeWidth: 2, stroke: "var(--background)" }}
+                    dot={(props: any) => {
+                      const { cx, cy, payload, index } = props;
+                      const isLast = index === item.history.length - 1;
+                      const hasRef = typeof item.reference === "number";
+                      
+                      // For this logic, assuming higher is worse for simplicity, or just highlighting if it crossed
+                      // We can check if trend_direction implies what's bad, but simple threshold check:
+                      let isAbnormal = false;
+                      if (hasRef && payload.value !== undefined) {
+                        // Very simple fallback: if it's > reference, flag it (could be enhanced based on biomarker rules)
+                        // Actually, let's highlight if value is significantly different. We don't have > or < rules per metric here.
+                        // For demonstration, let's say value > reference is abnormal if trend is upward, etc.
+                        // Let's just highlight if it's > reference for now as a default "alert" demo.
+                        if (item.label.toLowerCase().includes('hdl')) {
+                            isAbnormal = payload.value < item.reference!; // HDL lower is bad
+                        } else {
+                            isAbnormal = payload.value > item.reference!;
+                        }
+                      }
+
+                      if (isLast) {
+                        return (
+                          <circle
+                            key={`dot-${index}`}
+                            cx={cx}
+                            cy={cy}
+                            r={6}
+                            fill={isAbnormal ? "var(--color-navavej-red)" : "var(--color-navavej-teal)"}
+                            stroke="white"
+                            strokeWidth={2}
+                          />
+                        );
+                      }
+                      
+                      if (isAbnormal) {
+                        return (
+                          <circle
+                            key={`dot-${index}`}
+                            cx={cx}
+                            cy={cy}
+                            r={5}
+                            fill="var(--color-navavej-red)"
+                            stroke="white"
+                            strokeWidth={1}
+                          />
+                        );
+                      }
+
+                      return (
+                        <circle
+                          key={`dot-${index}`}
+                          cx={cx}
+                          cy={cy}
+                          r={3.5}
+                          fill="var(--color-navavej-teal)"
+                          stroke="var(--background)"
+                          strokeWidth={2}
+                        />
+                      );
+                    }}
                   />
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] font-bold text-navavej-gray-med">
-              <span>Now: {item.current} {item.unit}</span>
-              <span>Ref: {typeof item.reference === "number" ? item.reference : "N/A"}</span>
+            
+            {/* Status Banner instead of basic footer */}
+            <div className="mt-3">
+              {typeof item.reference === "number" && item.current !== undefined ? (() => {
+                let isGood = true;
+                if (item.label.toLowerCase().includes('hdl')) {
+                    isGood = item.current >= item.reference;
+                } else {
+                    isGood = item.current <= item.reference;
+                }
+
+                if (isGood) {
+                  return (
+                    <div className="bg-emerald-50 text-emerald-700 p-2 rounded-md text-xs font-medium flex items-center gap-2">
+                      <span>✅</span>
+                      <span>All good: Current ({item.current} {item.unit}) {item.label.toLowerCase().includes('hdl') ? '≥' : '<'} Reference ({item.reference})</span>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div className="bg-rose-50 text-red-700 p-2 rounded-md text-xs font-medium flex items-center gap-2">
+                      <span>⚠️</span>
+                      <span>Alert: Current ({item.current} {item.unit}) {item.label.toLowerCase().includes('hdl') ? '<' : '>'} Reference ({item.reference})</span>
+                    </div>
+                  );
+                }
+              })() : (
+                 <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-navavej-gray-med">
+                  <span>Now: {item.current} {item.unit}</span>
+                  <span>Ref: N/A</span>
+                </div>
+              )}
             </div>
           </div>
         );

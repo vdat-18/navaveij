@@ -77,6 +77,9 @@ end
 ### Component Details
 *   **TrendTimelineScreen:** The main container that handles tab navigation between the Timeline, Biomarker Grid, and Screening Gaps. It receives the full `TimelinePayload` from the backend.
 *   **BiomarkerTrendGrid:** Displays sparklines and charts for historical lab results.
+    *   Features dynamic data points: abnormal values render as red dots, and the most recent reading is highlighted with a larger stroke.
+    *   Threshold lines are explicitly labeled.
+    *   A prominent status banner explicitly calls out "All good" or "Alert" based on the relationship between current value and reference threshold.
 *   **ScreeningGapStatus:** Shows a list of pending/overdue cancer and health screenings.
 *   **ClinicalEventTimeline:** Displays chronological events (labs, diagnoses, screenings).
     *   **Grouped by Date:** Events occurring on the same day are visually grouped under a prominent date header, reducing cognitive load when analyzing check-up visits.
