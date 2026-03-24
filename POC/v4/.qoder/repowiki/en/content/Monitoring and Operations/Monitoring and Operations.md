@@ -225,6 +225,7 @@ ORCH-->>API : "result"
 ### Monitoring Dashboard Configuration
 - Live metrics bar: Display counts for active users, sessions, records, and alerts by severity.
 - Anomaly alerts panel: List triggered anomalies with severity and status placeholders.
+- Audit Log Search: Supports PII masking and "Click-to-Reveal" (Eye icon) for `Who` and `Patient` identification during forensic review.
 - Configure thresholds and refresh intervals in the frontend components and backend snapshot generation.
 
 **Section sources**

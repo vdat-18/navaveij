@@ -270,6 +270,7 @@ AUD-->>UI : "Array of entries"
 - RoleManagementTab renders role permissions across resources for administrative oversight.
 - Access monitoring types define snapshots, alerts, audit log entries, and mapping codes for dashboards.
 - Privacy mode provider persists user preference and toggles PII masking in UI.
+- **Selectively Revealable Audit Details:** Audit log entries in the `AuditLogSearchPanel` use the global `Privacy Mode` state to mask User IDs and Patient IDs in list views. Authorized users can use "Eye" icons in the detail panel to selectively reveal these identities for forensic investigation, with state resetting automatically on each selection to maintain privacy guardrails.
 
 ```mermaid
 classDiagram
