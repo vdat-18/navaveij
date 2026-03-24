@@ -324,6 +324,7 @@ export default function DashboardPage() {
                 setAnalysisTimestamp((data?.metadata?.generated_at as string | undefined) || null);
               }}
               isRuleBasedForced={isRuleBasedForced}
+              hideCharts={true}
             />
 
             {/* Screening & Vaccination collapsible */}

@@ -22,12 +22,12 @@ export function ClinicalEventTimeline({ timeline, startYear }: ClinicalEventTime
   const groupedEvents = useMemo(() => {
     if (!timeline) return [];
     const timelineRows: TimelineRow[] = [];
-    
+
     for (const item of timeline.diagnoses) {
       const terminology = [item.icd10_code ? `ICD10 ${item.icd10_code}` : "", item.snomed_code ? `SNOMED ${item.snomed_code}` : ""]
         .filter(Boolean)
         .join(" • ");
-      
+
       let severity: TimelineRow["severity"] = "info";
       if (item.clinical_status === "active" || item.clinical_status === "recurrence") severity = "abnormal";
       else if (item.clinical_status === "resolved" || item.clinical_status === "remission") severity = "normal";
@@ -41,7 +41,7 @@ export function ClinicalEventTimeline({ timeline, startYear }: ClinicalEventTime
         severity,
       });
     }
-    
+
     for (const item of timeline.significant_lab_events) {
       let severity: TimelineRow["severity"] = "info";
       if (item.threshold_crossed === "normal" || item.interpretation === "Normal") severity = "normal";
@@ -57,12 +57,12 @@ export function ClinicalEventTimeline({ timeline, startYear }: ClinicalEventTime
         severity,
       });
     }
-    
+
     for (const item of timeline.screening_procedure_history) {
       const terminology = [item.cpt_code ? `CPT ${item.cpt_code}` : "", item.snomed_code ? `SNOMED ${item.snomed_code}` : ""]
         .filter(Boolean)
         .join(" • ");
-      
+
       let severity: TimelineRow["severity"] = "info";
       const resultLower = item.result_summary?.toLowerCase() || "";
       if (resultLower.includes("normal") || resultLower.includes("negative")) severity = "normal";
@@ -77,7 +77,7 @@ export function ClinicalEventTimeline({ timeline, startYear }: ClinicalEventTime
         severity,
       });
     }
-    
+
     for (const item of timeline.medication_changes) {
       timelineRows.push({
         date: item.date,
@@ -90,7 +90,7 @@ export function ClinicalEventTimeline({ timeline, startYear }: ClinicalEventTime
     }
 
     const filtered = timelineRows.filter((item) => Number(item.date.slice(0, 4)) >= startYear);
-    
+
     // Group by date, sort dates descending (newest first)
     const grouped = filtered.reduce((acc, row) => {
       if (!acc[row.date]) acc[row.date] = [];
@@ -101,7 +101,7 @@ export function ClinicalEventTimeline({ timeline, startYear }: ClinicalEventTime
     return Object.entries(grouped)
       .sort(([dateA], [dateB]) => (dateA < dateB ? 1 : -1))
       .map(([date, events]) => ({ date, events }));
-      
+
   }, [timeline, startYear]);
 
   const getSeverityIcon = (severity?: string) => {
@@ -165,16 +165,15 @@ export function ClinicalEventTimeline({ timeline, startYear }: ClinicalEventTime
                       </span>
                     </div>
                     {row.severity && row.severity !== "info" && (
-                      <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full ${
-                        row.severity === 'normal' ? 'bg-green-100 text-green-700' :
-                        row.severity === 'abnormal' ? 'bg-red-100 text-red-700' :
-                        'bg-amber-100 text-amber-700'
-                      }`}>
+                      <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full ${row.severity === 'normal' ? 'bg-green-100 text-green-700' :
+                          row.severity === 'abnormal' ? 'bg-red-100 text-red-700' :
+                            'bg-amber-100 text-amber-700'
+                        }`}>
                         {row.severity}
                       </span>
                     )}
                   </div>
-                  
+
                   <div className="pl-5.5">
                     <p className="text-xs font-black text-navavej-gray-dark leading-tight">{row.title}</p>
                     <p className="text-[11px] font-bold text-navavej-gray-dark/80 mt-0.5">{row.detail}</p>

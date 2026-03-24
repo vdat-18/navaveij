@@ -4,10 +4,25 @@ import { PatientDirectoryColumn } from "@/components/dashboard/PatientDirectoryC
 import { TrendTimelineScreen } from "@/components/trend-timeline/TrendTimelineScreen";
 import { usePrivacyMode } from "@/shared/privacy-mode";
 import { usePatient } from "@/shared/patient-context";
+import { useAuth } from "@/shared/auth-context";
+import { useRouter } from "next/navigation";
+import React, { useEffect } from "react";
 
 export default function TrendTimelinePage() {
   const { selectedPatient, setSelectedPatient } = usePatient();
   const { privacyMode, togglePrivacyMode } = usePrivacyMode();
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user && (user.role === "physician" || user.role === "nurse")) {
+      router.replace("/");
+    }
+  }, [user, router]);
+
+  if (user && (user.role === "physician" || user.role === "nurse")) {
+    return null;
+  }
 
   return (
     <main className="w-full pl-4 pr-8 lg:pl-8 lg:pr-16 py-10 min-h-screen bg-white">
@@ -24,11 +39,10 @@ export default function TrendTimelinePage() {
           </div>
           <button
             onClick={togglePrivacyMode}
-            className={`px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest transition-all shadow-sm border-2 ${
-              privacyMode
+            className={`px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest transition-all shadow-sm border-2 ${privacyMode
                 ? "bg-navavej-red text-white border-navavej-red"
                 : "bg-white text-navavej-gray-med border-navavej-border hover:border-emerald-500 hover:text-emerald-600"
-            }`}
+              }`}
           >
             {privacyMode ? "Privacy Mode On" : "Privacy Mode Off"}
           </button>

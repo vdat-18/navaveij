@@ -21,7 +21,10 @@ import {
     ClipboardList,
     CheckCircle,
     Loader2,
+    Sparkles,
+    BarChart3,
 } from "lucide-react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { clinicalService, StageUpdate } from "@/services/api";
 import { cn } from "@/shared/utils";
@@ -36,6 +39,7 @@ interface RecommendationPanelProps {
     privacyMode: boolean;
     onRecommendationLoad?: (data: RecommendationResponse | null) => void;
     isRuleBasedForced: boolean;
+    hideCharts?: boolean;
 }
 
 interface NormalizedAlert {
@@ -145,20 +149,49 @@ const ClinicalRiskGauge = ({ value }: { value: string }) => {
 
     const isHighOrCritical = value === "High" || value === "Critical";
     const isMedium = value === "Medium";
-    
-    const strokeColor = isHighOrCritical ? "var(--color-navavej-red)" : (isMedium ? "var(--color-risk-mod)" : "var(--color-risk-low)");
-    const textColor = isHighOrCritical ? "text-navavej-red" : (isMedium ? "text-orange-500" : "text-green-600");
+
+    const strokeColor = isHighOrCritical ? "var(--color-navavej-red)" : (isMedium ? "#EAB308" : "var(--color-risk-low)");
+    const textColor = isHighOrCritical ? "text-navavej-red" : (isMedium ? "text-yellow-500" : "text-green-600");
 
     return (
         <div className="relative flex flex-col items-center group">
             <svg className="w-48 h-24" viewBox="0 0 100 50">
+                {/* Background segments */}
+                <path
+                    d="M 10 45 A 40 40 0 0 1 30 10.4"
+                    fill="none"
+                    stroke="#10B981"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    className="opacity-10"
+                />
+                <path
+                    d="M 30 10.4 A 40 40 0 0 1 70 10.4"
+                    fill="none"
+                    stroke="#EAB308"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    className="opacity-10"
+                />
+                <path
+                    d="M 70 10.4 A 40 40 0 0 1 90 45"
+                    fill="none"
+                    stroke="#9D0A31"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    className="opacity-10"
+                />
+
+                {/* Background track (subtle) */}
                 <path
                     d="M 10 45 A 40 40 0 0 1 90 45"
                     fill="none"
                     stroke="var(--color-navavej-border)"
                     strokeWidth="6"
                     strokeLinecap="round"
+                    className="opacity-40"
                 />
+
                 <motion.path
                     initial={{ pathLength: 0 }}
                     animate={{ pathLength: percentage / 100 }}
@@ -166,9 +199,12 @@ const ClinicalRiskGauge = ({ value }: { value: string }) => {
                     d="M 10 45 A 40 40 0 0 1 90 45"
                     fill="none"
                     stroke={strokeColor}
-                    strokeWidth="8"
+                    strokeWidth="10"
                     strokeLinecap="round"
-                    className="transition-all duration-500"
+                    className="transition-all duration-500 drop-shadow-[0_0_8px_rgba(0,0,0,0.15)]"
+                    style={{
+                        filter: `drop-shadow(0 0 8px ${isHighOrCritical ? 'rgba(157, 10, 49, 0.4)' : isMedium ? 'rgba(234, 179, 8, 0.4)' : 'rgba(16, 185, 129, 0.4)'})`
+                    }}
                 />
             </svg>
             <div className="absolute top-10 flex flex-col items-center">
@@ -179,6 +215,169 @@ const ClinicalRiskGauge = ({ value }: { value: string }) => {
                     {value}
                 </span>
                 <span className="text-[10px] uppercase tracking-[0.2em] text-navavej-gray-med font-black">Risk Level</span>
+            </div>
+        </div>
+    );
+};
+
+const TrendToast = ({ onDismiss }: { onDismiss: () => void }) => {
+    return (
+        <motion.div
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 50, opacity: 0 }}
+            className="fixed bottom-10 right-10 z-[100] bg-white border-2 border-navavej-teal/30 p-6 rounded-[24px] shadow-2xl flex items-center gap-6"
+        >
+            <div className="w-12 h-12 bg-navavej-teal/10 rounded-2xl flex items-center justify-center animate-bounce shadow-inner">
+                <BarChart3 className="w-6 h-6 text-navavej-teal" />
+            </div>
+            <div>
+                <h4 className="text-sm font-black uppercase text-navavej-gray-dark tracking-wide flex items-center gap-2">
+                    Analysis Synced <Sparkles className="w-3 h-3 text-amber-400" />
+                </h4>
+                <p className="text-[10px] font-bold text-navavej-gray-med uppercase tracking-[0.1em] mt-0.5">Historical trends are now available</p>
+                <div className="flex items-center gap-3 mt-4">
+                    <Link
+                        href="/trend-timeline"
+                        className="px-4 py-2 bg-navavej-teal text-white text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-navavej-teal/90 transition-all shadow-lg hover:scale-105 active:scale-95"
+                    >
+                        View Timeline
+                    </Link>
+                    <button onClick={onDismiss} className="text-[9px] font-black uppercase text-navavej-gray-med hover:text-navavej-gray-dark px-2 transition-colors">Dismiss</button>
+                </div>
+            </div>
+        </motion.div>
+    );
+};
+
+const PackageSeal = ({ tier }: { tier: string }) => {
+    const isDiamond = tier.toLowerCase() === "premium";
+    const isPlatinum = tier.toLowerCase() === "advanced";
+    const isGold = tier.toLowerCase() === "standard";
+
+    let gradientId = "goldGradient";
+    let shimmerId = "goldShimmer";
+    let mainColor = "#FFD700";
+    let secondaryColor = "#B8860B";
+    let ringColor = "rgba(255, 215, 0, 0.4)";
+
+    if (isDiamond) {
+        gradientId = "diamondGradient";
+        shimmerId = "diamondShimmer";
+        mainColor = "#00E5FF";
+        secondaryColor = "#0091EA";
+        ringColor = "rgba(0, 229, 255, 0.4)";
+    } else if (isPlatinum) {
+        gradientId = "platinumGradient";
+        shimmerId = "platinumShimmer";
+        mainColor = "#E5E4E2";
+        secondaryColor = "#A9A9A9";
+        ringColor = "rgba(229, 228, 226, 0.4)";
+    }
+
+    return (
+        <div className="relative group cursor-default">
+            {/* Animated outer rings */}
+            <div className="absolute inset-[-8px] rounded-full border border-dashed opacity-20 animate-[spin_20s_linear_infinite]"
+                style={{ borderColor: mainColor }} />
+            <div className="absolute inset-[-12px] rounded-full border border-dotted opacity-10 animate-[spin_30s_linear_infinite_reverse]"
+                style={{ borderColor: mainColor }} />
+
+            {/* Pulsing glow */}
+            <div className="absolute inset-0 rounded-full blur-xl opacity-40 group-hover:opacity-60 transition-opacity animate-pulse"
+                style={{ backgroundColor: ringColor }} />
+
+            <svg width="80" height="80" viewBox="0 0 100 100" className="relative drop-shadow-2xl">
+                <defs>
+                    <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor={mainColor} />
+                        <stop offset="50%" stopColor="#FFF" />
+                        <stop offset="100%" stopColor={secondaryColor} />
+                    </linearGradient>
+
+                    <linearGradient id={shimmerId} x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="white" stopOpacity="0" />
+                        <stop offset="50%" stopColor="white" stopOpacity="0.8" />
+                        <stop offset="100%" stopColor="white" stopOpacity="0" />
+                    </linearGradient>
+
+                    <filter id="glass">
+                        <feGaussianBlur in="SourceGraphic" stdDeviation="1" />
+                    </filter>
+
+                    <clipPath id="circleClip">
+                        <circle cx="50" cy="50" r="42" />
+                    </clipPath>
+                </defs>
+
+                {/* Ribbon behind the seal */}
+                <motion.path
+                    initial={{ scaleY: 0 }}
+                    animate={{ scaleY: 1 }}
+                    transition={{ duration: 1, delay: 0.5 }}
+                    style={{ originY: "top" }}
+                    d="M 20 70 L 35 95 L 50 85 L 65 95 L 80 70"
+                    fill={secondaryColor}
+                    stroke="white"
+                    strokeWidth="1"
+                    opacity="0.8"
+                />
+
+                {/* Main Circle Body */}
+                <circle cx="50" cy="50" r="42" fill={secondaryColor} />
+                <circle cx="50" cy="50" r="38" fill={`url(#${gradientId})`} />
+
+                {/* Shimmer effect animating across */}
+                <g clipPath="url(#circleClip)">
+                    <motion.rect
+                        x="-100"
+                        y="0"
+                        width="100"
+                        height="100"
+                        fill={`url(#${shimmerId})`}
+                        animate={{ x: [0, 200] }}
+                        transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", repeatDelay: 1 }}
+                        transform="rotate(25)"
+                    />
+                </g>
+
+                <circle cx="50" cy="50" r="34" fill="none" stroke="white" strokeWidth="0.5" strokeDasharray="2 2" opacity="0.5" />
+
+                {/* Emblem inside */}
+                {isDiamond && (
+                    <motion.path
+                        initial={{ opacity: 0, scale: 0.5 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.8 }}
+                        d="M 50 25 L 70 40 L 50 75 L 30 40 Z" fill="white" opacity="0.9"
+                    />
+                )}
+                {isPlatinum && (
+                    <motion.circle
+                        initial={{ opacity: 0, scale: 0.5 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.8 }}
+                        cx="50" cy="50" r="18" fill="white" opacity="0.8"
+                    />
+                )}
+                {isGold && (
+                    <motion.path
+                        initial={{ opacity: 0, scale: 0.5 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.8 }}
+                        d="M 50 30 L 55 45 L 70 45 L 58 55 L 62 70 L 50 60 L 38 70 L 42 55 L 30 45 L 45 45 Z" fill="white" opacity="0.9"
+                    />
+                )}
+
+                {/* Inner glass shine */}
+                <path d="M 30 30 Q 50 15 70 30" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" opacity="0.3" filter="url(#glass)" />
+            </svg>
+
+            {/* Badge Labels */}
+            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-max">
+                <span className="text-[7px] font-black uppercase tracking-[0.2em] px-2 py-0.5 bg-black/50 backdrop-blur-md rounded-full text-white border border-white/20 shrink-0 text-center shadow-lg">
+                    {tier}
+                </span>
             </div>
         </div>
     );
@@ -229,56 +428,63 @@ const PIPELINE_STAGES: {
     Icon: React.ElementType;
     hint?: string;
 }[] = [
-    {
-        num: 1,
-        shortLabel: "Fetching Data",
-        description: "Reading patient history, lab results, and risk signals from all data sources…",
-        color: "bg-teal-500",
-        textColor: "text-teal-600",
-        borderColor: "border-teal-300",
-        bgCard: "bg-teal-50",
-        Icon: Database,
-        hint: "Usually under 2 seconds",
-    },
-    {
-        num: 2,
-        shortLabel: "Applying Rules",
-        description: "Checking eligibility constraints and your hospital's clinical ruleset…",
-        color: "bg-amber-500",
-        textColor: "text-amber-600",
-        borderColor: "border-amber-300",
-        bgCard: "bg-amber-50",
-        Icon: ClipboardList,
-        hint: "Under 1 second",
-    },
-    {
-        num: 3,
-        shortLabel: "AI Reasoning",
-        description: "AI is analysing the patient's risk profile and composing the recommendation…",
-        color: "bg-violet-500",
-        textColor: "text-violet-600",
-        borderColor: "border-violet-300",
-        bgCard: "bg-violet-50",
-        Icon: BrainCircuit,
-        hint: "This step typically takes 7–20 seconds — the AI is thinking carefully",
-    },
-    {
-        num: 6,
-        shortLabel: "Finalising",
-        description: "Running safety validation and writing the audit log…",
-        color: "bg-emerald-500",
-        textColor: "text-emerald-600",
-        borderColor: "border-emerald-300",
-        bgCard: "bg-emerald-50",
-        Icon: ShieldCheck,
-        hint: "Almost done!",
-    },
-];
+        {
+            num: 1,
+            shortLabel: "Fetching Data",
+            description: "Reading patient history, lab results, and risk signals from all data sources…",
+            color: "bg-teal-500",
+            textColor: "text-teal-600",
+            borderColor: "border-teal-300",
+            bgCard: "bg-teal-50",
+            Icon: Database,
+            hint: "Usually under 2 seconds",
+        },
+        {
+            num: 2,
+            shortLabel: "Applying Rules",
+            description: "Checking eligibility constraints and your hospital's clinical ruleset…",
+            color: "bg-amber-500",
+            textColor: "text-amber-600",
+            borderColor: "border-amber-300",
+            bgCard: "bg-amber-50",
+            Icon: ClipboardList,
+            hint: "Under 1 second",
+        },
+        {
+            num: 3,
+            shortLabel: "AI Reasoning",
+            description: "AI is analysing the patient's risk profile and composing the recommendation…",
+            color: "bg-violet-500",
+            textColor: "text-violet-600",
+            borderColor: "border-violet-300",
+            bgCard: "bg-violet-50",
+            Icon: BrainCircuit,
+            hint: "This step typically takes 7–20 seconds — the AI is thinking carefully",
+        },
+        {
+            num: 6,
+            shortLabel: "Finalising",
+            description: "Running safety validation and writing the audit log…",
+            color: "bg-emerald-500",
+            textColor: "text-emerald-600",
+            borderColor: "border-emerald-300",
+            bgCard: "bg-emerald-50",
+            Icon: ShieldCheck,
+            hint: "Almost done!",
+        },
+    ];
 
 // Map raw stage number → index in PIPELINE_STAGES array
 const STAGE_INDEX: Record<number, number> = { 1: 0, 2: 1, 3: 2, 6: 3 };
 
-export function RecommendationPanel({ patientId, patientToken, privacyMode, onRecommendationLoad, isRuleBasedForced }: RecommendationPanelProps) {
+export function RecommendationPanel({
+    patientId,
+    patientToken,
+    privacyMode,
+    onRecommendationLoad,
+    isRuleBasedForced,
+    hideCharts = false
+}: RecommendationPanelProps) {
     const [data, setData] = useState<RecommendationResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [currentStage, setCurrentStage] = useState<StageUpdate | null>(null);
@@ -289,6 +495,10 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
     const [notes, setNotes] = useState("");
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [rejectReason, setRejectReason] = useState("patient_refusal");
+    const [isPackageRevealed, setIsPackageRevealed] = useState(false);
+    const [showTrendToast, setShowTrendToast] = useState(false);
+    const [isAddOnsExpanded, setIsAddOnsExpanded] = useState(true);
+    const [revealedAddOns, setRevealedAddOns] = useState<Record<number, boolean>>({});
 
     useEffect(() => {
         if (!patientToken) {
@@ -304,6 +514,9 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
             setSubmissionError(null);
             setShowRejectModal(false);
             setRejectReason("patient_refusal");
+            setIsPackageRevealed(false);
+            setShowTrendToast(false);
+            setRevealedAddOns({});
             try {
                 const result = await clinicalService.streamRecommendation(
                     patientToken,
@@ -312,6 +525,9 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                 );
                 setData(result);
                 onRecommendationLoad?.(result);
+                if (result) {
+                    setShowTrendToast(true);
+                }
             } catch (err) {
                 console.error("Failed to fetch recommendation:", err);
                 setError(err instanceof Error ? err.message : "Failed to load clinical recommendation");
@@ -442,13 +658,12 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                                     <motion.div
                                         animate={isActive ? { scale: [1, 1.15, 1] } : {}}
                                         transition={isActive ? { duration: 1.2, repeat: Infinity } : {}}
-                                        className={`w-8 h-8 rounded-full flex items-center justify-center border-2 shadow-sm ${
-                                            isDone
-                                                ? "bg-emerald-500 border-emerald-500"
-                                                : isActive
-                                                    ? `${stage.color} ${stage.borderColor}`
-                                                    : "bg-navavej-gray-light border-navavej-border"
-                                        }`}
+                                        className={`w-8 h-8 rounded-full flex items-center justify-center border-2 shadow-sm ${isDone
+                                            ? "bg-emerald-500 border-emerald-500"
+                                            : isActive
+                                                ? `${stage.color} ${stage.borderColor}`
+                                                : "bg-navavej-gray-light border-navavej-border"
+                                            }`}
                                     >
                                         {isDone
                                             ? <CheckCircle className="w-4 h-4 text-white" />
@@ -457,9 +672,8 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                                                 : <span className="text-[10px] font-black text-navavej-gray-med">{idx + 1}</span>
                                         }
                                     </motion.div>
-                                    <span className={`text-[9px] font-bold uppercase tracking-wide text-center leading-tight ${
-                                        isDone ? "text-emerald-600" : isActive ? stage.textColor : "text-navavej-gray-med opacity-50"
-                                    }`}>
+                                    <span className={`text-[9px] font-bold uppercase tracking-wide text-center leading-tight ${isDone ? "text-emerald-600" : isActive ? stage.textColor : "text-navavej-gray-med opacity-50"
+                                        }`}>
                                         {stage.shortLabel}
                                     </span>
                                 </div>
@@ -521,23 +735,72 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                         </div>
                     </div>
 
-                    <div className="lg:col-span-8 navavej-card p-0 rounded-[20px] overflow-hidden flex flex-col md:flex-row shadow-xl">
-                        <div className="bg-navavej-teal p-12 text-white flex flex-col justify-center md:w-[45%]">
-                            <div className="flex items-center gap-2 mb-4 opacity-70">
-                                <Package className="w-5 h-5" />
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Strategy Assignment</span>
+                    <div className="lg:col-span-8 navavej-card p-0 rounded-[20px] overflow-hidden flex flex-col md:flex-row shadow-2xl relative">
+                        {/* Background tier indicator for the whole card */}
+                        <div className={cn(
+                            "absolute top-0 right-0 w-64 h-64 opacity-[0.03] -mr-20 -mt-20 rounded-full",
+                            (data.ai_recommended_tier || "Premium").toLowerCase() === "premium" ? "bg-cyan-500" :
+                                (data.ai_recommended_tier || "Premium").toLowerCase() === "advanced" ? "bg-slate-400" : "bg-amber-400"
+                        )} />
+
+                        <div className={cn(
+                            "p-12 text-white flex flex-col justify-center items-center md:items-start md:w-[45%] relative overflow-hidden transition-colors duration-1000",
+                            (data.ai_recommended_tier || "Premium").toLowerCase() === "premium" ? "bg-gradient-to-br from-cyan-600 to-blue-800" :
+                                (data.ai_recommended_tier || "Premium").toLowerCase() === "advanced" ? "bg-gradient-to-br from-slate-500 to-slate-700" : "bg-gradient-to-br from-amber-500 to-amber-700"
+                        )}>
+                            <div className="flex items-center gap-3 mb-8 opacity-90 relative z-10 w-full">
+                                <Package className="w-5 h-5 text-white/50" />
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70">Strategic Tier</span>
                             </div>
-                            <h3 className="text-4xl font-black tracking-tight">{data.ai_recommended_tier || "Premium"}</h3>
-                            <div className="mt-6 flex items-center gap-2">
-                                <div className="w-10 h-1 bg-white/30 rounded-full overflow-hidden">
-                                    <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} transition={{ duration: 1 }} className="w-full h-full bg-white" />
+
+                            <div className="flex flex-col md:flex-row items-center gap-10 w-full relative z-10">
+                                <PackageSeal tier={data.ai_recommended_tier || "Premium"} />
+
+                                <div className="flex flex-col text-center md:text-left">
+                                    <h3 className="text-4xl font-black tracking-tight leading-none mb-2 drop-shadow-md">
+                                        {data.ai_recommended_tier || "Premium"}
+                                    </h3>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">Verified AI</span>
+                                    </div>
                                 </div>
-                                <span className="text-[10px] font-bold uppercase">Optimal Confidence</span>
+                            </div>
+
+                            <div className="mt-12 flex items-center gap-2 w-full relative z-10">
+                                <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden">
+                                    <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} transition={{ duration: 1.5, ease: "easeOut" }} className="w-full h-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
+                                </div>
+                                <span className="text-[9px] font-black uppercase tracking-tighter text-white/70 whitespace-nowrap">Tier Confidence 100%</span>
                             </div>
                         </div>
 
-                        <div className="flex-1 p-12 bg-white flex flex-col justify-center items-start border-l border-navavej-border">
-                            <div className="flex items-center justify-between w-full mb-8">
+                        <div className="flex-1 p-12 bg-white flex flex-col justify-center items-start border-l border-navavej-border relative">
+                            <AnimatePresence>
+                                {!isPackageRevealed && !privacyMode && (
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        className="absolute inset-0 z-20 bg-white/40 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center"
+                                    >
+                                        <div className="w-16 h-16 bg-navavej-teal/10 rounded-full flex items-center justify-center mb-4 animate-pulse shadow-inner">
+                                            <Package className="w-8 h-8 text-navavej-teal" />
+                                        </div>
+                                        <h4 className="text-sm font-black text-navavej-gray-dark uppercase tracking-widest mb-2">Package Hidden</h4>
+                                        <p className="text-[10px] text-navavej-gray-med font-medium uppercase tracking-widest mb-6">Strategy assigned by AI engine</p>
+                                        <button
+                                            onClick={() => setIsPackageRevealed(true)}
+                                            className="px-6 py-3 bg-navavej-teal text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-xl shadow-xl hover:shadow-navavej-teal/20 active:scale-95 transition-all flex items-center gap-2 group"
+                                        >
+                                            <Search className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                                            Click to reveal package details
+                                        </button>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            <div className={cn("flex items-center justify-between w-full mb-8 transition-all duration-700", !isPackageRevealed && !privacyMode ? "filter blur-lg scale-95 opacity-50" : "scale-100 opacity-100")}>
                                 <div className="flex flex-col">
                                     <span className="text-[9px] font-black text-navavej-gray-med uppercase tracking-[0.2em] mb-1">Recommended Package</span>
                                     <span className={cn("text-xl font-black uppercase tracking-wide", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-gray-dark")}>
@@ -552,12 +815,12 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4 w-full">
-                                <div className="px-5 py-3 bg-navavej-gray-light rounded-xl flex items-center gap-3 border border-navavej-border">
+                            <div className={cn("grid grid-cols-2 gap-4 w-full transition-all duration-700 delay-100", !isPackageRevealed && !privacyMode ? "filter blur-lg scale-95 opacity-50" : "scale-100 opacity-100")}>
+                                <div className="px-5 py-3 bg-navavej-gray-light rounded-xl flex items-center gap-3 border border-navavej-border shadow-sm">
                                     <ShieldCheck className="w-5 h-5 text-navavej-teal" />
                                     <span className="text-[10px] font-black uppercase text-navavej-gray-dark">AI Verified</span>
                                 </div>
-                                <div className="px-5 py-3 bg-navavej-gray-light rounded-xl flex items-center gap-3 border border-navavej-border">
+                                <div className="px-5 py-3 bg-navavej-gray-light rounded-xl flex items-center gap-3 border border-navavej-border shadow-sm">
                                     <CheckCircle2 className="w-5 h-5 text-navavej-teal" />
                                     <span className="text-[10px] font-black uppercase text-navavej-gray-dark">Safety Log OK</span>
                                 </div>
@@ -566,18 +829,24 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                     </div>
                 </div>
 
-                {/* Evolution & Trends - Newly Implemented Visualization */}
-                <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-navavej-teal">
-                        <TrendingUp className="w-5 h-5" />
-                        <span className="text-xs font-black uppercase tracking-[0.2em]">Biomarker Evolution Trends</span>
+                <AnimatePresence>
+                    {showTrendToast && <TrendToast onDismiss={() => setShowTrendToast(false)} />}
+                </AnimatePresence>
+
+                {/* Evolution & Trends - Only shown if not hidden */}
+                {!hideCharts && (
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-navavej-teal">
+                            <TrendingUp className="w-5 h-5" />
+                            <span className="text-xs font-black uppercase tracking-[0.2em]">Biomarker Evolution Trends</span>
+                        </div>
+                        <BiomarkerCharts
+                            bmiHistory={data.biomarker_trends?.bmi?.history || []}
+                            bpHistory={data.biomarker_trends?.blood_pressure?.history || []}
+                        />
+                        <LabResultsGrid labs={data.biomarker_trends?.labs || []} />
                     </div>
-                    <BiomarkerCharts
-                        bmiHistory={data.biomarker_trends?.bmi?.history || []}
-                        bpHistory={data.biomarker_trends?.blood_pressure?.history || []}
-                    />
-                    <LabResultsGrid labs={data.biomarker_trends?.labs || []} />
-                </div>
+                )}
 
                 {/* Detailed Logic & Alerts Reorganized */}
                 <div className="space-y-10">
@@ -659,36 +928,116 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                     {/* 2. Secondary Insights Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
                         {/* Strategic Add-ons List */}
-                        <div className="lg:col-span-8 navavej-card p-10 bg-white border-2 border-navavej-teal/10 shadow-lg flex flex-col">
-                            <div className="flex items-center gap-3 mb-8">
-                                <div className="w-10 h-10 bg-navavej-teal/5 rounded-xl flex items-center justify-center">
-                                    <Package className="w-5 h-5 text-navavej-teal" />
-                                </div>
-                                <h4 className="text-sm font-black text-navavej-gray-dark uppercase tracking-widest">Additional Clinical Screenings</h4>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
-                                {data.add_ons?.map((item: RecommendationAddOn, i: number) => (
-                                    <div key={i} className="p-5 bg-navavej-gray-light rounded-2xl border border-navavej-border hover:border-navavej-teal/30 transition-all group flex flex-col justify-between">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <span className="text-[11px] font-black text-navavej-gray-dark uppercase bg-white px-2 py-1 rounded shadow-sm">{item.item_code}</span>
-                                            <span className={cn(
-                                                "text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest text-white shadow-sm",
-                                                priorityBadgeClass(item.priority_level || item.priority)
-                                            )}>
-                                                {item.priority_level}
+                        <div className="lg:col-span-8 navavej-card p-0 bg-white border-2 border-navavej-teal/10 shadow-lg flex flex-col overflow-hidden">
+                            <button
+                                onClick={() => setIsAddOnsExpanded(!isAddOnsExpanded)}
+                                className="w-full p-10 flex items-center justify-between hover:bg-navavej-gray-light transition-colors group/addons"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-navavej-teal/5 rounded-2xl flex items-center justify-center border border-navavej-teal/10 shadow-inner">
+                                        <Package className="w-6 h-6 text-navavej-teal" />
+                                    </div>
+                                    <div className="text-left">
+                                        <h4 className="text-lg font-black text-navavej-gray-dark uppercase tracking-tight leading-none">Additional Clinical Screenings</h4>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <p className="text-[10px] font-bold text-navavej-teal uppercase tracking-widest">Recommended Supplemental Tests</p>
+                                            <span className="text-[9px] font-black uppercase text-navavej-gray-med opacity-0 group-hover/addons:opacity-100 transition-opacity">
+                                                (Click to {isAddOnsExpanded ? "collapse" : "expand"})
                                             </span>
                                         </div>
-                                        <p className="text-[11px] text-navavej-gray-med font-medium leading-relaxed text-justify">
-                                            {renderBoldText(item.rationale)}
-                                        </p>
                                     </div>
-                                ))}
-                                {(!data.add_ons || data.add_ons.length === 0) && (
-                                    <div className="col-span-2 flex flex-col items-center justify-center py-10 opacity-30 italic text-xs">
-                                        No clinical add-ons required for this tier.
-                                    </div>
-                                )}
-                            </div>
+                                </div>
+                                <motion.div
+                                    animate={{ rotate: isAddOnsExpanded ? 180 : 0 }}
+                                    className="w-10 h-10 rounded-full bg-navavej-gray-light flex items-center justify-center text-navavej-gray-med"
+                                >
+                                    <ChevronDown className="w-6 h-6" />
+                                </motion.div>
+                            </button>
+
+                            <motion.div
+                                initial={false}
+                                animate={{ height: isAddOnsExpanded ? "auto" : 0 }}
+                                className="overflow-hidden"
+                            >
+                                <div className="p-10 pt-0 space-y-4">
+                                    {data.add_ons && [...data.add_ons]
+                                        .sort((a, b) => {
+                                            const getWeight = (p?: string) => {
+                                                const priority = (p || "").toLowerCase();
+                                                if (priority === "red" || priority === "critical" || priority === "high") return 3;
+                                                if (priority === "orange") return 2;
+                                                if (priority === "yellow" || priority === "medium") return 1;
+                                                return 0;
+                                            };
+                                            return getWeight(b.priority_level || b.priority) - getWeight(a.priority_level || a.priority);
+                                        })
+                                        .map((item: RecommendationAddOn, i: number) => {
+                                            const isRevealed = revealedAddOns[i];
+                                            return (
+                                                <div
+                                                    key={i}
+                                                    onClick={() => setRevealedAddOns(prev => ({ ...prev, [i]: !prev[i] }))}
+                                                    className="p-6 bg-navavej-gray-light rounded-2xl border border-navavej-border hover:border-navavej-teal/30 transition-all cursor-pointer group relative overflow-hidden"
+                                                >
+                                                    <div className="flex items-center justify-between mb-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-1.5 h-1.5 bg-navavej-teal rounded-full group-hover:animate-ping" />
+                                                            <span className="text-[12px] font-black text-navavej-gray-dark uppercase bg-white px-3 py-1 rounded-lg shadow-sm border border-navavej-border">
+                                                                {item.item_code}
+                                                            </span>
+                                                        </div>
+                                                        <span className={cn(
+                                                            "text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest text-white shadow-md",
+                                                            priorityBadgeClass(item.priority_level || item.priority)
+                                                        )}>
+                                                            {item.priority_level || item.priority}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="relative">
+                                                        <AnimatePresence mode="wait">
+                                                            {!isRevealed ? (
+                                                                <motion.div
+                                                                    key="masked"
+                                                                    initial={{ opacity: 0 }}
+                                                                    animate={{ opacity: 1 }}
+                                                                    exit={{ opacity: 0 }}
+                                                                    className="flex items-center gap-2 py-2 text-navavej-teal/70"
+                                                                >
+                                                                    <div className="h-2 w-32 bg-navavej-border rounded-full animate-pulse" />
+                                                                    <span className="text-[9px] font-black uppercase tracking-widest italic flex items-center gap-2 group-hover:text-navavej-teal transition-colors">
+                                                                        <BrainCircuit className="w-3 h-3" /> Click to reveal AI reasoning
+                                                                    </span>
+                                                                </motion.div>
+                                                            ) : (
+                                                                <motion.div
+                                                                    key="revealed"
+                                                                    initial={{ opacity: 0, y: 10 }}
+                                                                    animate={{ opacity: 1, y: 0 }}
+                                                                    className="border-t border-navavej-border mt-2 pt-4"
+                                                                >
+                                                                    <div className="flex items-center gap-2 mb-2 text-navavej-teal">
+                                                                        <MessageSquare className="w-3.5 h-3.5" />
+                                                                        <span className="text-[9px] font-black uppercase tracking-widest">AI Rationale</span>
+                                                                    </div>
+                                                                    <p className="text-[11px] text-navavej-gray-dark font-medium leading-relaxed text-left">
+                                                                        {renderBoldText(item.rationale)}
+                                                                    </p>
+                                                                </motion.div>
+                                                            )}
+                                                        </AnimatePresence>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    {(!data.add_ons || data.add_ons.length === 0) && (
+                                        <div className="flex flex-col items-center justify-center py-12 opacity-30 italic text-sm bg-navavej-gray-light rounded-2xl border border-dashed border-navavej-border">
+                                            No clinical add-ons required for this tier.
+                                        </div>
+                                    )}
+                                </div>
+                            </motion.div>
                         </div>
 
                         {/* Critical Signals & Action Panel */}
