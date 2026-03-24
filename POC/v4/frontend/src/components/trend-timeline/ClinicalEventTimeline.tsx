@@ -3,6 +3,7 @@
 import React, { useMemo } from "react";
 import { TimelinePayload } from "@/types/timeline";
 import { CheckCircle2, AlertTriangle, XCircle, Info } from "lucide-react";
+import { cn } from "@/shared/utils";
 
 interface ClinicalEventTimelineProps {
   timeline: TimelinePayload | null;
@@ -132,55 +133,103 @@ export function ClinicalEventTimeline({ timeline, startYear }: ClinicalEventTime
   };
 
   return (
-    <div className="navavej-card bg-white p-5 flex flex-col h-full">
-      <h4 className="text-[11px] font-black text-navavej-gray-dark uppercase tracking-widest mb-4 shrink-0">
+    <div className="navavej-card bg-white p-5 flex flex-col h-full border border-navavej-border/60">
+      <h4 className="text-[11px] font-black text-navavej-gray-dark uppercase tracking-widest mb-4 shrink-0 flex items-center gap-2">
+        <div className="w-1.5 h-1.5 rounded-full bg-navavej-teal" />
         Clinical Event Timeline
       </h4>
-      <div className="space-y-6 overflow-y-auto pr-2 flex-1">
+      <div className="space-y-4 overflow-y-auto pr-3 flex-1 custom-scrollbar max-h-[500px]">
         {groupedEvents.map((group, groupIdx) => (
-          <div key={`group-${group.date}-${groupIdx}`} className="relative pl-4 border-l-2 border-navavej-teal/30">
-            {/* Date Header - Prominent */}
-            <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-navavej-teal ring-4 ring-white" />
-            <h5 className="text-sm font-black text-navavej-gray-dark tracking-wider mb-3 flex items-center gap-2">
-              <span className="bg-navavej-teal text-white px-2 py-0.5 rounded-md">
-                {formatDate(group.date)}
-              </span>
-              <span className="text-[10px] text-navavej-gray-med">
-                {group.events.length} Event{group.events.length > 1 ? 's' : ''}
-              </span>
-            </h5>
-
-            {/* Event Cards for this date */}
-            <div className="space-y-2">
-              {group.events.map((row, idx) => (
-                <div
-                  key={`${row.date}-${row.type}-${idx}`}
-                  className={`border rounded-lg p-3 transition-colors ${getSeverityBg(row.severity)}`}
-                >
-                  <div className="flex justify-between items-start gap-2 mb-1.5">
-                    <div className="flex items-center gap-2">
-                      {getSeverityIcon(row.severity)}
-                      <span className="text-[10px] font-black text-navavej-gray-dark uppercase bg-white/60 px-1.5 py-0.5 rounded">
-                        {row.type}
-                      </span>
+          <div key={`group-${group.date}-${groupIdx}`} className="relative pl-6">
+            {/* Connection Line */}
+            <div className="absolute left-[3px] top-2 bottom-0 w-[2px] bg-navavej-teal/10" />
+            
+            {/* Date Header Dot */}
+            <div className="absolute left-0 top-1 w-2 h-2 rounded-full bg-navavej-teal ring-4 ring-white z-10" />
+            
+            <div className="mb-4">
+                <div className="flex items-center gap-3 mb-2 sticky top-0 bg-white z-20 py-1">
+                    <h5 className="text-lg font-black text-navavej-gray-dark tracking-tighter">
+                        {(() => {
+                            try {
+                                const d = new Date(group.date);
+                                return d.getDate().toString().padStart(2, '0');
+                            } catch { return group.date; }
+                        })()}
+                    </h5>
+                    <div className="flex flex-col">
+                        <span className="text-[9px] font-black text-navavej-teal uppercase tracking-widest leading-none">
+                            {(() => {
+                                try {
+                                    const d = new Date(group.date);
+                                    return new Intl.DateTimeFormat('en-GB', { month: 'short' }).format(d).toUpperCase();
+                                } catch { return ""; }
+                            })()}
+                        </span>
+                        <span className="text-[9px] font-bold text-navavej-gray-med leading-none mt-0.5">
+                            {(() => {
+                                try {
+                                    const d = new Date(group.date);
+                                    return d.getFullYear();
+                                } catch { return ""; }
+                            })()}
+                        </span>
                     </div>
-                    {row.severity && row.severity !== "info" && (
-                      <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full ${row.severity === 'normal' ? 'bg-green-100 text-green-700' :
-                          row.severity === 'abnormal' ? 'bg-red-100 text-red-700' :
-                            'bg-amber-100 text-amber-700'
-                        }`}>
-                        {row.severity}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="pl-5.5">
-                    <p className="text-xs font-black text-navavej-gray-dark leading-tight">{row.title}</p>
-                    <p className="text-[11px] font-bold text-navavej-gray-dark/80 mt-0.5">{row.detail}</p>
-                    <p className="text-[9px] font-bold text-navavej-gray-med mt-1.5 font-mono">{row.terminology}</p>
-                  </div>
+                    <div className="ml-auto bg-navavej-gray-light border border-navavej-border px-1.5 py-0.5 rounded text-[8px] font-black text-navavej-gray-med uppercase">
+                        {group.events.length} Point{group.events.length > 1 ? 's' : ''}
+                    </div>
                 </div>
-              ))}
+
+                {/* Event Cards for this date */}
+                <div className="space-y-2">
+                {group.events.map((row, idx) => {
+                    const isAbnormal = row.severity === 'abnormal';
+                    const isNormal = row.severity === 'normal';
+                    const isBorderline = row.severity === 'borderline';
+                    
+                    return (
+                        <div
+                        key={`${row.date}-${row.type}-${idx}`}
+                        className={cn(
+                            "border-2 rounded-xl p-2.5 transition-all shadow-sm bg-white relative overflow-hidden group hover:shadow-md",
+                            isAbnormal ? "border-navavej-red/10 bg-red-50/5" : 
+                            isNormal ? "border-emerald-100 bg-emerald-50/5" : 
+                            isBorderline ? "border-amber-100 bg-amber-50/5" :
+                            "border-navavej-border/30"
+                        )}
+                        >
+                        <div className="flex items-start justify-between gap-3 mb-1">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[8px] font-black text-navavej-teal uppercase bg-navavej-teal/5 px-1.5 py-0.2 rounded border border-navavej-teal/10">
+                                    {row.type}
+                                </span>
+                                <p className="text-[13px] font-black text-navavej-gray-dark leading-tight group-hover:text-navavej-teal transition-colors truncate max-w-[200px] xl:max-w-[250px]">
+                                    {row.title}
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                                {getSeverityIcon(row.severity)}
+                                <span className={cn(
+                                    "text-[7px] font-black uppercase tracking-tighter",
+                                    isAbnormal ? "text-navavej-red" : isNormal ? "text-emerald-700" : isBorderline ? "text-amber-700" : "text-navavej-gray-med"
+                                )}>
+                                    {isAbnormal ? "ALERT" : isNormal ? "OPTIMAL" : isBorderline ? "CHECK" : "STABLE"}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1 pl-1">
+                            <p className="text-[11px] font-bold text-navavej-gray-dark/80 italic leading-snug">
+                                {row.detail}
+                            </p>
+                            <div className="flex items-center justify-between text-[8px] font-bold text-navavej-gray-med font-mono mt-1 opacity-60">
+                                <span>{row.terminology}</span>
+                            </div>
+                        </div>
+                        </div>
+                    );
+                })}
+                </div>
             </div>
           </div>
         ))}

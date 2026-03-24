@@ -1,70 +1,28 @@
-# Solution — Clinical Event Timeline UX
+# Enhancement 9: Clinical Event Timeline UX
 
-**Date:** 2026-03-23
+## 1. Description
+Refactored `ClinicalEventTimeline.tsx` to be significantly more compact and usable. Previously it occupied excessive vertical space with no scroll, making the Dashboard layout feel unbalanced.
 
----
+## 2. Key Changes
 
-## Technical Solution
+### Layout & Scroll
+- Added fixed max-height (`max-h-[500px]`) with `overflow-y-auto` and `custom-scrollbar`.
+- Date headers are now `sticky` within the scroll container so physicians always see which date they're in.
+- Reduced `space-y` between date groups and event cards.
 
-### The `groupByDate` Logic
-A new grouping function transforms the flat array of event rows into a structured dictionary. This step allows the UI to iterate over "dates" rather than "events".
+### Event Card Redesign
+- Type badge, title, and severity indicator moved to a single flex row (instead of stacked vertically).
+- Card padding reduced from `p-4` to `p-2.5`, border-radius tightened from `rounded-2xl` to `rounded-xl`.
+- Status label moved inline alongside the icon; now uses short tokens: ALERT / OPTIMAL / CHECK / STABLE.
+- Terminology code shown dimmed at 60% opacity in a compact mono row.
+- Added `isBorderline` state with amber color treatment.
 
-```tsx
-// 1. Map data to rows
-const allRows: TimelineRow[] = [
-  // ... map diagnoses, labs, screenings, medications
-];
+### Visual Polish
+- Card borders use subtle tinted backgrounds per severity (red/green/amber/neutral).
+- Title now truncates at `max-w-[200px]` (xl: 250px) to prevent layout overflow on long names.
+- Section header updated with teal dot indicator consistent with other timeline panels.
 
-// 2. Sort all rows first (descending by date string)
-allRows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-// 3. Group by date
-const groupedByDate: Record<string, TimelineRow[]> = {};
-allRows.forEach(row => {
-  if (!groupedByDate[row.date]) {
-    groupedByDate[row.date] = [];
-  }
-  groupedByDate[row.date].push(row);
-});
-```
-
-### The Render Loop
-The render layout was refactored. The outermost iteration is over `Object.keys(groupedByDate)`.
-
-```tsx
-<div className="space-y-6"> {/* Increased spacing between dates */}
-  {Object.keys(groupedByDate).map(dateString => (
-    <div key={dateString} className="mb-6">
-      {/* 1. Prominent Date Header */}
-      <div className="font-bold text-lg mb-2 text-slate-800 border-b pb-1">
-        {formatDate(dateString)}
-      </div>
-
-      {/* 2. Grouped Events Container */}
-      <div className="space-y-3 pl-4 border-l-2 border-slate-200">
-        {groupedByDate[dateString].map((row, idx) => (
-          <div key={idx} className="bg-white p-3 rounded shadow-sm border">
-            {/* Event content, Type Icon, Title, Detail */}
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="font-medium text-slate-700">{row.title}</span>
-                <span className="text-sm text-slate-500 ml-2">{row.type}</span>
-              </div>
-              {/* 3. Visual Badge */}
-              <Badge severity={row.badgeSeverity}>{row.badgeLabel}</Badge>
-            </div>
-            <p className="text-sm mt-1">{row.detail}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  ))}
-</div>
-```
-
-### Severity Inference
-The mapping logic was updated to calculate a `badgeLabel` and `badgeSeverity` for each row based on its underlying source data.
-
-*   **Lab:** Evaluated `row.source.interpretation` ("Normal", "High", "Low", "Abnormal"). Assigned a red/orange badge for non-normal values.
-*   **Diagnosis:** Displayed `clinical_status` ("active" = yellow/red, "resolved" = green/gray).
-*   **Medication:** Displayed `action` ("started", "stopped").
+## 3. Impact
+- No more unbounded vertical expansion; the section fits within the page layout.
+- Physicians can scroll through all data points without leaving the dashboard context.
+- Higher event density per viewport improves clinical review speed.

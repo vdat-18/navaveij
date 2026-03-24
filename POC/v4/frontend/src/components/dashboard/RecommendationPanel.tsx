@@ -79,22 +79,45 @@ const normalizeClinicalToken = (token: string) =>
         })
         .join(" ");
 
-const splitConsultationSentences = (value: string) =>
-    value
-        .split(/\.(?!\d)(?=\s+[A-Z0-9]|$)|(?:\n|^)\s*-\s+|(?<=\.)\s*-\s+/g)
-        .map((sentence) => sentence.trim().replace(/^(?:[*-]|\d+[\.\)])\s*/, ""))
-        .filter((sentence) => sentence.length > 2)
-        .filter((sentence) => !/^\d+(?:[.,]\d+)?[%)]?$/.test(sentence))
-        .map((sentence) => sentence.endsWith(".") ? sentence : `${sentence}.`);
+const splitConsultationSentences = (value: string) => {
+    // Better regex for sentence splitting that avoids abbreviations
+    // Splits on periods followed by whitespace and an uppercase letter, or at the start of bullets
+    const sentences = value
+        .split(/\.(?!\d)(?=\s+[A-Z0-9]|$)|(?:\n|^)\s*-\s+/g)
+        .map(s => s.trim())
+        .filter(s => s.length > 2);
 
-const renderBoldText = (text: string | string[] | null | undefined) => {
+    // Re-join sentences that were split inappropriately (e.g., inside abbreviations like e.g., i.e.)
+    const combined: string[] = [];
+    for (let i = 0; i < sentences.length; i++) {
+        const current = sentences[i];
+        const lastInCombined = combined[combined.length - 1];
+        
+        // If the current sentence starts with a character that suggests it's a fragment 
+        // OR the previous one ends with an abbreviation fragment, join them
+        if (lastInCombined && (
+            /^\s*[a-z0-9]/.test(current) || 
+            /\s(e\.g|i\.e|mg|dl|ml|dr|vs)$/i.test(lastInCombined) ||
+            lastInCombined.endsWith("(")
+        )) {
+            combined[combined.length - 1] = lastInCombined + (lastInCombined.endsWith(".") ? "" : ".") + " " + current;
+        } else {
+            combined.push(current);
+        }
+    }
+
+    return combined
+        .map((sentence) => sentence.endsWith(".") || sentence.endsWith("!") || sentence.endsWith("?") ? sentence : `${sentence}.`);
+};
+
+const renderBoldText = (text: string | string[] | null | undefined, sentiment?: 'good' | 'bad' | 'neutral') => {
     if (!text) return null;
 
     // Handle array of strings (like add_on_highlights)
     if (Array.isArray(text)) {
         return text.map((item, idx) => (
             <span key={idx}>
-                {renderBoldText(item)}
+                {renderBoldText(item, sentiment)}
                 {idx < text.length - 1 ? ' ' : ''}
             </span>
         ));
@@ -105,26 +128,27 @@ const renderBoldText = (text: string | string[] | null | undefined) => {
     // 1. CLEANUP QUOTES: Remove all quote types (single, double, curly/smart quotes)
     content = content.replace(/['"‘’“”]/g, "");
 
-    // 2. AUTO-TRANSLATE: Check for any technical identifiers from our dictionary
-    // We sort keys by length descending to match longer identifiers first (e.g., PREMIUM_SEVERE_SINGLE before PREMIUM)
+    // 2. AUTO-HIGHLIGHT: Clinical measurements and units (e.g., 140/90 mmHg, 5.5 mg/dL, 23%)
+    const unitRegex = /\b(\d+(?:\.\d+)?(?:\/\d+)?\s*(?:mg\/dL|mmol\/L|mmHg|kg\/m²|kg\/m2|mL\/min|years|days|weeks|months|%))\b/gi;
+    content = content.replace(unitRegex, (match) => `**${match}**`);
+
+    // 3. AUTO-TRANSLATE: Check for any technical identifiers from our dictionary
     const dictKeys = Object.keys(CLINICAL_DICTIONARY).sort((a, b) => b.length - a.length);
 
     dictKeys.forEach(key => {
-        // Use regex with word boundaries to replace exact identifiers
         const regex = new RegExp(`\\b${key}\\b`, 'g');
         if (content.includes(key)) {
-            // Replace with wrapped bold version if it's not already bolded
-            // Note: the split/map below will handle the bolding if we wrap it in **
             content = content.replace(regex, `**${CLINICAL_DICTIONARY[key]}**`);
         }
     });
 
     content = content.replace(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g, (token) => `**${normalizeClinicalToken(token)}**`);
 
-    // 3. CLEANUP: Normalize multiple asterisks (e.g., ****Text**** to **Text**)
+    // 4. CLEANUP: Normalize multiple asterisks and potential nesting
     content = content.replace(/\*{3,}/g, '**');
+    content = content.replace(/\*\*\s*\*\*/g, ''); // Fix double bolding markers ** **
 
-    // 4. FIX: Normalize common AI mistake where it does *Text:** or **Text*
+    // 4. FIX: Normalize common AI mistake
     content = content.replace(/\*+([^*]+):\*+/g, '**$1:**');
 
     const boldMarkerCount = (content.match(/\*\*/g) || []).length;
@@ -133,11 +157,29 @@ const renderBoldText = (text: string | string[] | null | undefined) => {
     }
 
     // 5. RENDER: Split by ** markers and render bold parts
-    return content.split(/(\*\*.*?\*\*)/g).map((part, i) =>
-        part.startsWith('**') && part.endsWith('**')
-            ? <strong key={i} className="font-black text-navavej-teal">{part.slice(2, -2)}</strong>
-            : part
-    );
+    const textColorClass = sentiment === 'bad' ? 'text-navavej-red' : (sentiment === 'good' ? 'text-emerald-700' : 'text-navavej-teal');
+    const bgColorClass = sentiment === 'bad' ? 'bg-navavej-red/10 border-navavej-red/20' : (sentiment === 'good' ? 'bg-emerald-50 border-emerald-100' : 'bg-navavej-teal/10 border-navavej-teal/20');
+    
+    return content.split(/(\*\*.*?\*\*)/g).map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            const inner = part.slice(2, -2);
+            // If it ends with a colon, it's likely a label - render without chip styles
+            if (inner.trim().endsWith(':')) {
+                return (
+                    <strong key={i} className={cn("font-black tracking-tight align-baseline uppercase text-[11px]", textColorClass)}>
+                        {inner}
+                    </strong>
+                );
+            }
+            // Standard clinical chip for values/signals
+            return (
+                <strong key={i} className={cn("font-black px-1.5 py-0.5 rounded-md border inline-flex items-center shadow-[0_1px_2px_rgba(0,0,0,0.05)] mx-0.5 whitespace-nowrap leading-none align-baseline", textColorClass, bgColorClass)}>
+                    {inner}
+                </strong>
+            );
+        }
+        return <span key={i} className="align-baseline">{part}</span>;
+    });
 };
 
 const ClinicalRiskGauge = ({ value }: { value: string }) => {
@@ -391,6 +433,16 @@ const priorityBadgeClass = (priority?: string) => {
     return "bg-navavej-teal";
 };
 
+const getLineSentiment = (line: string): 'good' | 'bad' | 'neutral' => {
+    const text = line.toLowerCase();
+    const badKeywords = ['risk', 'high', 'critical', 'abnormal', 'failure', 'warning', 'elevated', 'low', 'decreased', 'positive history', 'presence of', 'overdue', 'gap', 'urgent', 'uncontrolled'];
+    const goodKeywords = ['normal', 'stable', 'good', 'no history', 'negative', 'negative family', 'compliant', 'controlled', 'within limits', 'non-smoker', 'clear'];
+    
+    if (badKeywords.some(k => text.includes(k))) return 'bad';
+    if (goodKeywords.some(k => text.includes(k))) return 'good';
+    return 'neutral';
+};
+
 const normalizeCriticalAlerts = (patientHighAlert: PatientHighAlert | CriticalSignal[] | null | undefined): NormalizedAlert[] => {
     if (Array.isArray(patientHighAlert)) {
         return patientHighAlert
@@ -398,16 +450,15 @@ const normalizeCriticalAlerts = (patientHighAlert: PatientHighAlert | CriticalSi
             .map((signal) => ({
                 label: signal.label || signal.signal_id || "Clinical Signal",
                 sub: signal.clinical_note || "Immediate clinical review recommended",
-                value: signal.severity === "Critical" ? "URGENT" : signal.severity || "MONITOR",
+                value: signal.severity || "MONITOR",
             }));
     }
     if (Array.isArray(patientHighAlert?.critical_signals)) {
         const mapped = patientHighAlert.critical_signals
-            .filter((signal): signal is CriticalSignal => !!signal && typeof signal === "object")
             .map((signal) => ({
                 label: signal.label || signal.signal_id || "Clinical Signal",
                 sub: signal.clinical_note || "Immediate clinical review recommended",
-                value: signal.severity === "Critical" ? "URGENT" : signal.severity || "MONITOR",
+                value: signal.severity || "MONITOR",
             }));
         if (mapped.length > 0) {
             return mapped;
@@ -495,7 +546,7 @@ export function RecommendationPanel({
     const [notes, setNotes] = useState("");
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [rejectReason, setRejectReason] = useState("patient_refusal");
-    const [isPackageRevealed, setIsPackageRevealed] = useState(false);
+    const [isPackageRevealed, setIsPackageRevealed] = useState(true);
     const [showTrendToast, setShowTrendToast] = useState(false);
     const [isAddOnsExpanded, setIsAddOnsExpanded] = useState(true);
     const [revealedAddOns, setRevealedAddOns] = useState<Record<number, boolean>>({});
@@ -718,116 +769,150 @@ export function RecommendationPanel({
                 key={patientToken}
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="space-y-10"
+                className="space-y-6"
             >
-                {/* Intelligence HUD Panels */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-
-                    <div className="lg:col-span-4 navavej-card p-10 flex flex-col items-center justify-center relative bg-white group overflow-hidden">
-                        <div className="absolute top-0 left-0 w-2 h-full bg-navavej-teal/20 transition-all group-hover:bg-navavej-teal" />
-                        <ClinicalRiskGauge value={data.overall_risk_level} />
-                        <div className="mt-8 flex flex-col items-center">
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="w-2 h-2 bg-navavej-teal rounded-full animate-ping" />
-                                <span className="text-[9px] font-black text-navavej-teal uppercase tracking-widest">Active Monitoring</span>
+                    <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-12 navavej-card p-0 rounded-[24px] overflow-hidden shadow-2xl relative bg-white border border-navavej-border min-h-[160px] items-stretch">
+                        {/* 1. Active Monitoring (Gauge) - Equally Sized */}
+                        <div className="md:col-span-2 border-r border-navavej-border/60 p-4 flex flex-col items-center justify-center bg-white group relative">
+                            <div className="scale-[0.6] origin-center -mb-4">
+                                <ClinicalRiskGauge value={data.overall_risk_level} />
                             </div>
-                            <p className="text-[11px] text-navavej-gray-med font-medium text-center italic">Calculated based on current BMI, ASCVD scores and clinical signals.</p>
+                            <div className="flex flex-col items-center mt-2">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <div className="w-1.5 h-1.5 bg-navavej-teal rounded-full animate-pulse shadow-[0_0_5px_rgba(20,184,166,0.6)]" />
+                                    <span className="text-[10px] font-bold text-navavej-teal uppercase tracking-widest">Active Monitoring</span>
+                                </div>
+                                <p className="text-[8px] text-navavej-gray-med font-medium text-center italic opacity-60">Personalized baseline.</p>
+                            </div>
                         </div>
-                    </div>
 
-                    <div className="lg:col-span-8 navavej-card p-0 rounded-[20px] overflow-hidden flex flex-col md:flex-row shadow-2xl relative">
-                        {/* Background tier indicator for the whole card */}
+                        {/* 2. Strategic Tier (Blue box) - Equally Sized */}
                         <div className={cn(
-                            "absolute top-0 right-0 w-64 h-64 opacity-[0.03] -mr-20 -mt-20 rounded-full",
-                            (data.ai_recommended_tier || "Premium").toLowerCase() === "premium" ? "bg-cyan-500" :
-                                (data.ai_recommended_tier || "Premium").toLowerCase() === "advanced" ? "bg-slate-400" : "bg-amber-400"
-                        )} />
-
-                        <div className={cn(
-                            "p-12 text-white flex flex-col justify-center items-center md:items-start md:w-[45%] relative overflow-hidden transition-colors duration-1000",
-                            (data.ai_recommended_tier || "Premium").toLowerCase() === "premium" ? "bg-gradient-to-br from-cyan-600 to-blue-800" :
-                                (data.ai_recommended_tier || "Premium").toLowerCase() === "advanced" ? "bg-gradient-to-br from-slate-500 to-slate-700" : "bg-gradient-to-br from-amber-500 to-amber-700"
+                            "md:col-span-2 p-4 text-white flex flex-col justify-center items-center relative overflow-hidden transition-all duration-1000",
+                            (data.ai_recommended_tier || "Premium").toLowerCase() === "premium" ? "bg-gradient-to-br from-cyan-600 to-blue-900" :
+                                (data.ai_recommended_tier || "Premium").toLowerCase() === "advanced" ? "bg-gradient-to-br from-[#4A5568] to-[#2D3748]" : "bg-gradient-to-br from-amber-600 to-amber-900"
                         )}>
-                            <div className="flex items-center gap-3 mb-8 opacity-90 relative z-10 w-full">
-                                <Package className="w-5 h-5 text-white/50" />
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70">Strategic Tier</span>
+                             <div className="flex items-center justify-center gap-1.5 mb-3 opacity-80 relative z-10 w-full group">
+                                <Package className="w-3.5 h-3.5 text-white/40 group-hover:text-white/60 transition-colors" />
+                                <span className="text-[9px] font-bold uppercase tracking-widest text-white/60">Strategic Tier</span>
                             </div>
 
-                            <div className="flex flex-col md:flex-row items-center gap-10 w-full relative z-10">
+                            <div className="flex flex-col items-center gap-4 w-full relative z-10 text-center">
                                 <PackageSeal tier={data.ai_recommended_tier || "Premium"} />
-
-                                <div className="flex flex-col text-center md:text-left">
-                                    <h3 className="text-4xl font-black tracking-tight leading-none mb-2 drop-shadow-md">
+                                <div className="flex flex-col items-center">
+                                    <h3 className="text-xl font-black tracking-tight leading-none mb-1.5 drop-shadow-xl uppercase text-center">
                                         {data.ai_recommended_tier || "Premium"}
                                     </h3>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                                        <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">Verified AI</span>
+                                    <div className="flex items-center gap-1.5 justify-center">
+                                        <div className="w-1 h-1 bg-navavej-teal rounded-full" />
+                                        <span className="text-[6px] font-black uppercase tracking-[0.2em] text-white/50">Trace Verified</span>
                                     </div>
                                 </div>
                             </div>
-
-                            <div className="mt-12 flex items-center gap-2 w-full relative z-10">
-                                <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden">
-                                    <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} transition={{ duration: 1.5, ease: "easeOut" }} className="w-full h-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
-                                </div>
-                                <span className="text-[9px] font-black uppercase tracking-tighter text-white/70 whitespace-nowrap">Tier Confidence 100%</span>
-                            </div>
                         </div>
 
-                        <div className="flex-1 p-12 bg-white flex flex-col justify-center items-start border-l border-navavej-border relative">
-                            <AnimatePresence>
-                                {!isPackageRevealed && !privacyMode && (
-                                    <motion.div
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        className="absolute inset-0 z-20 bg-white/40 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center"
-                                    >
-                                        <div className="w-16 h-16 bg-navavej-teal/10 rounded-full flex items-center justify-center mb-4 animate-pulse shadow-inner">
-                                            <Package className="w-8 h-8 text-navavej-teal" />
-                                        </div>
-                                        <h4 className="text-sm font-black text-navavej-gray-dark uppercase tracking-widest mb-2">Package Hidden</h4>
-                                        <p className="text-[10px] text-navavej-gray-med font-medium uppercase tracking-widest mb-6">Strategy assigned by AI engine</p>
-                                        <button
-                                            onClick={() => setIsPackageRevealed(true)}
-                                            className="px-6 py-3 bg-navavej-teal text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-xl shadow-xl hover:shadow-navavej-teal/20 active:scale-95 transition-all flex items-center gap-2 group"
-                                        >
-                                            <Search className="w-4 h-4 group-hover:rotate-12 transition-transform" />
-                                            Click to reveal package details
-                                        </button>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-
-                            <div className={cn("flex items-center justify-between w-full mb-8 transition-all duration-700", !isPackageRevealed && !privacyMode ? "filter blur-lg scale-95 opacity-50" : "scale-100 opacity-100")}>
-                                <div className="flex flex-col">
-                                    <span className="text-[9px] font-black text-navavej-gray-med uppercase tracking-[0.2em] mb-1">Recommended Package</span>
-                                    <span className={cn("text-xl font-black uppercase tracking-wide", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-gray-dark")}>
-                                        {privacyMode ? maskedPackageName : (data.resolved_package?.name || data.resolved_package?.package_name || "Unknown Package")}
+                        {/* 3. Recommended Plan section - Equally Sized */}
+                        <div className="md:col-span-2 p-4 flex flex-col items-center justify-center bg-white border-r border-navavej-border/60 relative group text-center">
+                            <div className="space-y-3 flex flex-col items-center">
+                                <div className="space-y-0.5">
+                                    <span className="text-[8px] font-bold text-navavej-gray-med uppercase tracking-wider block opacity-70">Plan Type</span>
+                                    <span className={cn("text-sm font-bold leading-tight tracking-tight", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-gray-dark")}>
+                                        {privacyMode ? maskedPackageName : (data.resolved_package?.name || data.resolved_package?.package_name || "Unknown Plan")}
                                     </span>
                                 </div>
-                                <div className="flex flex-col items-end">
-                                    <span className="text-[9px] font-black text-navavej-gray-med uppercase tracking-[0.2em] mb-1">Program Value</span>
-                                    <span className={cn("text-3xl font-black italic", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-teal")}>
+                                
+                                <div className="space-y-1">
+                                    <span className="text-[9px] font-bold text-navavej-gray-med uppercase tracking-wider block opacity-70">Total Investment</span>
+                                    <span className={cn("text-2xl font-bold tracking-tighter", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-teal")}>
                                         {privacyMode ? maskedPriceValue : (data.resolved_package?.price_thb ? `฿${data.resolved_package.price_thb.toLocaleString()}` : "Price TBD")}
                                     </span>
                                 </div>
-                            </div>
 
-                            <div className={cn("grid grid-cols-2 gap-4 w-full transition-all duration-700 delay-100", !isPackageRevealed && !privacyMode ? "filter blur-lg scale-95 opacity-50" : "scale-100 opacity-100")}>
-                                <div className="px-5 py-3 bg-navavej-gray-light rounded-xl flex items-center gap-3 border border-navavej-border shadow-sm">
-                                    <ShieldCheck className="w-5 h-5 text-navavej-teal" />
-                                    <span className="text-[10px] font-black uppercase text-navavej-gray-dark">AI Verified</span>
+                                <div className="mx-auto w-fit px-2 py-1 bg-navavej-gray-light border border-navavej-border/60 rounded-md flex items-center justify-center gap-1.5">
+                                    <ShieldCheck className="w-2.5 h-2.5 text-navavej-teal" />
+                                    <span className="text-[6px] font-black uppercase text-navavej-gray-dark tracking-[0.2em]">Safety OK</span>
                                 </div>
-                                <div className="px-5 py-3 bg-navavej-gray-light rounded-xl flex items-center gap-3 border border-navavej-border shadow-sm">
-                                    <CheckCircle2 className="w-5 h-5 text-navavej-teal" />
-                                    <span className="text-[10px] font-black uppercase text-navavej-gray-dark">Safety Log OK</span>
+                            </div>
+                        </div>
+
+                        {/* 4. Strategic Add-ons HUD - Single Column Vertical List */}
+                        <div className="md:col-span-6 bg-white p-4 flex flex-col relative border-l border-navavej-border/40">
+                            <div className="flex justify-between items-center mb-3 shrink-0">
+                                <div className="flex items-center gap-2">
+                                    <Sparkles className="w-3.5 h-3.5 text-navavej-teal" />
+                                    <h4 className="text-[9px] font-bold text-navavej-teal uppercase tracking-widest">Strategic Add-ons</h4>
+                                </div>
+                                <div className="px-3 py-1 bg-navavej-teal/10 rounded-full text-[9px] font-bold text-navavej-teal uppercase tracking-widest">
+                                    {data.add_ons?.length || 0} Recommended
+                                </div>
+                            </div>
+                            
+                            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar max-h-[220px]">
+                                <div className="space-y-3">
+                                    {data.add_ons && data.add_ons.length > 0 ? (
+                                        [...data.add_ons]
+                                            .sort((a, b) => {
+                                                const pMap: Record<string, number> = { 'red': 0, 'critical': 0, 'high': 0, 'orange': 1, 'yellow': 2, 'medium': 2, 'green': 3, 'low': 3 };
+                                                const prioA = (a.priority_level || a.priority || "").toLowerCase();
+                                                const prioB = (b.priority_level || b.priority || "").toLowerCase();
+                                                return (pMap[prioA] ?? 99) - (pMap[prioB] ?? 99);
+                                            })
+                                            .map((item, idx) => {
+                                                const prio = (item.priority_level || item.priority || "").toLowerCase();
+                                                const isRed = prio === 'red' || prio === 'critical' || prio === 'high';
+                                                const isGreen = prio === 'green' || prio === 'low';
+                                                
+                                                return (
+                                                    <div 
+                                                        key={idx} 
+                                                        className={cn(
+                                                            "group relative p-3 rounded-2xl border-2 transition-all duration-300 hover:shadow-xl hover:scale-[1.01] cursor-help",
+                                                            isRed ? "bg-navavej-red/[0.03] border-navavej-red/10 hover:border-navavej-red/30" :
+                                                            isGreen ? "bg-emerald-50/20 border-emerald-100 hover:border-emerald-300" :
+                                                            "bg-amber-50/20 border-amber-100 hover:border-amber-300"
+                                                        )}
+                                                    >
+                                                        <div className="flex justify-between items-center gap-4">
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className={cn(
+                                                                        "w-1.5 h-1.5 rounded-full shadow-sm shrink-0",
+                                                                        isRed ? "bg-navavej-red animate-pulse" :
+                                                                        isGreen ? "bg-emerald-500" : "bg-amber-500"
+                                                                    )} />
+                                                                    <h5 className="text-[13px] font-bold text-navavej-gray-dark tracking-tight leading-none truncate group-hover:whitespace-normal">
+                                                                        {item.label}
+                                                                    </h5>
+                                                                </div>
+                                                                
+                                                                {/* Reveal-on-hover rationale */}
+                                                                <div className="max-h-0 opacity-0 overflow-hidden group-hover:max-h-32 group-hover:opacity-100 group-hover:mt-3 transition-all duration-500 ease-in-out">
+                                                                    <p className="text-[11px] font-bold text-navavej-gray-dark/60 leading-relaxed italic border-l-2 border-navavej-teal/20 pl-3">
+                                                                        {item.rationale}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right shrink-0">
+                                                                <p className={cn(
+                                                                    "text-[14px] font-black tracking-tight",
+                                                                    isRed ? "text-navavej-red" : isGreen ? "text-emerald-700" : "text-amber-700"
+                                                                )}>
+                                                                    {item.price_thb ? `฿${item.price_thb.toLocaleString()}` : '—'}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                    ) : (
+                                        <div className="text-center py-8 opacity-30 italic text-[10px] font-bold uppercase tracking-widest">
+                                            No additional tests recommended
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
                 <AnimatePresence>
                     {showTrendToast && <TrendToast onDismiss={() => setShowTrendToast(false)} />}
@@ -856,37 +941,55 @@ export function RecommendationPanel({
 
                         <div className="flex items-center justify-between mb-10 relative z-10">
                             <div className="flex items-center gap-5">
-                                <div className="w-14 h-14 bg-navavej-teal/10 rounded-2xl flex items-center justify-center border border-navavej-teal/20 shadow-inner group-hover:rotate-3 transition-transform">
-                                    <BrainCircuit className="w-7 h-7 text-navavej-teal" />
+                                <div className="w-14 h-14 bg-navavej-teal/10 rounded-2xl flex items-center justify-center border border-navavej-teal/20 shadow-inner group-hover:rotate-1 transition-transform">
+                                    <BrainCircuit className="w-8 h-8 text-navavej-teal" />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-black text-navavej-gray-dark uppercase tracking-tight leading-none">Clinical Logic & Rationale</h3>
-                                    <p className="text-[10px] font-bold text-navavej-teal uppercase tracking-widest mt-1">Physician Evidence Stream</p>
+                                    <h3 className="text-2xl font-black text-navavej-gray-dark tracking-tighter leading-none uppercase italic">Clinical Logic & Rationale</h3>
+                                    <p className="text-[11px] font-black text-navavej-teal uppercase tracking-[0.2em] mt-2 opacity-80">Physician Evidence Stream</p>
                                 </div>
                             </div>
                             <div className="px-4 py-1.5 bg-navavej-teal/10 rounded-full text-[10px] font-black text-navavej-teal uppercase tracking-[0.2em] shadow-sm">Trace Active</div>
                         </div>
 
-                        <div className="relative z-10 bg-navavej-gray-light/30 rounded-[24px] p-8 border border-navavej-border/50">
-                            <div className="space-y-4">
+                        <div className="relative z-10 bg-white rounded-[24px] p-6 border border-navavej-border/50 shadow-sm">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {clinicalReasoningLines.length > 0 ? (
-                                    clinicalReasoningLines.map((line: string, idx: number) => (
-                                        <div key={idx} className="flex gap-4">
-                                            <div className={cn(
-                                                "mt-2 w-2 h-2 rounded-full shrink-0 shadow-[0_0_8px_rgba(45,161,162,0.4)]",
-                                                privacyMode ? "bg-navavej-red" : "bg-navavej-teal"
-                                            )} />
-                                            <p className={cn(
-                                                "text-sm font-medium leading-relaxed text-justify flex-1",
-                                                privacyMode ? "font-mono text-navavej-red/80" : "text-navavej-gray-dark"
+                                    clinicalReasoningLines.map((line: string, idx: number) => {
+                                        const sentiment = getLineSentiment(line);
+                                        return (
+                                            <div key={idx} className={cn(
+                                                "flex items-start gap-3 p-3 rounded-2xl transition-all border",
+                                                sentiment === 'bad' ? "bg-navavej-red/[0.03] border-navavej-red/10" : 
+                                                sentiment === 'good' ? "bg-navavej-teal/[0.03] border-navavej-teal/10" : 
+                                                "bg-navavej-gray-light/40 border-navavej-border/20"
                                             )}>
-                                                {renderBoldText(line)}
-                                            </p>
-                                        </div>
-                                    ))
+                                                <div className="mt-1 shrink-0 flex flex-col items-center">
+                                                    {sentiment === 'bad' ? (
+                                                        <div className="w-2 h-2 rounded-full bg-navavej-red animate-pulse shadow-[0_0_8px_rgba(190,18,60,0.4)]" />
+                                                    ) : sentiment === 'good' ? (
+                                                        <div className="w-2 h-2 rounded-full bg-navavej-teal shadow-[0_0_8px_rgba(20,184,166,0.4)]" />
+                                                    ) : (
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-navavej-gray-med/60" />
+                                                    )}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className={cn(
+                                                        "text-[13px] font-bold leading-relaxed text-justify",
+                                                        sentiment === 'bad' ? "text-navavej-red/90" :
+                                                        sentiment === 'good' ? "text-navavej-teal/90" :
+                                                        "text-navavej-gray-dark",
+                                                        privacyMode && "font-mono"
+                                                    )}>
+                                                        {renderBoldText(line, sentiment)}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
                                 ) : (
-                                    <div className="flex flex-col items-center justify-center py-6 opacity-50">
-                                        <span className="text-xs font-bold text-navavej-gray-med uppercase tracking-widest">Insufficient reasoning trace data</span>
+                                    <div className="col-span-2 flex flex-col items-center justify-center py-6 opacity-50">
+                                        <span className="text-[10px] font-bold text-navavej-gray-med uppercase tracking-widest">Insufficient reasoning trace data</span>
                                     </div>
                                 )}
                             </div>
@@ -925,124 +1028,12 @@ export function RecommendationPanel({
                         </div>
                     </div>
 
-                    {/* 2. Secondary Insights Grid */}
+
+                    {/* 2. Critical Analytics & Execution */}
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                        {/* Strategic Add-ons List */}
-                        <div className="lg:col-span-8 navavej-card p-0 bg-white border-2 border-navavej-teal/10 shadow-lg flex flex-col overflow-hidden">
-                            <button
-                                onClick={() => setIsAddOnsExpanded(!isAddOnsExpanded)}
-                                className="w-full p-10 flex items-center justify-between hover:bg-navavej-gray-light transition-colors group/addons"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-navavej-teal/5 rounded-2xl flex items-center justify-center border border-navavej-teal/10 shadow-inner">
-                                        <Package className="w-6 h-6 text-navavej-teal" />
-                                    </div>
-                                    <div className="text-left">
-                                        <h4 className="text-lg font-black text-navavej-gray-dark uppercase tracking-tight leading-none">Additional Clinical Screenings</h4>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <p className="text-[10px] font-bold text-navavej-teal uppercase tracking-widest">Recommended Supplemental Tests</p>
-                                            <span className="text-[9px] font-black uppercase text-navavej-gray-med opacity-0 group-hover/addons:opacity-100 transition-opacity">
-                                                (Click to {isAddOnsExpanded ? "collapse" : "expand"})
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <motion.div
-                                    animate={{ rotate: isAddOnsExpanded ? 180 : 0 }}
-                                    className="w-10 h-10 rounded-full bg-navavej-gray-light flex items-center justify-center text-navavej-gray-med"
-                                >
-                                    <ChevronDown className="w-6 h-6" />
-                                </motion.div>
-                            </button>
-
-                            <motion.div
-                                initial={false}
-                                animate={{ height: isAddOnsExpanded ? "auto" : 0 }}
-                                className="overflow-hidden"
-                            >
-                                <div className="p-10 pt-0 space-y-4">
-                                    {data.add_ons && [...data.add_ons]
-                                        .sort((a, b) => {
-                                            const getWeight = (p?: string) => {
-                                                const priority = (p || "").toLowerCase();
-                                                if (priority === "red" || priority === "critical" || priority === "high") return 3;
-                                                if (priority === "orange") return 2;
-                                                if (priority === "yellow" || priority === "medium") return 1;
-                                                return 0;
-                                            };
-                                            return getWeight(b.priority_level || b.priority) - getWeight(a.priority_level || a.priority);
-                                        })
-                                        .map((item: RecommendationAddOn, i: number) => {
-                                            const isRevealed = revealedAddOns[i];
-                                            return (
-                                                <div
-                                                    key={i}
-                                                    onClick={() => setRevealedAddOns(prev => ({ ...prev, [i]: !prev[i] }))}
-                                                    className="p-6 bg-navavej-gray-light rounded-2xl border border-navavej-border hover:border-navavej-teal/30 transition-all cursor-pointer group relative overflow-hidden"
-                                                >
-                                                    <div className="flex items-center justify-between mb-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-1.5 h-1.5 bg-navavej-teal rounded-full group-hover:animate-ping" />
-                                                            <span className="text-[12px] font-black text-navavej-gray-dark uppercase bg-white px-3 py-1 rounded-lg shadow-sm border border-navavej-border">
-                                                                {item.item_code}
-                                                            </span>
-                                                        </div>
-                                                        <span className={cn(
-                                                            "text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest text-white shadow-md",
-                                                            priorityBadgeClass(item.priority_level || item.priority)
-                                                        )}>
-                                                            {item.priority_level || item.priority}
-                                                        </span>
-                                                    </div>
-
-                                                    <div className="relative">
-                                                        <AnimatePresence mode="wait">
-                                                            {!isRevealed ? (
-                                                                <motion.div
-                                                                    key="masked"
-                                                                    initial={{ opacity: 0 }}
-                                                                    animate={{ opacity: 1 }}
-                                                                    exit={{ opacity: 0 }}
-                                                                    className="flex items-center gap-2 py-2 text-navavej-teal/70"
-                                                                >
-                                                                    <div className="h-2 w-32 bg-navavej-border rounded-full animate-pulse" />
-                                                                    <span className="text-[9px] font-black uppercase tracking-widest italic flex items-center gap-2 group-hover:text-navavej-teal transition-colors">
-                                                                        <BrainCircuit className="w-3 h-3" /> Click to reveal AI reasoning
-                                                                    </span>
-                                                                </motion.div>
-                                                            ) : (
-                                                                <motion.div
-                                                                    key="revealed"
-                                                                    initial={{ opacity: 0, y: 10 }}
-                                                                    animate={{ opacity: 1, y: 0 }}
-                                                                    className="border-t border-navavej-border mt-2 pt-4"
-                                                                >
-                                                                    <div className="flex items-center gap-2 mb-2 text-navavej-teal">
-                                                                        <MessageSquare className="w-3.5 h-3.5" />
-                                                                        <span className="text-[9px] font-black uppercase tracking-widest">AI Rationale</span>
-                                                                    </div>
-                                                                    <p className="text-[11px] text-navavej-gray-dark font-medium leading-relaxed text-left">
-                                                                        {renderBoldText(item.rationale)}
-                                                                    </p>
-                                                                </motion.div>
-                                                            )}
-                                                        </AnimatePresence>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    {(!data.add_ons || data.add_ons.length === 0) && (
-                                        <div className="flex flex-col items-center justify-center py-12 opacity-30 italic text-sm bg-navavej-gray-light rounded-2xl border border-dashed border-navavej-border">
-                                            No clinical add-ons required for this tier.
-                                        </div>
-                                    )}
-                                </div>
-                            </motion.div>
-                        </div>
-
                         {/* Critical Signals & Action Panel */}
-                        <div className="lg:col-span-4 flex flex-col gap-6">
-                            <div className="navavej-card p-8 bg-navavej-red/[0.02] border-l-[12px] border-navavej-red shadow-xl shadow-navavej-red/5">
+                        <div className="lg:col-span-12 flex flex-col lg:flex-row gap-10">
+                            <div className="lg:w-1/3 navavej-card p-8 bg-navavej-red/[0.02] border-l-[12px] border-navavej-red shadow-xl shadow-navavej-red/5">
                                 <div className="flex items-center gap-4 mb-6">
                                     <div className="w-12 h-12 bg-navavej-red/10 rounded-2xl flex items-center justify-center border border-navavej-red/20 animate-float">
                                         <AlertTriangle className="w-6 h-6 text-navavej-red" />
@@ -1058,7 +1049,10 @@ export function RecommendationPanel({
                                         criticalAlerts.map((alert: NormalizedAlert, i: number) => (
                                             <div key={i} className="flex items-center justify-between p-4 bg-white rounded-xl border border-navavej-border group hover:border-navavej-red/40 transition-colors shadow-sm">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-1.5 h-1.5 bg-navavej-red rounded-full" />
+                                                    <div className={cn(
+                                                        "w-2.5 h-2.5 rounded-full shadow-inner",
+                                                        (alert.value === "Critical" || alert.value === "High") ? "bg-navavej-red" : "bg-yellow-500"
+                                                    )} />
                                                     <div>
                                                         <h4 className={cn("text-[10px] font-black uppercase", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-gray-dark")}>
                                                             {privacyMode ? "Masked Alert" : alert.label}
@@ -1068,9 +1062,14 @@ export function RecommendationPanel({
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <span className="text-[8px] font-black text-navavej-red border border-navavej-red/20 px-2 py-1 rounded tracking-tighter">
-                                                    {privacyMode ? "—" : alert.value}
-                                                </span>
+                                                {!privacyMode && (
+                                                    <div className={cn(
+                                                        "text-[7px] font-black px-1.5 py-0.5 rounded border uppercase tracking-widest",
+                                                        (alert.value === "Critical" || alert.value === "High") ? "text-navavej-red border-navavej-red/20" : "text-yellow-600 border-yellow-600/20"
+                                                    )}>
+                                                        Priority
+                                                    </div>
+                                                )}
                                             </div>
                                         ))
                                     ) : (
@@ -1082,7 +1081,7 @@ export function RecommendationPanel({
                             </div>
 
                             {/* Physician Notes & Action */}
-                            <div className="bg-navavej-gray-light rounded-[24px] p-8 border border-navavej-border flex flex-col flex-1 shadow-inner">
+                            <div className="lg:flex-1 bg-navavej-gray-light rounded-[24px] p-8 border border-navavej-border flex flex-col shadow-inner">
                                 <div className="flex items-center gap-2 mb-4 text-navavej-gray-med">
                                     <Activity className="w-3.5 h-3.5" />
                                     <span className="text-[10px] font-black uppercase tracking-widest">Execution Notes</span>
@@ -1129,7 +1128,7 @@ export function RecommendationPanel({
                                             )}
                                         >
                                             <span className="text-xs uppercase tracking-widest font-black">
-                                                {isSubmitting ? "..." : "Confirm Strategy"}
+                                                {isSubmitting ? "..." : "CLOSE CLINICAL GAPS"}
                                             </span>
                                             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                                         </button>
@@ -1158,9 +1157,11 @@ export function RecommendationPanel({
                         <div className="space-y-8">
                             <div>
                                 <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Clinical Conclusion</h4>
-                                <p className="text-sm font-black text-navavej-teal leading-relaxed italic text-left">
-                                    {renderBoldText(data.communication_script?.opening || data.communication_script?.clinical_conclusion)}
-                                </p>
+                                <div className="p-6 bg-white rounded-[24px] border border-navavej-border shadow-sm">
+                                    <p className="text-sm font-medium text-navavej-gray-dark leading-relaxed text-justify">
+                                        {renderBoldText(data.communication_script?.opening || data.communication_script?.clinical_conclusion)}
+                                    </p>
+                                </div>
                             </div>
                             <div>
                                 <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Core Health Insights</h4>
@@ -1168,7 +1169,7 @@ export function RecommendationPanel({
                                     {splitConsultationSentences(data.communication_script?.health_summary || "").map((sentence: string, i: number) => (
                                         <div key={i} className="flex gap-2">
                                             <div className="mt-1.5 w-1 h-1 rounded-full bg-navavej-teal shrink-0" />
-                                            <p className="text-sm font-medium text-navavej-gray-dark leading-relaxed">
+                                            <p className="text-sm font-medium text-navavej-gray-dark leading-relaxed text-justify">
                                                 {renderBoldText(sentence)}
                                             </p>
                                         </div>
@@ -1204,14 +1205,42 @@ export function RecommendationPanel({
                             <div>
                                 <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Next steps</h4>
                                 <div className="space-y-3">
-                                    {(data.communication_script?.next_steps || "").split('.').filter((s: string) => s.trim().length > 0).map((sentence: string, i: number) => (
+                                    {splitConsultationSentences(data.communication_script?.next_steps || "").map((sentence: string, i: number) => (
                                         <div key={i} className="flex items-start gap-3">
-                                            <div className="mt-1 bg-emerald-100 p-1 rounded-full"><CheckCircle2 className="w-3 h-3 text-emerald-600" /></div>
-                                            <p className="text-[11px] font-bold text-navavej-gray-med italic">
-                                                {renderBoldText(sentence.trim() + ".")}
+                                            <div className="mt-1 shrink-0 bg-emerald-100 p-1 rounded-full border border-emerald-200 shadow-sm"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /></div>
+                                            <p className="text-[12px] font-bold text-navavej-gray-dark leading-relaxed text-justify">
+                                                {renderBoldText(sentence)}
                                             </p>
                                         </div>
                                     ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Strategy Summary</h4>
+                                <div className="bg-navavej-gray-dark rounded-[24px] p-6 text-white relative overflow-hidden group shadow-xl">
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-navavej-teal/5 rounded-full blur-[60px] -translate-y-1/2 translate-x-1/2" />
+                                    <div className="relative z-10 space-y-4">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div className="flex-1">
+                                                <h3 className="text-xl font-bold tracking-tight leading-none italic mb-2">
+                                                    Recommended <span className="text-navavej-teal">Intelligence Plan</span>
+                                                </h3>
+                                                <p className="text-white/60 text-[11px] font-medium leading-relaxed line-clamp-2">
+                                                    {(data.resolved_package?.name || data.ai_recommended_tier)} base + {data.add_ons.length} additions
+                                                </p>
+                                            </div>
+                                            <div className="shrink-0 text-right">
+                                                <span className="text-[8px] font-bold uppercase tracking-widest text-white/40 block mb-1">Estimate</span>
+                                                <p className="text-2xl font-black tracking-tighter text-white">
+                                                    ฿{((data.resolved_package?.price_thb || 0) + data.add_ons.reduce((sum, item) => sum + (item.price_thb || 0), 0)).toLocaleString()}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button className="w-full py-3 bg-navavej-teal hover:bg-navavej-teal/90 text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-navavej-teal/20 transition-all">
+                                            Confirm Strategic Selection
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

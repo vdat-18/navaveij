@@ -54,8 +54,8 @@ function AnalyzeClinicalRisks(
     5. Create a concise list of clinical findings for a physician.
     6. List relevant signal IDs that support your findings in supporting_signal_ids.
 
-    ── FORMATTING ─────────────────────────────────────────────────────────────
-    - Use Markdown bolding (**text**) ONLY for important clinical terms, biomarkers, and key diagnoses.
+    ── FORMATTING (STRICT) ────────────────────────────────────────────────────
+    - Use Markdown bolding (**text**) for: Clinical terms, Biomarkers, Values (e.g. **140/90 mmHg**), and key Diagnoses.
     - Write as a natural paragraph for the summary.
     - Be concise and professional.
     - NO greetings or conversational filler.
@@ -125,7 +125,7 @@ function MatchPolicy(
     ── CONSTRAINTS (MANDATORY) ───────────────────────────────────────────────
     - NO greetings or conversational filler.
     - Professional, direct medical English. No raw snake_case identifiers.
-    - Use Markdown bolding (**text**) ONLY for important clinical terms and key risk factors.
+    - Use Markdown bolding (**text**) for: Clinical terms, risk factors, and medication names.
 
     {{ ctx.output_format }}
   "#
@@ -162,9 +162,9 @@ function WriteNarrative(
     - NO greetings like "Hello" or "Dear patient".
     - NO conversational filler or small talk.
     - Write BOTH fields as clean prose paragraphs.
-    - STRICTLY FORBIDDEN: Do NOT use bullet markers ('-','*') or numbered lists in either field.
+    - STRICTLY FORBIDDEN: Do NOT use bullet markers ('-','*') or numbered lists.
     - Professional, direct, and empathetic medical English.
-    - Use Markdown bolding (**text**) ONLY for important clinical terms and diagnoses.
+    - Use Markdown bolding (**text**) for: Clinical terms, diagnoses, biomarker values, and drugs.
 
     {{ ctx.output_format }}
   "#

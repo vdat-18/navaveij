@@ -80,11 +80,12 @@ end
     *   Features dynamic data points: abnormal values render as red dots, and the most recent reading is highlighted with a larger stroke.
     *   Threshold lines are explicitly labeled.
     *   A prominent status banner explicitly calls out "All good" or "Alert" based on the relationship between current value and reference threshold.
-*   **ScreeningGapStatus:** Shows a list of pending/overdue cancer and health screenings.
-*   **ClinicalEventTimeline:** Displays chronological events (labs, diagnoses, screenings).
-    *   **Grouped by Date:** Events occurring on the same day are visually grouped under a prominent date header, reducing cognitive load when analyzing check-up visits.
-    *   **Severity Badges:** Immediate visual cues (colored badges) for abnormal lab results, active diagnoses, or medication changes.
-    *   **Unified Row Data:** The component normalizes heterogeneous data arrays into a single format for rendering.
+*   **ScreeningGapStatus:** Shows a compact list of pending/overdue cancer and health screenings. By default each item shows the name + color-coded priority dot only. Full detail (status, history, notes) is revealed on hover using CSS `max-height`/`opacity` transitions. Colored frames (border + background tint) per priority level replace text labels for immediate visual parsing.
+*   **ClinicalEventTimeline:** Displays chronological events (labs, diagnoses, screenings) in a fixed-height scrollable panel (`max-h-[500px]`, `overflow-y-auto`).
+    *   **Grouped by Date:** Events on the same day grouped under a sticky date header.
+    *   **Compact Cards:** Type badge, title, and severity indicator on a single flex row; detail and terminology code in a secondary row. Padding and border-radius reduced for information density.
+    *   **Severity Treatments:** ALERT (red), OPTIMAL (green), CHECK (amber), STABLE (gray) — each with tinted card background.
+    *   **Unified Row Data:** Normalizes heterogeneous data arrays (labs, diagnoses, screenings, medications) into a single `TimelineRow` format for rendering.
 subgraph "Charts"
 CT["ChartTooltip.tsx"]
 CC["chartConfig.ts"]
@@ -145,7 +146,7 @@ BC --> CCNS
 
 ## Core Components
 - Dashboard page orchestrates patient selection, privacy mode, and recommendation loading. It composes PatientList and RecommendationPanel and passes derived props for UI masking and timestamps.
-- RecommendationPanel renders risk gauges, strategy assignment, reasoning trace, critical alerts, add-on recommendations, and consultation guide. It integrates with the API service and supports rule-based fallback modes.
+- RecommendationPanel renders the horizontal high-density intelligence HUD (2-2-2-6 grid), including risk gauges, strategy assignment, the recommended plan, and expansive add-on recommendations. Strategic Add-ons use a reveal-on-hover pattern for rationale. The Clinical Logic & Rationale section features a 2-column sentiment grid with smart bold rendering (labels vs. value chips) and a larger base font for physician readability. The entire HUD is vertically compact (min-h reduced to 160px, padding p-4).
 - BiomarkerCharts visualizes BMI progression and blood pressure trends using Recharts with shared chart defaults and tooltips.
 - BiomarkerTrendGrid displays individual biomarker series with optional reference lines and trend direction indicators.
 - PatientSearchEntry provides a full-page centered search entry point for physician and nurse roles, replacing the patient list column.
@@ -261,7 +262,7 @@ CheckToken --> |Yes| Fetch["Call clinicalService.streamRecommendation()"]
 Fetch --> Loading["Show live 4-step animated loading panel (stage-aware)"]
 Fetch --> Ok{"Success?"}
 Ok --> |No| Error["Show error panel"]
-Ok --> |Yes| Render["Render intelligence HUD, charts, reasoning, alerts, add-ons, consultation guide"]
+Ok --> |Yes| Render["Render horizontal intelligence HUD (2-2-2-6 grid) and expansive clinical rationale"]
 Render --> Decision["Allow physician notes and approve"]
 Decision --> Approve["Call clinicalService.recordDecision()"]
 Approve --> Done(["Done"])

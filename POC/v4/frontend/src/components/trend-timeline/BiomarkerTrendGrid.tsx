@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { CheckCircle2, AlertTriangle, Info } from "lucide-react";
 import {
   CartesianGrid,
   Line,
@@ -72,11 +73,12 @@ export function BiomarkerTrendGrid({ series }: BiomarkerTrendGridProps) {
                       strokeDasharray="4 4"
                       strokeWidth={2}
                       label={{
-                        value: `Ref: ${item.reference}`,
-                        position: "insideTopRight",
+                        value: `THRESHOLD: ${item.reference}`,
+                        position: "insideBottomRight",
                         fill: "var(--color-navavej-red)",
-                        fontSize: 10,
-                        fontWeight: "bold"
+                        fontSize: 12,
+                        fontWeight: "900",
+                        dy: -10
                       }}
                     />
                   )}
@@ -151,8 +153,8 @@ export function BiomarkerTrendGrid({ series }: BiomarkerTrendGridProps) {
               </ResponsiveContainer>
             </div>
             
-            {/* Status Banner instead of basic footer */}
-            <div className="mt-3">
+            {/* Status Banner - Ultra Prominent */}
+            <div className="mt-5 relative z-10">
               {typeof item.reference === "number" && item.current !== undefined ? (() => {
                 let isGood = true;
                 if (item.label.toLowerCase().includes('hdl')) {
@@ -163,23 +165,56 @@ export function BiomarkerTrendGrid({ series }: BiomarkerTrendGridProps) {
 
                 if (isGood) {
                   return (
-                    <div className="bg-emerald-50 text-emerald-700 p-2 rounded-md text-xs font-medium flex items-center gap-2">
-                      <span>✅</span>
-                      <span>All good: Current ({item.current} {item.unit}) {item.label.toLowerCase().includes('hdl') ? '≥' : '<'} Reference ({item.reference})</span>
+                    <div className="bg-emerald-500 text-white px-4 py-3 rounded-2xl flex items-center justify-between shadow-lg shadow-emerald-500/20 border border-emerald-400/30">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-white/20 p-1.5 rounded-lg backdrop-blur-sm">
+                            <CheckCircle2 className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                            <p className="text-[14px] font-black uppercase tracking-tight">Status: Optimal</p>
+                            <p className="text-[10px] font-bold opacity-80 italic">Current ({item.current}) is within reference range</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black opacity-60 uppercase">Reference</p>
+                        <p className="text-[12px] font-black">{item.label.toLowerCase().includes('hdl') ? '≥' : '≤'} {item.reference}</p>
+                      </div>
                     </div>
                   );
                 } else {
                   return (
-                    <div className="bg-rose-50 text-red-700 p-2 rounded-md text-xs font-medium flex items-center gap-2">
-                      <span>⚠️</span>
-                      <span>Alert: Current ({item.current} {item.unit}) {item.label.toLowerCase().includes('hdl') ? '<' : '>'} Reference ({item.reference})</span>
+                    <div className="bg-navavej-red text-white px-4 py-3 rounded-2xl flex items-center justify-between shadow-lg shadow-navavej-red/20 border border-navavej-red/30 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-white/20 p-1.5 rounded-lg backdrop-blur-sm">
+                            <AlertTriangle className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                            <p className="text-[14px] font-black uppercase tracking-tight">Status: Alert</p>
+                            <p className="text-[10px] font-bold opacity-80 italic">Out of range detection</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black opacity-60 uppercase">Reference</p>
+                        <p className="text-[12px] font-black">{item.label.toLowerCase().includes('hdl') ? '≥' : '≤'} {item.reference}</p>
+                      </div>
                     </div>
                   );
                 }
               })() : (
-                 <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-navavej-gray-med">
-                  <span>Now: {item.current} {item.unit}</span>
-                  <span>Ref: N/A</span>
+                 <div className="bg-navavej-gray-light p-4 rounded-2xl flex items-center justify-between border border-navavej-border">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-navavej-gray-med/10 p-1.5 rounded-lg">
+                        <Info className="w-4 h-4 text-navavej-gray-med" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-black text-navavej-gray-dark uppercase tracking-widest">Baseline Tracking</p>
+                        <p className="text-[10px] font-bold text-navavej-gray-med italic">No reference threshold established</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[18px] font-black text-navavej-teal tracking-tighter">{item.current || "???"}</p>
+                    <p className="text-[8px] font-black text-navavej-gray-med uppercase">{item.unit}</p>
+                  </div>
                 </div>
               )}
             </div>
