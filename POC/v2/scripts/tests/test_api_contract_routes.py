@@ -49,6 +49,7 @@ def test_recommend_contract_route_success():
         },
         "clinical_signals": {
             "rule_preliminary_tier": "Advanced",
+            "overall_risk_level": "High",
             "applicable_signals": ["signal_1", "signal_2"],
             "signals_fired": ["signal_1"],
             "missing_signals": ["signal_missing_1"],
@@ -107,6 +108,11 @@ def test_recommend_contract_route_success():
     assert payload["resolved_package"]["package_code"] == "PLAT_M"
     assert payload["confidence_tier"] in {"High", "Medium", "Low"}
     assert payload["recommendation_source"] in {"AI", "RuleBased"}
+    assert payload["overall_risk_level"] == "High"
+    assert payload["risk_summary"]["source"] == "signal_store"
+    assert payload["risk_summary"]["is_fallback"] is False
+    assert "Overall risk is High" in payload["risk_summary"]["description"]
+    assert "High Risk Signal" in payload["risk_summary"]["description"]
     assert payload["review_required"] is False
     assert payload["communication_script"]["opening"] == "Clinical summary."
     assert payload["add_ons"][0]["label"] == "Sample Add-on"
@@ -115,6 +121,98 @@ def test_recommend_contract_route_success():
     assert payload["metadata"]["patient_token"] == token
     assert "request_id" in payload["metadata"]
     assert payload["metadata"]["cache_status"] in {"miss", "hit"}
+
+
+def test_recommend_stream_emits_stage_and_result():
+    contracts.cache_service.clear()
+    token = _first_patient_token()
+    mock_result = {
+        "ai_recommended_tier": "Advanced",
+        "tier_deviation_justification": None,
+        "reasoning_trace": "Contract stream test trace",
+        "add_ons": [{"item_code": "A001", "priority_level": "Yellow", "rationale": "Test rationale"}],
+        "supporting_signals": ["signal_1"],
+        "missing_signals": [],
+        "communication_script": {
+            "clinical_conclusion": "Clinical summary.",
+            "health_summary": "Health summary.",
+            "recommendation_explanation": "Recommendation explanation.",
+            "add_on_highlights": ["Highlight"],
+            "next_steps": "Next steps.",
+        },
+        "clinical_signals": {
+            "rule_preliminary_tier": "Advanced",
+            "overall_risk_level": "High",
+            "applicable_signals": ["signal_1"],
+            "signals_fired": ["signal_1"],
+            "missing_signals": [],
+            "risk_flags": [],
+            "pipeline_run_id": "pipe_test_stream",
+        },
+        "recommendation_source": "AI",
+        "review_required": False,
+        "security_metadata": {
+            "rehydration_map": {"tok_xxx": "Jane Doe"},
+            "masked_ai_output": {"reasoning_trace": "masked"},
+            "is_poc_demo": True,
+        },
+    }
+    contracts.get_program_ruleset = lambda _patient_token, patient_id=None: {
+        "ruleset_version": "v2026.03.1",
+        "rule_preliminary_tier": "Advanced",
+        "resolved_package": {
+            "tier": "Advanced",
+            "package_name": "Platinum — Men",
+            "package_code": "PLAT_M",
+            "price_thb": 8700,
+            "age_band": "age_35_plus",
+            "gender": "male",
+        },
+        "add_on_library": [
+            {
+                "item_code": "A001",
+                "label": "Sample Add-on",
+                "category": "cardiac",
+                "trigger_signals": ["signal_1"],
+                "navavej_product": {
+                    "product_name": "Product A",
+                    "product_code": "PROD_A",
+                    "price_thb": 1200,
+                },
+            }
+        ],
+    }
+
+    async def _stream_orchestration(*_args, on_stage=None, **_kwargs):
+        if on_stage:
+            await on_stage(1, "Fetching patient data")
+            await on_stage(3, "Running AI analysis")
+            await on_stage(6, "Finalizing")
+        return mock_result
+
+    contracts.orchestrator.generate_recommendation = AsyncMock(side_effect=_stream_orchestration)
+
+    events = []
+    with client.stream(
+        "POST",
+        "/api/recommend/stream",
+        json={"patient_token": token, "force_rule_based": False},
+        headers=_auth_headers(scopes="recommendation:read"),
+    ) as response:
+        assert response.status_code == 200
+        for line in response.iter_lines():
+            if not line or not line.startswith("data: "):
+                continue
+            payload = json.loads(line[6:])
+            events.append(payload)
+            if payload.get("type") == "result":
+                break
+
+    assert any(event.get("type") == "stage" and event.get("stage") == 3 for event in events)
+    result_event = next(event for event in events if event.get("type") == "result")
+    assert result_event["overall_risk_level"] == "High"
+    assert result_event["risk_summary"]["source"] in {"signal_store", "signal_store_fallback"}
+    assert "Overall risk is" in result_event["risk_summary"]["description"]
 
 
 def test_recommend_contract_route_cache_hit_skips_second_llm_call():
@@ -710,6 +808,41 @@ def test_gap_r3_stage1_fields_are_normalized_for_stage2_contract():
     assert payload["add_ons"][0]["price_thb"] == 1200
     assert payload["communication_script"]["recommendation_explanation"] == "rationale"
     assert payload["communication_script"]["add_on_highlights"] == ["highlight"]
+
+
+def test_risk_summary_marks_fallback_when_signal_payload_is_defaulted():
+    ai_output = {
+        "ai_recommended_tier": "Standard",
+        "tier_deviation_justification": None,
+        "reasoning_trace": "trace",
+        "add_ons": [],
+        "supporting_signals": [],
+        "missing_signals": [],
+        "communication_script": {"clinical_conclusion": "ok"},
+        "clinical_signals": {
+            "rule_preliminary_tier": "Standard",
+            "overall_risk_level": "Low",
+            "applicable_signals": [],
+            "signals_fired": [],
+            "risk_flags": [],
+            "pipeline_run_id": "",
+        },
+        "recommendation_source": "AI",
+        "review_required": False,
+    }
+    ruleset = {"rule_preliminary_tier": "Standard", "resolved_package": {}, "add_on_library": []}
+
+    payload = contracts._normalize_stage2(
+        patient_token="tok_test",
+        ai_output=ai_output,
+        ruleset=ruleset,
+        latency_ms=1,
+    )
+
+    assert payload["overall_risk_level"] == "Low"
+    assert payload["risk_summary"]["source"] == "signal_store_fallback"
+    assert payload["risk_summary"]["is_fallback"] is True
+    assert payload["risk_summary"]["description"] == "Risk is currently marked as Low by fallback because complete signal-store context is unavailable."
 
 
 def test_gap_r4_validator_enforces_v2_v7_v9_v10():

@@ -1,20 +1,24 @@
 # Test Results
 
-**Status:** Not started
-
-No tests have been run yet.
-Refer to `README.md` for the planned verification approach.
+**Status:** Verified (2026-03-24)
 
 ---
 
 ## Executed
 
-_To be filled in after implementation._
+- `npm run test -- src/components/access-monitoring/SystemConfigTab.test.tsx`
+  - Result: pass
+  - Key checks:
+    - “AI Gateway” label is rendered
+    - legacy “BAML Client Registry” string is absent
+    - “Auth Configuration” section is absent
+    - provider logo/badge rendering path exists
 
 ## Test Coverage
 
-_To be filled in after implementation._
+- SystemConfigTab label and section presence/absence checks
+- Provider visual indicator rendering checks
 
 ## Notes
 
-_Environment issues, workarounds, or observations during test execution._
+- Further UX refactor requirements are documented in GAP-F13 `README.md` follow-up section.

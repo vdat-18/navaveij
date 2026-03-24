@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { PatientDirectoryColumn } from "@/components/dashboard/PatientDirectoryColumn";
 import { RecommendationPanel } from "@/components/dashboard/RecommendationPanel";
 import { ScreeningGapStatus } from "@/components/trend-timeline/ScreeningGapStatus";
@@ -8,7 +8,6 @@ import { Bell, Search, User, Globe, Phone, Activity, Eye, EyeOff, LogOut, Chevro
 import { clinicalService } from "@/services/api";
 import { ScreeningGapRow } from "@/types/timeline";
 import { motion } from "framer-motion";
-import Link from "next/link";
 import { cn } from "@/shared/utils";
 import { usePrivacyMode } from "@/shared/privacy-mode";
 import { usePatient } from "@/shared/patient-context";
@@ -207,11 +206,11 @@ export default function DashboardPage() {
                 initial={{ opacity: 0, y: -15 }}
                 animate={{ opacity: 1, y: 0 }}
                 className={cn(
-                  "mb-8 p-8 navavej-card flex items-center justify-between transition-colors duration-300",
+                  "mb-8 navavej-card p-6 sm:p-8 transition-colors duration-300 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] gap-6 lg:items-center",
                   privacyMode ? "bg-navavej-red/5 border-navavej-red/20" : "bg-[#F0F9FA] border-navavej-teal/20"
                 )}
               >
-                <div className="flex items-center gap-8">
+                <div className="flex items-start gap-6 min-w-0">
                   <div className="relative">
                     <div className="w-20 h-20 bg-white rounded-[20px] flex items-center justify-center shadow-xl border border-navavej-teal/10 group overflow-hidden">
                       <div className="absolute top-0 right-0 w-8 h-8 bg-navavej-teal/10 rounded-bl-[20px]" />
@@ -226,28 +225,26 @@ export default function DashboardPage() {
                       <Activity className="w-4 h-4" />
                     </div>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h3 className={cn(
-                      "text-3xl font-black tracking-tighter uppercase",
+                      "text-3xl font-black tracking-tighter uppercase break-words leading-tight",
                       privacyMode ? "text-navavej-red font-mono" : "text-navavej-gray-dark"
                     )}>
                       {getDisplayValue(selectedPatient.patient_name)}
                     </h3>
-                    <div className="flex items-center gap-6 mt-2">
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div className="flex flex-col">
                         <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest">Medical ID</span>
                         <span className={cn("text-xs font-bold", privacyMode ? "text-navavej-red/70" : "text-navavej-teal")}>
                           {selectedPatient.patient_id || "N/A"}
                         </span>
                       </div>
-                      <div className="w-[1px] h-6 bg-navavej-border" />
                       <div className="flex flex-col">
                         <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest">Demographics</span>
                         <span className={cn("text-xs font-bold", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-gray-dark")}>
                           {privacyMode ? "— / — / —" : `${selectedPatient.age || "???"} Yrs / ${selectedPatient.gender || "???"} / ${selectedPatient.ethnicity || "???"}`}
                         </span>
                       </div>
-                      <div className="w-[1px] h-6 bg-navavej-border" />
                       <div className="flex flex-col">
                         <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest">MRN</span>
                         <span className={cn("text-xs font-bold", privacyMode ? "text-navavej-red/70" : "text-navavej-gray-dark")}>
@@ -258,26 +255,28 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="flex gap-4">
-                  <div className="px-6 py-3 bg-white/60 border border-white rounded-2xl flex flex-col justify-center min-w-[220px]">
-                    <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest mb-1">Contact Information</span>
-                    <div className="flex flex-col gap-0.5">
-                      <span className={cn("text-[10px] font-bold", privacyMode ? "text-navavej-red/70" : "text-navavej-gray-dark")}>
-                        Tel: {getDisplayValue(selectedPatient?.phone)}
-                      </span>
-                      <span className={cn("text-[10px] font-bold", privacyMode ? "text-navavej-red/70" : "text-navavej-gray-dark")}>
-                        Email: {getDisplayValue(selectedPatient?.email)}
+                <div className="w-full lg:w-auto">
+                  <div className="bg-white/60 border border-white rounded-2xl p-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="min-w-0">
+                      <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest mb-2 block">Contact Information</span>
+                      <div className="flex flex-col gap-1">
+                        <span className={cn("text-[10px] font-bold break-words leading-snug", privacyMode ? "text-navavej-red/70" : "text-navavej-gray-dark")}>
+                          Tel: {getDisplayValue(selectedPatient?.phone)}
+                        </span>
+                        <span className={cn("text-[10px] font-bold break-all leading-snug", privacyMode ? "text-navavej-red/70" : "text-navavej-gray-dark")}>
+                          Email: {getDisplayValue(selectedPatient?.email)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="sm:text-right">
+                      <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest mb-2 block">Last Analysis Run</span>
+                      <span className={cn(
+                        "text-xs font-black uppercase tracking-tighter",
+                        privacyMode ? "text-navavej-red" : "text-navavej-gray-dark"
+                      )}>
+                        {privacyMode ? "—" : formatTimestamp(analysisTimestamp)}
                       </span>
                     </div>
-                  </div>
-                  <div className="px-6 py-3 bg-white/60 border border-white rounded-2xl flex flex-col justify-center">
-                    <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-widest mb-1">Last Analysis Run</span>
-                    <span className={cn(
-                      "text-xs font-black uppercase tracking-tighter",
-                      privacyMode ? "text-navavej-red" : "text-navavej-gray-dark"
-                    )}>
-                      {privacyMode ? "—" : formatTimestamp(analysisTimestamp)}
-                    </span>
                   </div>
                 </div>
               </motion.div>
@@ -289,6 +288,9 @@ export default function DashboardPage() {
               privacyMode={privacyMode}
               onRecommendationLoad={(data: RecommendationResponse | null) => {
                 setAnalysisTimestamp((data?.metadata?.generated_at as string | undefined) || null);
+              }}
+              onOpenTrendTimeline={() => {
+                window.alert("Trend & Timeline modal will be wired in GAP-F1. Use the Trend + Timeline screen for now.");
               }}
               isRuleBasedForced={isRuleBasedForced}
             />

@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import json
 import time
@@ -7,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from src.api.security import AuthContext, parse_roles, require_access
@@ -43,7 +45,9 @@ class RecommendResponse(BaseModel):
     confidence_tier: str
     review_required: bool
     recommendation_source: str
+    overall_risk_level: str
     recommendation_hash: str | None = None
+    risk_summary: dict[str, Any]
     patient_high_alert: dict[str, Any]
     security_metadata: dict[str, Any]
     metadata: dict[str, Any]
@@ -365,6 +369,35 @@ def _build_critical_signals(clinical_signals: dict[str, Any]) -> list[dict[str, 
     return critical
 
 
+def _build_risk_summary_description(
+    *,
+    overall_risk_level: str,
+    critical_signals: list[dict[str, str]],
+    signals_fired_count: int,
+    is_risk_fallback: bool,
+) -> str:
+    if is_risk_fallback:
+        return "Risk is currently marked as Low by fallback because complete signal-store context is unavailable."
+
+    top_labels = [
+        signal.get("label", "").strip()
+        for signal in critical_signals
+        if signal.get("label", "").strip()
+    ][:2]
+
+    if top_labels:
+        if len(top_labels) == 1:
+            drivers = top_labels[0]
+        else:
+            drivers = " and ".join(top_labels)
+        return f"Overall risk is {overall_risk_level}, primarily driven by {drivers}."
+
+    if signals_fired_count > 0:
+        return f"Overall risk is {overall_risk_level}, based on {signals_fired_count} active clinical signal(s)."
+
+    return f"Overall risk is {overall_risk_level} based on currently available clinical context."
+
+
 def _validate_stage1_output(
     *,
     ai_output: dict[str, Any],
@@ -546,6 +579,20 @@ def _normalize_stage2(
 
     critical_signals = _build_critical_signals(clinical_signals)
     missing_data_alerts = _build_missing_data_alerts(missing_signals)
+    overall_risk_level = clinical_signals.get("overall_risk_level", "Low")
+    signal_store_pipeline_run_id = clinical_signals.get("pipeline_run_id", "")
+    is_risk_fallback = (
+        overall_risk_level == "Low"
+        and not signal_store_pipeline_run_id
+        and len(clinical_signals.get("signals_fired", []) or []) == 0
+    )
+    signals_fired_count = len(clinical_signals.get("signals_fired", []) or [])
+    risk_summary_description = _build_risk_summary_description(
+        overall_risk_level=overall_risk_level,
+        critical_signals=critical_signals,
+        signals_fired_count=signals_fired_count,
+        is_risk_fallback=is_risk_fallback,
+    )
 
     resolved_package = ruleset.get("resolved_package", {}) or {}
     resolved_package = {
@@ -571,7 +618,15 @@ def _normalize_stage2(
         "confidence_tier": confidence_tier,
         "review_required": review_required,
         "recommendation_source": recommendation_source,
+        "overall_risk_level": overall_risk_level,
         "recommendation_hash": ai_output.get("recommendation_hash"),
+        "risk_summary": {
+            "source": "signal_store_fallback" if is_risk_fallback else "signal_store",
+            "is_fallback": is_risk_fallback,
+            "description": risk_summary_description,
+            "signal_store_pipeline_run_id": signal_store_pipeline_run_id,
+            "signals_fired_count": signals_fired_count,
+        },
         "patient_high_alert": {
             "critical_signals": critical_signals,
             "missing_data_alerts": missing_data_alerts,
@@ -583,7 +638,7 @@ def _normalize_stage2(
             "model_id": settings.llm_model,
             "template_version": "v1.0",
             "ruleset_version": ruleset.get("ruleset_version", "v2026.03.1"),
-            "signal_store_pipeline_run_id": clinical_signals.get("pipeline_run_id", ""),
+            "signal_store_pipeline_run_id": signal_store_pipeline_run_id,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "latency_ms": int(latency_ms or 0),
         },
@@ -619,6 +674,22 @@ async def recommend(
     http_request: Request,
     _auth: AuthContext = Depends(require_recommendation_access),
 ):
+    payload = await _generate_recommendation_payload(
+        request=request,
+        http_request=http_request,
+        auth=_auth,
+        on_stage=None,
+    )
+    return payload
+
+
+async def _generate_recommendation_payload(
+    *,
+    request: RecommendRequest,
+    http_request: Request,
+    auth: AuthContext,
+    on_stage: Any = None,
+) -> dict[str, Any]:
     patient = _resolve_patient_by_token(request.patient_token)
     patient_id = patient["patient_id"]
     signals = get_clinical_signals(request.patient_token, patient_id=patient_id)
@@ -644,12 +715,14 @@ async def recommend(
             metadata["cache_key_hash"] = cache_key_hash
             metadata["cache_ttl_seconds"] = cache_ttl
             payload["metadata"] = metadata
+            if on_stage:
+                await on_stage(6, "Loaded from cache")
             return payload
     started_at = time.time()
     request_id = f"req_{uuid.uuid4().hex[:12]}"
     audit_context = {
-        "user_id": _auth.user_id,
-        "user_role": _auth.role,
+        "user_id": auth.user_id,
+        "user_role": auth.role,
         "client_ip": http_request.client.host if http_request.client else "unknown",
         "request_id": request_id,
         "action_type": "GenerateRecommendation",
@@ -659,6 +732,7 @@ async def recommend(
         patient_token=request.patient_token,
         force_rule_based=request.force_rule_based,
         audit_context=audit_context,
+        on_stage=on_stage,
     )
     recommendation_source = ai_output.get("recommendation_source")
     if not request.force_rule_based and recommendation_source != "RuleBased":
@@ -673,6 +747,7 @@ async def recommend(
                 patient_token=request.patient_token,
                 force_rule_based=True,
                 audit_context=audit_context,
+                on_stage=on_stage,
             )
             ai_output["validation_failures"] = validation_failures
             ai_output["review_required"] = True
@@ -690,6 +765,43 @@ async def recommend(
     if settings.cache_enabled:
         cache_service.set(cache_key, payload, cache_ttl)
     return payload
+
+
+@router.post("/recommend/stream")
+async def recommend_stream(
+    request: RecommendRequest,
+    http_request: Request,
+    _auth: AuthContext = Depends(require_recommendation_access),
+):
+    queue: asyncio.Queue = asyncio.Queue()
+    stream_done = object()
+
+    async def on_stage(num: int, label: str) -> None:
+        await queue.put({"type": "stage", "stage": num, "label": label})
+
+    async def run_recommendation() -> None:
+        try:
+            payload = await _generate_recommendation_payload(
+                request=request,
+                http_request=http_request,
+                auth=_auth,
+                on_stage=on_stage,
+            )
+            await queue.put({"type": "result", **payload})
+        except Exception as exc:
+            await queue.put({"type": "error", "detail": str(exc)})
+        finally:
+            await queue.put(stream_done)
+
+    async def generate():
+        asyncio.create_task(run_recommendation())
+        while True:
+            item = await asyncio.wait_for(queue.get(), timeout=120.0)
+            if item is stream_done:
+                break
+            yield f"data: {json.dumps(item)}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 @router.get("/timeline/{patient_token}", response_model=TimelineResponse)

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     ShieldCheck,
     BrainCircuit,
@@ -8,21 +8,24 @@ import {
     CheckCircle2,
     Package,
     ArrowRight,
-    TrendingDown,
     TrendingUp,
     Activity,
-    Heart,
     Stethoscope,
     ChevronDown,
     MessageSquare,
     Search,
-    XCircle
+    XCircle,
+    Layers3,
+    Sparkles,
+    Eye,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { clinicalService } from "@/services/api";
 import { cn } from "@/shared/utils";
 import { BiomarkerCharts } from "./BiomarkerCharts";
 import { LabResultsGrid } from "./LabResultsGrid";
+import { LoadingSteps } from "./LoadingSteps";
+import { PackageSealBadge } from "./PackageSealBadge";
 import { CLINICAL_DICTIONARY } from "@/shared/clinical-dictionary";
 import { CriticalSignal, PatientHighAlert, RecommendationAddOn, RecommendationResponse } from "@/types/recommendation";
 
@@ -31,6 +34,7 @@ interface RecommendationPanelProps {
     patientToken: string | null;
     privacyMode: boolean;
     onRecommendationLoad?: (data: RecommendationResponse | null) => void;
+    onOpenTrendTimeline?: () => void;
     isRuleBasedForced: boolean;
 }
 
@@ -38,6 +42,23 @@ interface NormalizedAlert {
     label: string;
     sub: string;
     value: string;
+}
+
+interface NormalizedAddOn extends RecommendationAddOn {
+    itemKey: string;
+    categoryLabel: string;
+    priorityLabel: string;
+    priorityRank: number;
+    priceLabel: string;
+    triggerSignals: string[];
+}
+
+interface AddOnGroup {
+    id: string;
+    categoryLabel: string;
+    highestPriorityLabel: string;
+    highestPriorityRank: number;
+    items: NormalizedAddOn[];
 }
 
 const CLINICAL_ACRONYMS: Record<string, string> = {
@@ -139,20 +160,52 @@ const ClinicalRiskGauge = ({ value }: { value: string }) => {
     else if (value === "Medium") percentage = 55;
     else if (value === "Low") percentage = 25;
 
-    const isHighOrCritical = value === "High" || value === "Critical";
+    const isCritical = value === "Critical";
+    const isHigh = value === "High";
     const isMedium = value === "Medium";
-    
-    const strokeColor = isHighOrCritical ? "var(--color-navavej-red)" : (isMedium ? "var(--color-risk-mod)" : "var(--color-risk-low)");
-    const textColor = isHighOrCritical ? "text-navavej-red" : (isMedium ? "text-orange-500" : "text-green-600");
+
+    const strokeColor = isCritical ? "#ef4444" : isHigh ? "#f97316" : isMedium ? "#eab308" : "#22c55e";
+    const textColor = isCritical ? "text-red-600" : isHigh ? "text-orange-600" : isMedium ? "text-yellow-600" : "text-green-700";
 
     return (
-        <div className="relative flex flex-col items-center group">
-            <svg className="w-48 h-24" viewBox="0 0 100 50">
+        <div className="relative flex flex-col items-center group pt-4">
+            {isCritical && (
+                <motion.div
+                    className="absolute top-5 h-[150px] w-[150px] rounded-full border-2 border-red-300/70"
+                    animate={{ scale: [1, 1.08, 1], opacity: [0.75, 0.25, 0.75] }}
+                    transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
+                />
+            )}
+            <svg className="w-[240px] h-[140px]" viewBox="0 0 100 56">
+                <path
+                    d="M 10 45 A 40 40 0 0 1 34 20"
+                    fill="none"
+                    stroke="#22c55e"
+                    strokeWidth="9"
+                    strokeLinecap="round"
+                    opacity="0.4"
+                />
+                <path
+                    d="M 34 20 A 40 40 0 0 1 66 20"
+                    fill="none"
+                    stroke="#eab308"
+                    strokeWidth="9"
+                    strokeLinecap="round"
+                    opacity="0.4"
+                />
+                <path
+                    d="M 66 20 A 40 40 0 0 1 90 45"
+                    fill="none"
+                    stroke="#ef4444"
+                    strokeWidth="9"
+                    strokeLinecap="round"
+                    opacity="0.4"
+                />
                 <path
                     d="M 10 45 A 40 40 0 0 1 90 45"
                     fill="none"
                     stroke="var(--color-navavej-border)"
-                    strokeWidth="6"
+                    strokeWidth="10"
                     strokeLinecap="round"
                 />
                 <motion.path
@@ -162,31 +215,61 @@ const ClinicalRiskGauge = ({ value }: { value: string }) => {
                     d="M 10 45 A 40 40 0 0 1 90 45"
                     fill="none"
                     stroke={strokeColor}
-                    strokeWidth="8"
+                    strokeWidth="11"
                     strokeLinecap="round"
                     className="transition-all duration-500"
                 />
             </svg>
-            <div className="absolute top-10 flex flex-col items-center">
+            <div className="absolute top-[62px] flex flex-col items-center">
                 <span className={cn(
-                    "text-3xl font-black transition-all duration-1000 tracking-tighter",
+                    "text-4xl font-black transition-all duration-1000 tracking-tighter",
                     textColor
                 )}>
                     {value}
                 </span>
-                <span className="text-[10px] uppercase tracking-[0.2em] text-navavej-gray-med font-black">Risk Level</span>
+                <span className="text-[10px] uppercase tracking-[0.24em] text-navavej-gray-med font-black">Risk Level</span>
             </div>
         </div>
     );
 };
 
-const priorityBadgeClass = (priority?: string) => {
-    if (priority === "Red" || priority === "Critical" || priority === "High") return "bg-navavej-red";
-    if (priority === "Orange") return "bg-orange-500";
-    if (priority === "Yellow" || priority === "Medium") return "bg-yellow-500";
-    if (priority === "Green" || priority === "Low") return "bg-green-600";
-    return "bg-navavej-teal";
+const normalizePriorityLabel = (priority?: string) => {
+    const normalized = (priority || "").trim().toLowerCase();
+    if (normalized === "red" || normalized === "critical" || normalized === "high") return "Red";
+    if (normalized === "orange") return "Orange";
+    if (normalized === "yellow" || normalized === "medium") return "Yellow";
+    if (normalized === "green" || normalized === "low") return "Green";
+    return "Green";
 };
+
+const priorityRank = (priority?: string) => {
+    const normalized = normalizePriorityLabel(priority);
+    if (normalized === "Red") return 0;
+    if (normalized === "Orange") return 1;
+    if (normalized === "Yellow") return 2;
+    return 3;
+};
+
+const priorityBadgeClass = (priority?: string) => {
+    const normalized = normalizePriorityLabel(priority);
+    if (normalized === "Red") return "bg-navavej-red";
+    if (normalized === "Orange") return "bg-orange-500";
+    if (normalized === "Yellow") return "bg-yellow-500";
+    return "bg-green-600";
+};
+
+const formatPriceLabel = (value?: number | null) => {
+    if (typeof value === "number") {
+        return `฿${value.toLocaleString()}`;
+    }
+    return "Price TBD";
+};
+
+const slugifyKey = (value: string) =>
+    value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "") || "uncategorized";
 
 const normalizeCriticalAlerts = (patientHighAlert: PatientHighAlert | CriticalSignal[] | null | undefined): NormalizedAlert[] => {
     if (Array.isArray(patientHighAlert)) {
@@ -213,9 +296,18 @@ const normalizeCriticalAlerts = (patientHighAlert: PatientHighAlert | CriticalSi
     return [];
 };
 
+const mapStreamStageToLoadingStep = (stage: number, currentStep: number): number => {
+    if (stage <= 1) return 0;
+    if (stage === 2) return 3;
+    if (stage === 3) return 4;
+    if (stage >= 6) return 5;
+    return currentStep;
+};
+
 export function RecommendationPanel({ patientId, patientToken, privacyMode, onRecommendationLoad, isRuleBasedForced }: RecommendationPanelProps) {
     const [data, setData] = useState<RecommendationResponse | null>(null);
     const [loading, setLoading] = useState(false);
+    const [loadingStep, setLoadingStep] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submissionError, setSubmissionError] = useState<string | null>(null);
@@ -223,33 +315,90 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
     const [notes, setNotes] = useState("");
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [rejectReason, setRejectReason] = useState("patient_refusal");
+    const [packageDetailsExpanded, setPackageDetailsExpanded] = useState(false);
+    const [expandedAddOnGroups, setExpandedAddOnGroups] = useState<Record<string, boolean>>({});
+    const [expandedAddOnItems, setExpandedAddOnItems] = useState<Record<string, boolean>>({});
+    const riskSummaryButtonRef = useRef<HTMLButtonElement | null>(null);
+    const actionPanelRef = useRef<HTMLDivElement | null>(null);
+    const [riskToast, setRiskToast] = useState<{ message: string; metadata: string; key: number } | null>(null);
 
     useEffect(() => {
         if (!patientToken) {
             onRecommendationLoad?.(null);
             return;
         }
+        let isCancelled = false;
         const fetchRecommendation = async () => {
             setLoading(true);
+            setLoadingStep(0);
             setError(null);
             setDecisionOutcome(null);
             setNotes("");
             setSubmissionError(null);
             setShowRejectModal(false);
             setRejectReason("patient_refusal");
+            setPackageDetailsExpanded(false);
+            setExpandedAddOnGroups({});
+            setExpandedAddOnItems({});
             try {
-                const result = await clinicalService.getRecommendation(patientToken, isRuleBasedForced);
+                const result = await clinicalService.getRecommendationStream(patientToken, isRuleBasedForced, {
+                    onStage: (stage) => {
+                        if (isCancelled) return;
+                        setLoadingStep((current) => mapStreamStageToLoadingStep(stage, current));
+                    },
+                    onError: (message) => {
+                        if (isCancelled) return;
+                        console.warn("Recommendation stream warning:", message);
+                    },
+                });
+                if (isCancelled) return;
                 setData(result);
                 onRecommendationLoad?.(result);
             } catch (err) {
-                console.error("Failed to fetch recommendation:", err);
-                setError(err instanceof Error ? err.message : "Failed to load clinical recommendation");
+                try {
+                    const fallbackResult = await clinicalService.getRecommendation(patientToken, isRuleBasedForced);
+                    if (isCancelled) return;
+                    setData(fallbackResult);
+                    onRecommendationLoad?.(fallbackResult);
+                } catch (fallbackErr) {
+                    console.error("Failed to fetch recommendation:", err);
+                    setError(fallbackErr instanceof Error ? fallbackErr.message : "Failed to load clinical recommendation");
+                }
             } finally {
-                setLoading(false);
+                if (!isCancelled) {
+                    setLoading(false);
+                }
             }
         };
         fetchRecommendation();
+        return () => {
+            isCancelled = true;
+        };
     }, [patientToken, isRuleBasedForced]);
+
+    useEffect(() => {
+        if (!riskToast) return;
+        const timeoutId = window.setTimeout(() => setRiskToast(null), 4500);
+        return () => window.clearTimeout(timeoutId);
+    }, [riskToast]);
+
+    const scrollToDecisionPanel = () => {
+        actionPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+
+    const handleToggleAddOnGroup = (groupId: string) => {
+        setExpandedAddOnGroups((current) => ({
+            ...current,
+            [groupId]: !(current[groupId] ?? true),
+        }));
+    };
+
+    const handleToggleAddOnItem = (itemKey: string) => {
+        setExpandedAddOnItems((current) => ({
+            ...current,
+            [itemKey]: !current[itemKey],
+        }));
+    };
 
     const handleApprove = async () => {
         if (!data?.recommendation_hash || !patientId) return;
@@ -301,30 +450,7 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
     }
 
     if (loading) {
-        return (
-            <div className="h-[650px] flex flex-col items-center justify-center navavej-card relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-navavej-teal/10 overflow-hidden">
-                    <motion.div
-                        animate={{ x: ["-100%", "100%"] }}
-                        transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                        className="w-1/3 h-full bg-navavej-teal"
-                    />
-                </div>
-                <motion.div
-                    animate={{ scale: [1, 1.05, 1], rotate: [0, 5, -5, 0] }}
-                    transition={{ duration: 4, repeat: Infinity }}
-                    className="relative z-10"
-                >
-                    <div className="w-28 h-28 bg-navavej-gray-light rounded-[30px] flex items-center justify-center shadow-xl border border-navavej-border">
-                        <BrainCircuit className="w-14 h-14 text-navavej-teal animate-pulse" />
-                    </div>
-                </motion.div>
-                <p className="mt-10 text-lg font-black tracking-[0.1em] text-navavej-gray-dark uppercase">
-                    Synthesizing Clinical Intelligence
-                </p>
-                <p className="text-[10px] font-bold text-navavej-gray-med uppercase tracking-widest mt-2">Checking signal store & rulesets...</p>
-            </div>
-        );
+        return <LoadingSteps activeStep={loadingStep} />;
     }
 
     if (error) {
@@ -350,6 +476,92 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
     const clinicalReasoningLines = parsedReasoningLines.filter((line: string) => !/^policy reasoning\s*:/i.test(line));
     const maskedPackageName = "-";
     const maskedPriceValue = "-";
+    const confidenceScore = typeof data.confidence_score === "number" ? data.confidence_score : null;
+    const confidencePercent = confidenceScore === null ? null : Math.round(confidenceScore * 100);
+    const confidenceColorClass =
+        confidenceScore === null
+            ? "text-navavej-gray-med"
+            : confidenceScore >= 0.75
+                ? "text-green-700"
+                : confidenceScore >= 0.5
+                    ? "text-amber-700"
+                    : "text-red-700";
+    const isRiskFallback = data.risk_summary?.is_fallback === true;
+    const normalizedRiskLevel = (data.overall_risk_level || "Low").toLowerCase();
+    const riskLevelLabel =
+        normalizedRiskLevel === "critical"
+            ? "Critical Risk Level"
+            : normalizedRiskLevel === "high"
+                ? "High Risk Level"
+                : normalizedRiskLevel === "medium"
+                    ? "Medium Risk Level"
+                    : "Low Risk Level";
+    const riskLevelClassName =
+        normalizedRiskLevel === "critical"
+            ? "text-red-700"
+            : normalizedRiskLevel === "high"
+                ? "text-red-600"
+                : normalizedRiskLevel === "medium"
+                    ? "text-amber-600"
+                    : "text-green-700";
+    const riskSummaryPrimaryText = data.risk_summary?.description || `Overall risk is ${data.overall_risk_level} based on currently available clinical context.`;
+    const riskSummaryMetadataText = [
+        data.risk_summary?.source ? `Source: ${data.risk_summary.source}.` : "",
+        isRiskFallback ? "Fallback is active due to missing signal-store risk context." : "",
+    ]
+        .filter((item) => item.length > 0)
+        .join(" ");
+    const resolvedTier = data.ai_recommended_tier || data.resolved_package?.tier || data.rule_preliminary_tier || "Standard";
+    const resolvedPackageName = data.resolved_package?.name || data.resolved_package?.package_name || "Unknown Package";
+    const packageNameDisplay = privacyMode ? maskedPackageName : resolvedPackageName;
+    const packagePriceDisplay = privacyMode ? maskedPriceValue : formatPriceLabel(data.resolved_package?.price_thb);
+    const packageCodeDisplay = data.resolved_package?.package_code || "Unassigned";
+    const packageSummaryRationale = data.communication_script?.recommendation_explanation || data.tier_deviation_justification || "No additional package rationale was returned.";
+    const normalizedAddOns: NormalizedAddOn[] = [...(data.add_ons || [])]
+        .map((item, index) => {
+            const priorityLabel = normalizePriorityLabel(item.priority_level || item.priority);
+            const categoryLabel = item.category?.trim() || "Uncategorized";
+            return {
+                ...item,
+                itemKey: item.item_id || item.product_code || `${item.item_code}-${index}`,
+                categoryLabel,
+                priorityLabel,
+                priorityRank: priorityRank(item.priority_level || item.priority),
+                priceLabel: formatPriceLabel(item.price_thb),
+                triggerSignals: item.trigger_signals_matched || [],
+            };
+        })
+        .sort((left, right) => {
+            if (left.priorityRank !== right.priorityRank) {
+                return left.priorityRank - right.priorityRank;
+            }
+            return left.label.localeCompare(right.label);
+        });
+    const addOnGroups = normalizedAddOns.reduce<AddOnGroup[]>((groups, item) => {
+        const groupId = slugifyKey(item.categoryLabel);
+        const existingGroup = groups.find((group) => group.id === groupId);
+        if (existingGroup) {
+            existingGroup.items.push(item);
+            if (item.priorityRank < existingGroup.highestPriorityRank) {
+                existingGroup.highestPriorityRank = item.priorityRank;
+                existingGroup.highestPriorityLabel = item.priorityLabel;
+            }
+            return groups;
+        }
+        groups.push({
+            id: groupId,
+            categoryLabel: item.categoryLabel,
+            highestPriorityLabel: item.priorityLabel,
+            highestPriorityRank: item.priorityRank,
+            items: [item],
+        });
+        return groups;
+    }, []).sort((left, right) => {
+        if (left.highestPriorityRank !== right.highestPriorityRank) {
+            return left.highestPriorityRank - right.highestPriorityRank;
+        }
+        return left.categoryLabel.localeCompare(right.categoryLabel);
+    });
 
     return (
         <AnimatePresence mode="wait">
@@ -360,60 +572,189 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                 className="space-y-10"
             >
                 {/* Intelligence HUD Panels */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                <div className="grid grid-cols-1 xl:grid-cols-[minmax(320px,0.92fr)_minmax(0,1.35fr)] gap-6">
 
-                    <div className="lg:col-span-4 navavej-card p-10 flex flex-col items-center justify-center relative bg-white group overflow-hidden">
-                        <div className="absolute top-0 left-0 w-2 h-full bg-navavej-teal/20 transition-all group-hover:bg-navavej-teal" />
-                        <ClinicalRiskGauge value={data.overall_risk_level} />
-                        <div className="mt-8 flex flex-col items-center">
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="w-2 h-2 bg-navavej-teal rounded-full animate-ping" />
-                                <span className="text-[9px] font-black text-navavej-teal uppercase tracking-widest">Active Monitoring</span>
+                    <div className="navavej-card p-8 md:p-10 relative bg-white group overflow-visible flex flex-col gap-8">
+                        <div className="absolute top-0 left-0 h-2 w-full bg-navavej-teal/10 transition-all group-hover:bg-navavej-teal/20" />
+                        <div className="flex flex-col items-center">
+                            <ClinicalRiskGauge value={data.overall_risk_level} />
+                            <div className="mt-6 flex flex-col items-center">
+                                <div className="flex flex-wrap items-center justify-center gap-2 mb-3">
+                                    <div className="w-2 h-2 bg-navavej-teal rounded-full animate-ping" />
+                                    <span className={cn("text-[9px] font-black uppercase tracking-widest", riskLevelClassName)}>{riskLevelLabel}</span>
+                                    <div className="relative">
+                                        <button
+                                            ref={riskSummaryButtonRef}
+                                            type="button"
+                                            onClick={() => {
+                                                setRiskToast((current) => {
+                                                    if (current) return null;
+                                                    return {
+                                                        message: riskSummaryPrimaryText,
+                                                        metadata: riskSummaryMetadataText,
+                                                        key: Date.now(),
+                                                    };
+                                                });
+                                            }}
+                                            className="inline-flex items-center justify-center text-[9px] font-black uppercase tracking-[0.12em] px-2 py-1 rounded-md border border-navavej-border bg-white text-navavej-gray-med hover:text-navavej-teal hover:border-navavej-teal/40 transition-colors focus:outline-none"
+                                            aria-label="Risk summary information"
+                                        >
+                                            Risk Summary
+                                        </button>
+                                        <AnimatePresence>
+                                            {riskToast ? (
+                                                <motion.div
+                                                    role="status"
+                                                    key={riskToast.key}
+                                                    initial={{ opacity: 0, y: -6 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: -6 }}
+                                                    className="absolute left-1/2 top-full z-50 mt-3 w-[min(20rem,calc(100vw-4rem))] -translate-x-1/2 rounded-xl border border-navavej-teal/40 bg-white shadow-2xl p-4"
+                                                >
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-navavej-teal mb-1">Risk Summary</p>
+                                                    <p className="text-xs font-medium text-navavej-gray-dark leading-relaxed">{riskToast.message}</p>
+                                                    {riskToast.metadata ? (
+                                                        <p className="text-[10px] font-bold text-navavej-gray-med mt-2">{riskToast.metadata}</p>
+                                                    ) : null}
+                                                </motion.div>
+                                            ) : null}
+                                        </AnimatePresence>
+                                    </div>
+                                </div>
+                                <p className="max-w-sm text-[11px] text-navavej-gray-med font-medium text-center italic">Calculated based on current BMI, ASCVD scores and clinical signals.</p>
+                                {isRiskFallback && (
+                                    <span className="mt-3 text-[9px] font-black uppercase tracking-[0.12em] text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
+                                        Fallback Risk Data
+                                    </span>
+                                )}
                             </div>
-                            <p className="text-[11px] text-navavej-gray-med font-medium text-center italic">Calculated based on current BMI, ASCVD scores and clinical signals.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="rounded-[24px] border border-navavej-border bg-navavej-gray-light/40 p-5">
+                                <div className="flex items-center gap-2 text-navavej-teal">
+                                    <Package className="w-4 h-4" />
+                                    <span className="text-[9px] font-black uppercase tracking-[0.18em]">Strategy Assignment</span>
+                                </div>
+                                <p className="mt-3 text-3xl font-black tracking-tight text-navavej-gray-dark">{resolvedTier}</p>
+                                <span className="mt-2 block text-[9px] font-bold uppercase tracking-[0.14em] text-navavej-gray-med">
+                                    {data.confidence_tier ? `${data.confidence_tier} Tier` : "Confidence Tier Unavailable"}
+                                </span>
+                            </div>
+                            <div className="rounded-[24px] border border-navavej-border bg-navavej-teal px-5 py-5 text-white">
+                                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/70">Confidence Score</p>
+                                <div className="mt-3 flex items-center gap-3">
+                                    <div className="h-1.5 flex-1 rounded-full bg-white/20 overflow-hidden">
+                                        <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} transition={{ duration: 1 }} className="h-full w-full rounded-full bg-white" />
+                                    </div>
+                                    <span className={cn(
+                                        "shrink-0 rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em]",
+                                        confidenceColorClass
+                                    )}>
+                                        {confidencePercent === null ? "--%" : `${confidencePercent}%`}
+                                    </span>
+                                </div>
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                    <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em]">
+                                        <ShieldCheck className="w-4 h-4" /> AI Verified
+                                    </span>
+                                    <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em]">
+                                        <CheckCircle2 className="w-4 h-4" /> Safety Log OK
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="lg:col-span-8 navavej-card p-0 rounded-[20px] overflow-hidden flex flex-col md:flex-row shadow-xl">
-                        <div className="bg-navavej-teal p-12 text-white flex flex-col justify-center md:w-[45%]">
-                            <div className="flex items-center gap-2 mb-4 opacity-70">
-                                <Package className="w-5 h-5" />
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Strategy Assignment</span>
-                            </div>
-                            <h3 className="text-4xl font-black tracking-tight">{data.ai_recommended_tier || "Premium"}</h3>
-                            <div className="mt-6 flex items-center gap-2">
-                                <div className="w-10 h-1 bg-white/30 rounded-full overflow-hidden">
-                                    <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} transition={{ duration: 1 }} className="w-full h-full bg-white" />
+                    <div className="navavej-card overflow-hidden rounded-[28px] border border-navavej-border shadow-xl bg-white">
+                        <div className="p-8 md:p-10 xl:p-12 flex flex-col gap-6">
+                            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(220px,280px)] xl:items-start">
+                                <div className="min-w-0 space-y-4">
+                                    <span className="text-[9px] font-black text-navavej-gray-med uppercase tracking-[0.24em]">Recommended Package</span>
+                                    <PackageSealBadge tier={resolvedTier} />
+                                    <div>
+                                        <h4 className={cn("text-2xl font-black uppercase tracking-tight break-words leading-tight", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-gray-dark")}>
+                                            {packageNameDisplay}
+                                        </h4>
+                                        <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-navavej-gray-med break-all">
+                                            Package Code · {privacyMode ? "—" : packageCodeDisplay}
+                                        </p>
+                                    </div>
                                 </div>
-                                <span className="text-[10px] font-bold uppercase">Optimal Confidence</span>
-                            </div>
-                        </div>
 
-                        <div className="flex-1 p-12 bg-white flex flex-col justify-center items-start border-l border-navavej-border">
-                            <div className="flex items-center justify-between w-full mb-8">
-                                <div className="flex flex-col">
-                                    <span className="text-[9px] font-black text-navavej-gray-med uppercase tracking-[0.2em] mb-1">Recommended Package</span>
-                                    <span className={cn("text-xl font-black uppercase tracking-wide", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-gray-dark")}>
-                                        {privacyMode ? maskedPackageName : (data.resolved_package?.name || data.resolved_package?.package_name || "Unknown Package")}
-                                    </span>
-                                </div>
-                                <div className="flex flex-col items-end">
-                                    <span className="text-[9px] font-black text-navavej-gray-med uppercase tracking-[0.2em] mb-1">Program Value</span>
-                                    <span className={cn("text-3xl font-black italic", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-teal")}>
-                                        {privacyMode ? maskedPriceValue : (data.resolved_package?.price_thb ? `฿${data.resolved_package.price_thb.toLocaleString()}` : "Price TBD")}
-                                    </span>
+                                <div className="rounded-[24px] border border-navavej-border bg-navavej-gray-light/60 px-6 py-5">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.22em] text-navavej-gray-med">Program Value</p>
+                                    <p className={cn("mt-2 text-3xl font-black italic break-words", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-teal")}>
+                                        {packagePriceDisplay}
+                                    </p>
+                                    <p className="mt-2 text-[10px] font-medium text-navavej-gray-med">Prepared for consultation open and close flow.</p>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4 w-full">
-                                <div className="px-5 py-3 bg-navavej-gray-light rounded-xl flex items-center gap-3 border border-navavej-border">
-                                    <ShieldCheck className="w-5 h-5 text-navavej-teal" />
-                                    <span className="text-[10px] font-black uppercase text-navavej-gray-dark">AI Verified</span>
+                            <div className="grid gap-4 md:grid-cols-3">
+                                <div className="rounded-[24px] border border-navavej-border bg-navavej-gray-light/40 p-5">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-navavej-gray-med">Selected Tier</p>
+                                    <p className="mt-2 text-base font-black text-navavej-gray-dark">{resolvedTier}</p>
                                 </div>
-                                <div className="px-5 py-3 bg-navavej-gray-light rounded-xl flex items-center gap-3 border border-navavej-border">
-                                    <CheckCircle2 className="w-5 h-5 text-navavej-teal" />
-                                    <span className="text-[10px] font-black uppercase text-navavej-gray-dark">Safety Log OK</span>
+                                <div className="rounded-[24px] border border-navavej-border bg-navavej-gray-light/40 p-5">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-navavej-gray-med">Recommendation Source</p>
+                                    <p className="mt-2 text-base font-black uppercase text-navavej-gray-dark">{data.recommendation_source || "Hybrid"}</p>
                                 </div>
+                                <div className="rounded-[24px] border border-navavej-border bg-navavej-gray-light/40 p-5">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-navavej-gray-med">Summary State</p>
+                                    <p className="mt-2 text-base font-black text-navavej-teal">{packageDetailsExpanded ? "Expanded" : "Collapsed"}</p>
+                                </div>
+                            </div>
+
+                            <div className="rounded-[24px] border border-navavej-border bg-navavej-gray-light/50 p-6">
+                                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                    <div className="max-w-2xl">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-navavej-teal">Package Detail</p>
+                                        <p className="mt-1 text-sm font-medium text-navavej-gray-med">Reveal package rationale, pricing context, and selected tier summary.</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPackageDetailsExpanded((current) => !current)}
+                                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-navavej-border bg-white px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-navavej-gray-dark transition-colors hover:border-navavej-teal/40 hover:text-navavej-teal sm:w-auto"
+                                    >
+                                        <Eye className="w-4 h-4" />
+                                        {packageDetailsExpanded ? "Hide Package Detail" : "View Package Detail"}
+                                        <ChevronDown className={cn("w-4 h-4 transition-transform", packageDetailsExpanded ? "rotate-180" : "rotate-0")} />
+                                    </button>
+                                </div>
+
+                                <AnimatePresence initial={false}>
+                                    {packageDetailsExpanded ? (
+                                        <motion.div
+                                            key="package-detail"
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: "auto" }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className="mt-5 grid gap-4 md:grid-cols-3">
+                                                <div className="rounded-2xl border border-navavej-border bg-white p-4">
+                                                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-navavej-gray-med">Selected Tier</p>
+                                                    <p className="mt-2 text-base font-black text-navavej-gray-dark">{resolvedTier}</p>
+                                                </div>
+                                                <div className="rounded-2xl border border-navavej-border bg-white p-4">
+                                                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-navavej-gray-med">Package Value</p>
+                                                    <p className="mt-2 text-base font-black text-navavej-gray-dark break-words">{packagePriceDisplay}</p>
+                                                </div>
+                                                <div className="rounded-2xl border border-navavej-border bg-white p-4">
+                                                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-navavej-gray-med">Recommendation Source</p>
+                                                    <p className="mt-2 text-base font-black text-navavej-gray-dark uppercase">{data.recommendation_source || "Hybrid"}</p>
+                                                </div>
+                                            </div>
+                                            <div className="mt-4 rounded-2xl border border-navavej-border bg-white p-5">
+                                                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-navavej-gray-med">AI Rationale</p>
+                                                <p className="mt-3 text-sm font-medium leading-relaxed text-navavej-gray-dark">
+                                                    {renderBoldText(packageSummaryRationale)}
+                                                </p>
+                                            </div>
+                                        </motion.div>
+                                    ) : null}
+                                </AnimatePresence>
                             </div>
                         </div>
                     </div>
@@ -513,32 +854,146 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
                         {/* Strategic Add-ons List */}
                         <div className="lg:col-span-8 navavej-card p-10 bg-white border-2 border-navavej-teal/10 shadow-lg flex flex-col">
-                            <div className="flex items-center gap-3 mb-8">
-                                <div className="w-10 h-10 bg-navavej-teal/5 rounded-xl flex items-center justify-center">
-                                    <Package className="w-5 h-5 text-navavej-teal" />
-                                </div>
-                                <h4 className="text-sm font-black text-navavej-gray-dark uppercase tracking-widest">Additional Clinical Screenings</h4>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
-                                {data.add_ons?.map((item: RecommendationAddOn, i: number) => (
-                                    <div key={i} className="p-5 bg-navavej-gray-light rounded-2xl border border-navavej-border hover:border-navavej-teal/30 transition-all group flex flex-col justify-between">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <span className="text-[11px] font-black text-navavej-gray-dark uppercase bg-white px-2 py-1 rounded shadow-sm">{item.item_code}</span>
-                                            <span className={cn(
-                                                "text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest text-white shadow-sm",
-                                                priorityBadgeClass(item.priority_level || item.priority)
-                                            )}>
-                                                {item.priority_level}
-                                            </span>
-                                        </div>
-                                        <p className="text-[11px] text-navavej-gray-med font-medium leading-relaxed text-justify">
-                                            {renderBoldText(item.rationale)}
-                                        </p>
+                            <div className="flex items-center justify-between gap-4 mb-8">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-navavej-teal/5 rounded-xl flex items-center justify-center">
+                                        <Layers3 className="w-5 h-5 text-navavej-teal" />
                                     </div>
-                                ))}
-                                {(!data.add_ons || data.add_ons.length === 0) && (
-                                    <div className="col-span-2 flex flex-col items-center justify-center py-10 opacity-30 italic text-xs">
-                                        No clinical add-ons required for this tier.
+                                    <div>
+                                        <h4 className="text-sm font-black text-navavej-gray-dark uppercase tracking-widest">Additional Clinical Screenings</h4>
+                                        <p className="mt-1 text-[11px] font-medium text-navavej-gray-med">Single-column consultation view sorted by highest clinical urgency first.</p>
+                                    </div>
+                                </div>
+                                {normalizedAddOns.length > 0 ? (
+                                    <span className="rounded-full border border-navavej-border bg-navavej-gray-light px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-navavej-gray-med">
+                                        {normalizedAddOns.length} Add-on{normalizedAddOns.length > 1 ? "s" : ""}
+                                    </span>
+                                ) : null}
+                            </div>
+
+                            <div className="flex flex-col gap-4 flex-1">
+                                {addOnGroups.map((group) => {
+                                    const isExpanded = expandedAddOnGroups[group.id] ?? true;
+                                    return (
+                                        <div key={group.id} className="rounded-[24px] border border-navavej-border bg-navavej-gray-light/50 overflow-hidden">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleToggleAddOnGroup(group.id)}
+                                                className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left transition-colors hover:bg-white/60"
+                                            >
+                                                <div>
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-navavej-gray-med">Category Group</p>
+                                                    <h5 className="mt-1 text-lg font-black uppercase tracking-tight text-navavej-gray-dark">{group.categoryLabel}</h5>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className={cn(
+                                                        "rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-white shadow-sm",
+                                                        priorityBadgeClass(group.highestPriorityLabel)
+                                                    )}>
+                                                        Highest Risk · {group.highestPriorityLabel}
+                                                    </span>
+                                                    <span className="rounded-full border border-navavej-border bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-navavej-gray-med">
+                                                        {group.items.length} Item{group.items.length > 1 ? "s" : ""}
+                                                    </span>
+                                                    <ChevronDown className={cn("w-5 h-5 text-navavej-gray-med transition-transform", isExpanded ? "rotate-180" : "rotate-0")} />
+                                                </div>
+                                            </button>
+
+                                            <AnimatePresence initial={false}>
+                                                {isExpanded ? (
+                                                    <motion.div
+                                                        key={`${group.id}-items`}
+                                                        initial={{ opacity: 0, height: 0 }}
+                                                        animate={{ opacity: 1, height: "auto" }}
+                                                        exit={{ opacity: 0, height: 0 }}
+                                                        className="overflow-hidden"
+                                                    >
+                                                        <div className="px-4 pb-4 space-y-3">
+                                                            {group.items.map((item) => {
+                                                                const isItemExpanded = !!expandedAddOnItems[item.itemKey];
+                                                                return (
+                                                                    <div key={item.itemKey} className="rounded-2xl border border-navavej-border bg-white shadow-sm">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleToggleAddOnItem(item.itemKey)}
+                                                                            className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
+                                                                        >
+                                                                            <div className="flex items-start gap-4">
+                                                                                <span className={cn(
+                                                                                    "mt-1 rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-white shadow-sm",
+                                                                                    priorityBadgeClass(item.priorityLabel)
+                                                                                )}>
+                                                                                    {item.priorityLabel}
+                                                                                </span>
+                                                                                <div>
+                                                                                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-navavej-gray-med">{item.item_code}</p>
+                                                                                    <h6 className="mt-1 text-sm font-black uppercase tracking-tight text-navavej-gray-dark">{item.label}</h6>
+                                                                                    <p className="mt-1 text-[11px] font-medium text-navavej-gray-med">{item.priceLabel}</p>
+                                                                                </div>
+                                                                            </div>
+                                                                            <ChevronDown className={cn("w-5 h-5 text-navavej-gray-med transition-transform", isItemExpanded ? "rotate-180" : "rotate-0")} />
+                                                                        </button>
+
+                                                                        <AnimatePresence initial={false}>
+                                                                            {isItemExpanded ? (
+                                                                                <motion.div
+                                                                                    key={`${item.itemKey}-detail`}
+                                                                                    initial={{ opacity: 0, height: 0 }}
+                                                                                    animate={{ opacity: 1, height: "auto" }}
+                                                                                    exit={{ opacity: 0, height: 0 }}
+                                                                                    className="overflow-hidden"
+                                                                                >
+                                                                                    <div className="border-t border-navavej-border px-5 py-4 bg-navavej-gray-light/50">
+                                                                                        <div className="grid gap-4 md:grid-cols-2">
+                                                                                            <div>
+                                                                                                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-navavej-gray-med">AI Rationale</p>
+                                                                                                <p className="mt-2 text-sm font-medium leading-relaxed text-navavej-gray-dark text-justify">
+                                                                                                    {renderBoldText(item.rationale || "No rationale provided.")}
+                                                                                                </p>
+                                                                                            </div>
+                                                                                            <div className="space-y-3">
+                                                                                                <div>
+                                                                                                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-navavej-gray-med">Supporting Metadata</p>
+                                                                                                    <div className="mt-2 flex flex-wrap gap-2">
+                                                                                                        <span className="rounded-full border border-navavej-border bg-white px-2.5 py-1 text-[10px] font-bold text-navavej-gray-dark">Category · {item.categoryLabel}</span>
+                                                                                                        <span className="rounded-full border border-navavej-border bg-white px-2.5 py-1 text-[10px] font-bold text-navavej-gray-dark">Product · {item.product_code || "N/A"}</span>
+                                                                                                        <span className="rounded-full border border-navavej-border bg-white px-2.5 py-1 text-[10px] font-bold text-navavej-gray-dark">Price · {item.priceLabel}</span>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                                <div>
+                                                                                                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-navavej-gray-med">Triggered Signals</p>
+                                                                                                    <div className="mt-2 flex flex-wrap gap-2">
+                                                                                                        {item.triggerSignals.length > 0 ? item.triggerSignals.map((signal, signalIndex) => (
+                                                                                                            <span key={`${item.itemKey}-signal-${signalIndex}`} className="rounded-full bg-navavej-teal/10 px-2.5 py-1 text-[10px] font-bold text-navavej-teal">
+                                                                                                                {signal}
+                                                                                                            </span>
+                                                                                                        )) : (
+                                                                                                            <span className="text-[11px] font-medium text-navavej-gray-med">No trigger signals returned.</span>
+                                                                                                        )}
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </motion.div>
+                                                                            ) : null}
+                                                                        </AnimatePresence>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </motion.div>
+                                                ) : null}
+                                            </AnimatePresence>
+                                        </div>
+                                    );
+                                })}
+
+                                {normalizedAddOns.length === 0 && (
+                                    <div className="flex flex-1 flex-col items-center justify-center rounded-[24px] border border-dashed border-navavej-border py-12 text-center">
+                                        <Sparkles className="w-8 h-8 text-navavej-teal/40 mb-3" />
+                                        <p className="text-sm font-black uppercase tracking-[0.18em] text-navavej-gray-med">No clinical add-ons required</p>
+                                        <p className="mt-2 text-[11px] font-medium text-navavej-gray-med">The recommended package covers the current consultation scope.</p>
                                     </div>
                                 )}
                             </div>
@@ -560,10 +1015,10 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                                 <div className="space-y-3">
                                     {criticalAlerts.length > 0 ? (
                                         criticalAlerts.map((alert: NormalizedAlert, i: number) => (
-                                            <div key={i} className="flex items-center justify-between p-4 bg-white rounded-xl border border-navavej-border group hover:border-navavej-red/40 transition-colors shadow-sm">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-1.5 h-1.5 bg-navavej-red rounded-full" />
-                                                    <div>
+                                            <div key={i} className="flex items-center justify-between gap-3 p-4 bg-white rounded-xl border border-navavej-border group hover:border-navavej-red/40 transition-colors shadow-sm">
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className="w-1.5 h-1.5 bg-navavej-red rounded-full shrink-0" />
+                                                    <div className="min-w-0">
                                                         <h4 className={cn("text-[10px] font-black uppercase", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-gray-dark")}>
                                                             {privacyMode ? "Masked Alert" : alert.label}
                                                         </h4>
@@ -572,7 +1027,7 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <span className="text-[8px] font-black text-navavej-red border border-navavej-red/20 px-2 py-1 rounded tracking-tighter">
+                                                <span className="text-[8px] font-black text-navavej-red border border-navavej-red/20 px-2 py-1 rounded tracking-tighter shrink-0">
                                                     {privacyMode ? "—" : alert.value}
                                                 </span>
                                             </div>
@@ -586,7 +1041,7 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                             </div>
 
                             {/* Physician Notes & Action */}
-                            <div className="bg-navavej-gray-light rounded-[24px] p-8 border border-navavej-border flex flex-col flex-1 shadow-inner">
+                            <div ref={actionPanelRef} className="bg-navavej-gray-light rounded-[24px] p-8 border border-navavej-border flex flex-col flex-1 shadow-inner">
                                 <div className="flex items-center gap-2 mb-4 text-navavej-gray-med">
                                     <Activity className="w-3.5 h-3.5" />
                                     <span className="text-[10px] font-black uppercase tracking-widest">Execution Notes</span>
@@ -601,7 +1056,6 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                                 {submissionError && (
                                     <p className="text-xs text-red-500 font-bold mt-2">{submissionError}</p>
                                 )}
-                                {/* Post-decision locked state */}
                                 {decisionOutcome ? (
                                     <button
                                         disabled
@@ -640,6 +1094,36 @@ export function RecommendationPanel({ patientId, patientToken, privacyMode, onRe
                                     </div>
                                 )}
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="navavej-card overflow-hidden rounded-[28px] border border-navavej-border bg-white shadow-xl">
+                    <div className="grid grid-cols-1 gap-6 p-10 md:grid-cols-[1fr_auto] md:items-center md:p-12">
+                        <div className="flex flex-col gap-4">
+                            <div className="flex items-center gap-3">
+                                <PackageSealBadge tier={resolvedTier} compact />
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-navavej-teal">Consultation Summary</p>
+                                    <h4 className={cn("text-2xl font-black uppercase tracking-tight", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-gray-dark")}>
+                                        {packageNameDisplay}
+                                    </h4>
+                                </div>
+                            </div>
+                            <p className="text-sm font-medium leading-relaxed text-navavej-gray-med">Repeat the package recommendation at the bottom of the consultation flow so staff can close the discussion with the same tier and value context.</p>
+                        </div>
+                        <div className="flex flex-col items-start gap-3 md:items-end">
+                            <span className={cn("text-3xl font-black italic", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-teal")}>
+                                {packagePriceDisplay}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={scrollToDecisionPanel}
+                                className="navavej-button-primary inline-flex items-center gap-3 px-6 py-4 shadow-lg"
+                            >
+                                <span className="text-xs font-black uppercase tracking-[0.16em]">Proceed with Recommendation</span>
+                                <ArrowRight className="w-5 h-5" />
+                            </button>
                         </div>
                     </div>
                 </div>

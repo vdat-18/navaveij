@@ -62,6 +62,14 @@ export interface RecommendationMetadata {
   [key: string]: unknown;
 }
 
+export interface RiskSummary {
+  source: string;
+  is_fallback: boolean;
+  description?: string;
+  signal_store_pipeline_run_id?: string;
+  signals_fired_count?: number;
+}
+
 export interface RecommendationResponse {
   overall_risk_level: string;
   ai_recommended_tier: string;
@@ -78,6 +86,7 @@ export interface RecommendationResponse {
   review_required: boolean;
   recommendation_source: string;
   recommendation_hash: string | null;
+  risk_summary?: RiskSummary;
   patient_high_alert: PatientHighAlert | CriticalSignal[];
   biomarker_trends?: {
     bmi?: { history?: { date: string; value: number }[] };
