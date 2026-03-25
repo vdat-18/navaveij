@@ -1,0 +1,114 @@
+{
+  "_schema_note": "Promotion Store — defines active campaigns, membership tiers, and bundle rules for the Navavej ROC deal-closing layer.",
+  "_version": "v2026.03.1",
+  "promotions": [
+    {
+      "promo_id": "EXPO_2026_5TH_ANNIVERSARY",
+      "type": "seasonal_campaign",
+      "label": "5th Anniversary Wellbeing Expo 2026",
+      "label_short": "Expo 2026",
+      "badge_color": "#E91E63",
+      "valid_from": "2026-03-01T00:00:00+07:00",
+      "valid_until": "2026-03-31T23:59:59+07:00",
+      "frozen_for_demo": true,
+      "frozen_days_remaining": 6,
+      "applies_to": "all",
+      "scope": {
+        "package_codes": ["GOLD_ANY", "PLAT_M", "PLAT_F", "DIAM_M", "DIAM_F"],
+        "add_on_item_codes": ["*"]
+      },
+      "discount_mechanic": {
+        "type": "pre_applied",
+        "note": "Current price_thb values in the package resolution map already reflect Expo rates. original_prices stores the estimated standard (non-promo) prices for strikethrough display. add_on_original_price_markup_pct is used to estimate pre-Expo add-on prices.",
+        "add_on_original_price_markup_pct": 0.30
+      },
+      "original_prices": {
+        "GOLD_ANY": 7900,
+        "PLAT_M": 12500,
+        "PLAT_F": 18900,
+        "DIAM_M": 22000,
+        "DIAM_F": 27000
+      },
+      "urgency_message": "Expo pricing ends March 31 — {days_remaining} days left",
+      "stacking_allowed": true,
+      "consultant_note": null
+    },
+    {
+      "promo_id": "SMART_LIFE_10K",
+      "type": "membership_card",
+      "label": "Navavej Smart Life Card",
+      "label_short": "Smart Life",
+      "badge_color": "#FFD700",
+      "valid_from": null,
+      "valid_until": null,
+      "frozen_for_demo": false,
+      "frozen_days_remaining": null,
+      "applies_to": "card_holder",
+      "scope": {
+        "package_codes": ["GOLD_ANY", "PLAT_M", "PLAT_F", "DIAM_M", "DIAM_F"],
+        "add_on_item_codes": ["*"]
+      },
+      "discount_mechanic": {
+        "type": "percentage",
+        "value": 10,
+        "max_discount_thb": null
+      },
+      "original_prices": null,
+      "urgency_message": null,
+      "stacking_allowed": true,
+      "card_cost_thb": 10000,
+      "consultant_note": "Ask if patient has a Smart Life card or would like to purchase one (฿10,000). Provides 10% discount on packages and add-ons."
+    },
+    {
+      "promo_id": "SMART_KID_3K",
+      "type": "membership_card",
+      "label": "Navavej Smart Kid Card",
+      "label_short": "Smart Kid",
+      "badge_color": "#4FC3F7",
+      "valid_from": null,
+      "valid_until": null,
+      "frozen_for_demo": false,
+      "frozen_days_remaining": null,
+      "applies_to": "card_holder",
+      "scope": {
+        "package_codes": ["GOLD_ANY"],
+        "add_on_item_codes": ["*"]
+      },
+      "discount_mechanic": {
+        "type": "percentage",
+        "value": 5,
+        "max_discount_thb": null
+      },
+      "original_prices": null,
+      "urgency_message": null,
+      "stacking_allowed": true,
+      "card_cost_thb": 3000,
+      "consultant_note": "Ask if patient has a Smart Kid card or would like to purchase one (฿3,000). Provides 5% discount on Gold package and add-ons."
+    },
+    {
+      "promo_id": "DIAMOND_COUPLE_BUNDLE",
+      "type": "bundle",
+      "label": "Diamond Couple Package",
+      "label_short": "Couple Deal",
+      "badge_color": "#9C27B0",
+      "valid_from": "2026-03-01T00:00:00+07:00",
+      "valid_until": "2026-03-31T23:59:59+07:00",
+      "frozen_for_demo": true,
+      "frozen_days_remaining": 6,
+      "applies_to": "manual_selection",
+      "scope": {
+        "package_codes": ["DIAM_M", "DIAM_F"],
+        "add_on_item_codes": []
+      },
+      "discount_mechanic": {
+        "type": "bundle_fixed_price",
+        "bundle_price_thb": 26000,
+        "note": "Diamond Couple package (฿26,000) vs 2× individual Diamond (฿15,000 + ฿19,000 = ฿34,000)"
+      },
+      "original_prices": null,
+      "urgency_message": "Couple bundle — save ฿8,000 when both partners enroll together",
+      "stacking_allowed": false,
+      "consultant_note": "If the patient mentions a spouse or partner, suggest the Diamond Couple Bundle for ฿26,000 — that's ฿8,000 less than two individual Diamond packages."
+    }
+  ]
+}
