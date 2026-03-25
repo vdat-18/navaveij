@@ -252,26 +252,37 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             next_steps     = narrative.next_steps
         else:
             # WriteNarrative failed — build from risk_profile.clinical_summary_bullets
-            bullets = getattr(risk_profile, "clinical_summary_bullets", []) or []
-            health_summary = " ".join(bullets) if bullets else risk_profile.severity_assessment or ""
+            bullets = getattr(risk_profile, "clinical_summary_bullets", []) if not isinstance(risk_profile, dict) else risk_profile.get("clinical_summary_bullets", [])
+            health_summary = " ".join(bullets) if bullets else (getattr(risk_profile, "severity_assessment", "") if not isinstance(risk_profile, dict) else risk_profile.get("severity_assessment", ""))
             next_steps = (
                 "Please review the identified clinical findings with your physician "
                 "and follow up on the recommended programme items."
             )
 
+        # ── Risk Level Extraction (Handle Cache Dict vs Fresh Object) ────────
+        def get_risk(rp):
+            if isinstance(rp, dict):
+                return rp.get("overall_risk_level", "Moderate")
+            # BAML enum to string
+            val = getattr(rp, "overall_risk_level", "Moderate")
+            return getattr(val, "name", str(val))
+
+        overall_risk_level = get_risk(risk_profile)
+
         # ── Reasoning trace from Agent 1 ─────────────────────────────────────
-        bullets = getattr(risk_profile, "clinical_summary_bullets", []) or []
+        bullets = getattr(risk_profile, "clinical_summary_bullets", []) if not isinstance(risk_profile, dict) else risk_profile.get("clinical_summary_bullets", [])
         reasoning_lines = [f"- {line}" for line in bullets]
         if policy_reasoning:
             reasoning_lines.append(f"- Policy reasoning: {policy_reasoning}")
 
         return {
             "ai_recommended_tier":        ai_tier,
+            "overall_risk_level":         overall_risk_level,
             "tier_deviation_justification": tier_deviation,
             "add_ons":                    add_ons,
             "reasoning_trace":            "\n".join(reasoning_lines),
-            "supporting_signals":         risk_profile.supporting_signal_ids,
-            "missing_signals":            risk_profile.missing_signal_ids,
+            "supporting_signals":         getattr(risk_profile, "supporting_signal_ids", []) if not isinstance(risk_profile, dict) else risk_profile.get("supporting_signal_ids", []),
+            "missing_signals":            getattr(risk_profile, "missing_signal_ids", []) if not isinstance(risk_profile, dict) else risk_profile.get("missing_signal_ids", []),
             "communication_script": {
                 "health_summary":            health_summary,
                 "recommendation_rationale":  recommendation_rationale,
@@ -300,8 +311,15 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             signals_fired=set(matched_signals),
             ruleset=ruleset,
         )
+        
+        # Infer risk level from rule tier for fallback
+        overall_risk = "Low"
+        if rule_tier == "Premium": overall_risk = "High"
+        elif rule_tier == "Advanced": overall_risk = "Moderate"
+
         return {
             "ai_recommended_tier": rule_tier,
+            "overall_risk_level": overall_risk,
             "tier_deviation_justification": "AI chain unavailable; deterministic rule fallback applied.",
             "add_ons": add_ons,
             "reasoning_trace": (

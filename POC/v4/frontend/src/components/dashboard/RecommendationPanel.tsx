@@ -183,80 +183,74 @@ const renderBoldText = (text: string | string[] | null | undefined, sentiment?: 
 };
 
 const ClinicalRiskGauge = ({ value }: { value: string }) => {
+    console.log("ClinicalRiskGauge received value:", value);
+    const normalizedValue = (value || "Low").toLowerCase();
+    
     let percentage = 30;
-    if (value === "Critical") percentage = 95;
-    else if (value === "High") percentage = 85;
-    else if (value === "Medium") percentage = 55;
-    else if (value === "Low") percentage = 25;
+    if (normalizedValue === "critical") percentage = 95;
+    else if (normalizedValue === "high") percentage = 85;
+    else if (normalizedValue === "medium" || normalizedValue === "moderate") percentage = 55;
+    else if (normalizedValue === "low") percentage = 25;
 
-    const isHighOrCritical = value === "High" || value === "Critical";
-    const isMedium = value === "Medium";
+    const isHighOrCritical = normalizedValue === "high" || normalizedValue === "critical";
+    const isMedium = normalizedValue === "medium" || normalizedValue === "moderate";
 
-    const strokeColor = isHighOrCritical ? "var(--color-navavej-red)" : (isMedium ? "#EAB308" : "var(--color-risk-low)");
-    const textColor = isHighOrCritical ? "text-navavej-red" : (isMedium ? "text-yellow-500" : "text-green-600");
+    const strokeColor = isHighOrCritical ? "var(--color-navavej-red)" : (isMedium ? "#F59E0B" : "var(--color-risk-low)");
+    const hexColor = isHighOrCritical ? "#9D0A31" : (isMedium ? "#F59E0B" : "#10B981");
+    const dropShadowColor = isHighOrCritical ? 'rgba(157, 10, 49, 0.4)' : (isMedium ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.4)');
 
     return (
-        <div className="relative flex flex-col items-center group">
-            <svg className="w-48 h-24" viewBox="0 0 100 50">
-                {/* Background segments */}
-                <path
-                    d="M 10 45 A 40 40 0 0 1 30 10.4"
-                    fill="none"
-                    stroke="#10B981"
-                    strokeWidth="6"
-                    strokeLinecap="round"
-                    className="opacity-10"
-                />
-                <path
-                    d="M 30 10.4 A 40 40 0 0 1 70 10.4"
-                    fill="none"
-                    stroke="#EAB308"
-                    strokeWidth="6"
-                    strokeLinecap="round"
-                    className="opacity-10"
-                />
-                <path
-                    d="M 70 10.4 A 40 40 0 0 1 90 45"
-                    fill="none"
-                    stroke="#9D0A31"
-                    strokeWidth="6"
-                    strokeLinecap="round"
-                    className="opacity-10"
-                />
+        <div className="relative flex flex-col items-center justify-center -mt-2">
+            <div className="relative w-48 h-24 mb-4">
+                <svg className="w-full h-full" viewBox="0 0 100 50">
+                    {/* Background track */}
+                    <path
+                        d="M 10 45 A 35 35 0 0 1 90 45"
+                        fill="none"
+                        stroke="#F3F4F6"
+                        strokeWidth="8"
+                        strokeLinecap="round"
+                    />
 
-                {/* Background track (subtle) */}
-                <path
-                    d="M 10 45 A 40 40 0 0 1 90 45"
-                    fill="none"
-                    stroke="var(--color-navavej-border)"
-                    strokeWidth="6"
-                    strokeLinecap="round"
-                    className="opacity-40"
-                />
+                    {/* Animated Fill track */}
+                    <motion.path
+                        initial={{ pathLength: 0 }}
+                        animate={{ pathLength: percentage / 100 }}
+                        transition={{ duration: 1.5, ease: "easeOut" }}
+                        d="M 10 45 A 35 35 0 0 1 90 45"
+                        fill="none"
+                        stroke={strokeColor}
+                        strokeWidth="8"
+                        strokeLinecap="round"
+                        style={{
+                            filter: `drop-shadow(0px 4px 6px ${dropShadowColor})`
+                        }}
+                    />
+                </svg>
+                
+                {/* Center text inside arch */}
+                <div className="absolute inset-0 flex items-end justify-center pb-1">
+                    <span className="text-[10px] uppercase font-black tracking-widest text-navavej-gray-med/70">Risk Level</span>
+                </div>
+            </div>
 
-                <motion.path
-                    initial={{ pathLength: 0 }}
-                    animate={{ pathLength: percentage / 100 }}
-                    transition={{ duration: 2, ease: "circOut" }}
-                    d="M 10 45 A 40 40 0 0 1 90 45"
-                    fill="none"
-                    stroke={strokeColor}
-                    strokeWidth="10"
-                    strokeLinecap="round"
-                    className="transition-all duration-500 drop-shadow-[0_0_8px_rgba(0,0,0,0.15)]"
-                    style={{
-                        filter: `drop-shadow(0 0 8px ${isHighOrCritical ? 'rgba(157, 10, 49, 0.4)' : isMedium ? 'rgba(234, 179, 8, 0.4)' : 'rgba(16, 185, 129, 0.4)'})`
-                    }}
-                />
-            </svg>
-            <div className="absolute top-10 flex flex-col items-center">
-                <span className={cn(
-                    "text-3xl font-black transition-all duration-1000 tracking-tighter",
-                    textColor
-                )}>
-                    {value}
-                </span>
-                <span className="text-[10px] uppercase tracking-[0.2em] text-navavej-gray-med font-black">Risk Level</span>
+            {/* Bottom Title mimicking the image */}
+            <div className="flex flex-col items-center space-y-1 mt-1">
+                <div className="flex items-center gap-2">
+                    <div 
+                        className="w-2.5 h-2.5 rounded-full shadow-sm animate-pulse"
+                        style={{ backgroundColor: hexColor, boxShadow: `0 0 8px ${dropShadowColor}` }}
+                    />
+                    <h4 
+                        className="text-sm font-black uppercase tracking-widest"
+                        style={{ color: hexColor }}
+                    >
+                        Active Monitoring
+                    </h4>
+                </div>
+                <p className="text-[11px] font-medium text-navavej-gray-med italic">
+                    Personalized baseline.
+                </p>
             </div>
         </div>
     );
@@ -781,16 +775,7 @@ export function RecommendationPanel({
                         className="lg:col-span-12 grid grid-cols-1 md:grid-cols-12 navavej-card p-0 rounded-[24px] overflow-hidden shadow-2xl relative bg-white border border-navavej-border min-h-[160px] items-stretch"
                     >                        {/* 1. Active Monitoring (Gauge) - Equally Sized */}
                         <div className="md:col-span-2 border-r border-navavej-border/60 p-4 flex flex-col items-center justify-center bg-white group relative">
-                            <div className="scale-[0.6] origin-center -mb-4">
-                                <ClinicalRiskGauge value={data.overall_risk_level} />
-                            </div>
-                            <div className="flex flex-col items-center mt-2">
-                                <div className="flex items-center gap-1.5 mb-1">
-                                    <div className="w-1.5 h-1.5 bg-navavej-teal rounded-full animate-pulse shadow-[0_0_5px_rgba(20,184,166,0.6)]" />
-                                    <span className="text-[10px] font-bold text-navavej-teal uppercase tracking-widest">Active Monitoring</span>
-                                </div>
-                                <p className="text-[8px] text-navavej-gray-med font-medium text-center italic opacity-60">Personalized baseline.</p>
-                            </div>
+                            <ClinicalRiskGauge value={data.overall_risk_level} />
                         </div>
 
                         {/* 2. Strategic Tier (Blue box) - Equally Sized */}

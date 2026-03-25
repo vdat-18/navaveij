@@ -32,6 +32,7 @@ class RecommendRequest(BaseModel):
 
 
 class RecommendResponse(BaseModel):
+    overall_risk_level: str
     ai_recommended_tier: str
     tier_deviation_justification: str | None
     add_ons: list[dict[str, Any]]
@@ -559,6 +560,7 @@ def _normalize_stage2(
     }
 
     return {
+        "overall_risk_level": ai_output.get("overall_risk_level", "Moderate"),
         "ai_recommended_tier": ai_tier,
         "tier_deviation_justification": ai_output.get("tier_deviation_justification"),
         "add_ons": enriched_add_ons,
