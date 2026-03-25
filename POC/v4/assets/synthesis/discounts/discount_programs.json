@@ -1,0 +1,68 @@
+[
+  {
+    "id": "SMART_LIFE",
+    "label": "Navavej Smart Life Member",
+    "description": "Premium 2-year membership card. Includes health check-up set, MRI/CT scan, drug & room discounts, and room coupons.",
+    "type": "membership_bundle",
+    "stacking": "exclusive",
+    "eligible_packages": ["ALL"],
+    "card_price_thb": 10000,
+    "card_value_thb": 33010,
+    "valid_years": 2,
+    "bundle_rights": {
+      "included_checkup_value_thb": 11760,
+      "included_mri_ct_value_thb": 11250,
+      "drug_discount_pct": 10,
+      "room_discount_pct": 20,
+      "room_coupons": { "count": 4, "value_each_thb": 2500 }
+    }
+  },
+  {
+    "id": "SMART_KID",
+    "label": "Navavej Smart Kid Member",
+    "description": "2-year membership for children under 12. Includes flu vaccine, teeth cleaning, drug & room discounts.",
+    "type": "membership_bundle",
+    "stacking": "exclusive",
+    "eligible_packages": ["ALL"],
+    "condition_age_under": 12,
+    "card_price_thb": 3000,
+    "card_value_thb": 7230,
+    "valid_years": 2,
+    "bundle_rights": {
+      "included_flu_vaccine_value_thb": 1230,
+      "included_teeth_cleaning_value_thb": 1000,
+      "drug_discount_pct": 10,
+      "room_discount_pct": 20,
+      "room_coupons": { "count": 2, "value_each_thb": 2500 }
+    }
+  },
+  {
+    "id": "ANNIVERSARY_5",
+    "label": "5th Anniversary Celebration Package",
+    "description": "Seasonal promotion celebrating Navavej's 5th anniversary. Special pricing on all specialty screening programmes.",
+    "type": "seasonal_campaign",
+    "stacking": "exclusive",
+    "eligible_packages": ["ALL"],
+    "discount_pct": 12,
+    "campaign_start": "2025-01-01",
+    "campaign_end": "2025-12-31"
+  },
+  {
+    "id": "CORPORATE",
+    "label": "Corporate / Co-Partner",
+    "description": "Discount for patients affiliated with signed corporate partner or co-promotion companies.",
+    "type": "institutional",
+    "stacking": "stackable",
+    "eligible_packages": ["ALL"],
+    "discount_pct": 15
+  },
+  {
+    "id": "NAVAVEJ_APP",
+    "label": "Navavej Plus App Loyalty",
+    "description": "Additional discount for patients who are active users of the Navavej Plus mobile application.",
+    "type": "loyalty",
+    "stacking": "stackable",
+    "eligible_packages": ["ALL"],
+    "discount_pct": 5
+  }
+]

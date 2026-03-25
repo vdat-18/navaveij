@@ -133,6 +133,10 @@ def resolve_patient_token(patient_id: str) -> str | None:
     return patient.get("patient_token") if patient else None
 
 
+def get_patient_registry_entry(patient_id: str) -> dict | None:
+    return _registry_id_index.get(patient_id)
+
+
 def load_signal_store_record(patient_token: str | None = None, patient_id: str | None = None) -> dict | None:
     """Load Signal Store record by patient_token (preferred) or patient_id.
 

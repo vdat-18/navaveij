@@ -8,7 +8,21 @@
         "ethnicity": "Asian",
         "mrn": "MRN-1AA1B504",
         "phone": "+66 1aa1b504",
-        "email": "1aa1b504@navavej.com"
+        "email": "1aa1b504@navavej.com",
+        "benefits": {
+            "memberships": {
+                "smart_life_card": {
+                    "active": true,
+                    "card_number": "NVJ-SL-00101",
+                    "expires": "2026-12-31",
+                    "used_checkup": false,
+                    "used_mri_ct": false,
+                    "room_coupons_remaining": 4
+                }
+            },
+            "corporate_affiliation": "Siam Commercial Bank",
+            "has_navavej_app": true
+        }
     },
     {
         "patient_id": "id_33cc44dd",
@@ -19,7 +33,12 @@
         "ethnicity": "Asian",
         "mrn": "MRN-33CC44DD",
         "phone": "+66 33cc44dd",
-        "email": "33cc44dd@navavej.com"
+        "email": "33cc44dd@navavej.com",
+        "benefits": {
+            "memberships": {},
+            "corporate_affiliation": "PTT Public Company",
+            "has_navavej_app": true
+        }
     },
     {
         "patient_id": "id_a9b8c7d6",
@@ -30,7 +49,21 @@
         "ethnicity": "Asian",
         "mrn": "MRN-A9B8C7D6",
         "phone": "+66 a9b8c7d6",
-        "email": "a9b8c7d6@navavej.com"
+        "email": "a9b8c7d6@navavej.com",
+        "benefits": {
+            "memberships": {
+                "smart_life_card": {
+                    "active": true,
+                    "card_number": "NVJ-SL-00103",
+                    "expires": "2026-06-30",
+                    "used_checkup": true,
+                    "used_mri_ct": false,
+                    "room_coupons_remaining": 2
+                }
+            },
+            "corporate_affiliation": null,
+            "has_navavej_app": false
+        }
     },
     {
         "patient_id": "id_3ae7c41f",
@@ -41,7 +74,12 @@
         "ethnicity": "Asian",
         "mrn": "MRN-3AE7C41F",
         "phone": "+66 3ae7c41f",
-        "email": "3ae7c41f@navavej.com"
+        "email": "3ae7c41f@navavej.com",
+        "benefits": {
+            "memberships": {},
+            "corporate_affiliation": null,
+            "has_navavej_app": false
+        }
     },
     {
         "patient_id": "id_1a2b3c4d",
@@ -52,7 +90,21 @@
         "ethnicity": "Asian",
         "mrn": "MRN-1A2B3C4D",
         "phone": "+66 1a2b3c4d",
-        "email": "1a2b3c4d@navavej.com"
+        "email": "1a2b3c4d@navavej.com",
+        "benefits": {
+            "memberships": {
+                "smart_life_card": {
+                    "active": true,
+                    "card_number": "NVJ-SL-00105",
+                    "expires": "2027-03-31",
+                    "used_checkup": false,
+                    "used_mri_ct": false,
+                    "room_coupons_remaining": 4
+                }
+            },
+            "corporate_affiliation": "Kasikorn Bank",
+            "has_navavej_app": true
+        }
     },
     {
         "patient_id": "id_6e9b2a3d",
@@ -63,7 +115,12 @@
         "ethnicity": "Asian",
         "mrn": "MRN-6E9B2A3D",
         "phone": "+66 6e9b2a3d",
-        "email": "6e9b2a3d@navavej.com"
+        "email": "6e9b2a3d@navavej.com",
+        "benefits": {
+            "memberships": {},
+            "corporate_affiliation": "Central Group",
+            "has_navavej_app": true
+        }
     },
     {
         "patient_id": "id_6b8c9d2f",
@@ -74,7 +131,12 @@
         "ethnicity": "Asian",
         "mrn": "MRN-6B8C9D2F",
         "phone": "+66 6b8c9d2f",
-        "email": "6b8c9d2f@navavej.com"
+        "email": "6b8c9d2f@navavej.com",
+        "benefits": {
+            "memberships": {},
+            "corporate_affiliation": null,
+            "has_navavej_app": false
+        }
     },
     {
         "patient_id": "id_2bb52ad3",
@@ -85,7 +147,21 @@
         "ethnicity": "Asian",
         "mrn": "MRN-2BB52AD3",
         "phone": "+66 2bb52ad3",
-        "email": "2bb52ad3@navavej.com"
+        "email": "2bb52ad3@navavej.com",
+        "benefits": {
+            "memberships": {
+                "smart_life_card": {
+                    "active": false,
+                    "card_number": "NVJ-SL-00108",
+                    "expires": "2024-12-31",
+                    "used_checkup": true,
+                    "used_mri_ct": true,
+                    "room_coupons_remaining": 0
+                }
+            },
+            "corporate_affiliation": null,
+            "has_navavej_app": true
+        }
     },
     {
         "patient_id": "id_9e1df84c",
@@ -96,7 +172,12 @@
         "ethnicity": "Asian",
         "mrn": "MRN-9E1DF84C",
         "phone": "+66 9e1df84c",
-        "email": "9e1df84c@navavej.com"
+        "email": "9e1df84c@navavej.com",
+        "benefits": {
+            "memberships": {},
+            "corporate_affiliation": "True Corporation",
+            "has_navavej_app": false
+        }
     },
     {
         "patient_id": "id_d5b8a2e3",
@@ -107,7 +188,21 @@
         "ethnicity": "Asian",
         "mrn": "MRN-D5B8A2E3",
         "phone": "+66 d5b8a2e3",
-        "email": "d5b8a2e3@navavej.com"
+        "email": "d5b8a2e3@navavej.com",
+        "benefits": {
+            "memberships": {
+                "smart_life_card": {
+                    "active": true,
+                    "card_number": "NVJ-SL-00110",
+                    "expires": "2026-09-30",
+                    "used_checkup": false,
+                    "used_mri_ct": true,
+                    "room_coupons_remaining": 3
+                }
+            },
+            "corporate_affiliation": null,
+            "has_navavej_app": true
+        }
     },
     {
         "patient_id": "id_24d93799",
@@ -118,7 +213,21 @@
         "ethnicity": "Asian",
         "mrn": "MRN-24D93799",
         "phone": "+66 24d93799",
-        "email": "24d93799@navavej.com"
+        "email": "24d93799@navavej.com",
+        "benefits": {
+            "memberships": {
+                "smart_life_card": {
+                    "active": true,
+                    "card_number": "NVJ-SL-00111",
+                    "expires": "2027-01-31",
+                    "used_checkup": false,
+                    "used_mri_ct": false,
+                    "room_coupons_remaining": 4
+                }
+            },
+            "corporate_affiliation": null,
+            "has_navavej_app": false
+        }
     },
     {
         "patient_id": "id_81f9a2d7",
@@ -129,7 +238,12 @@
         "ethnicity": "Asian",
         "mrn": "MRN-81F9A2D7",
         "phone": "+66 81f9a2d7",
-        "email": "81f9a2d7@navavej.com"
+        "email": "81f9a2d7@navavej.com",
+        "benefits": {
+            "memberships": {},
+            "corporate_affiliation": null,
+            "has_navavej_app": false
+        }
     },
     {
         "patient_id": "id_0a15be76",
@@ -140,7 +254,21 @@
         "ethnicity": "Asian",
         "mrn": "MRN-0A15BE76",
         "phone": "+66 0a15be76",
-        "email": "0a15be76@navavej.com"
+        "email": "0a15be76@navavej.com",
+        "benefits": {
+            "memberships": {
+                "smart_life_card": {
+                    "active": true,
+                    "card_number": "NVJ-SL-00113",
+                    "expires": "2026-11-30",
+                    "used_checkup": true,
+                    "used_mri_ct": false,
+                    "room_coupons_remaining": 1
+                }
+            },
+            "corporate_affiliation": "Bangkok Insurance",
+            "has_navavej_app": true
+        }
     },
     {
         "patient_id": "id_e9b7c94d",
@@ -151,7 +279,12 @@
         "ethnicity": "Asian",
         "mrn": "MRN-E9B7C94D",
         "phone": "+66 e9b7c94d",
-        "email": "e9b7c94d@navavej.com"
+        "email": "e9b7c94d@navavej.com",
+        "benefits": {
+            "memberships": {},
+            "corporate_affiliation": null,
+            "has_navavej_app": true
+        }
     },
     {
         "patient_id": "id_1be475a2",
@@ -162,7 +295,12 @@
         "ethnicity": "Asian",
         "mrn": "MRN-1BE475A2",
         "phone": "+66 1be475a2",
-        "email": "1be475a2@navavej.com"
+        "email": "1be475a2@navavej.com",
+        "benefits": {
+            "memberships": {},
+            "corporate_affiliation": "AIA Thailand",
+            "has_navavej_app": false
+        }
     },
     {
         "patient_id": "id_daff890e",
@@ -173,7 +311,21 @@
         "ethnicity": "Asian",
         "mrn": "MRN-DAFF890E",
         "phone": "+66 daff890e",
-        "email": "daff890e@navavej.com"
+        "email": "daff890e@navavej.com",
+        "benefits": {
+            "memberships": {
+                "smart_life_card": {
+                    "active": true,
+                    "card_number": "NVJ-SL-00116",
+                    "expires": "2027-06-30",
+                    "used_checkup": false,
+                    "used_mri_ct": false,
+                    "room_coupons_remaining": 4
+                }
+            },
+            "corporate_affiliation": null,
+            "has_navavej_app": true
+        }
     },
     {
         "patient_id": "id_9c73b62f",
@@ -184,7 +336,12 @@
         "ethnicity": "Asian",
         "mrn": "MRN-9C73B62F",
         "phone": "+66 9c73b62f",
-        "email": "9c73b62f@navavej.com"
+        "email": "9c73b62f@navavej.com",
+        "benefits": {
+            "memberships": {},
+            "corporate_affiliation": null,
+            "has_navavej_app": false
+        }
     },
     {
         "patient_id": "id_965c8137",
@@ -195,7 +352,12 @@
         "ethnicity": "Asian",
         "mrn": "MRN-965C8137",
         "phone": "+66 965c8137",
-        "email": "965c8137@navavej.com"
+        "email": "965c8137@navavej.com",
+        "benefits": {
+            "memberships": {},
+            "corporate_affiliation": "SCG Group",
+            "has_navavej_app": true
+        }
     },
     {
         "patient_id": "id_d4f2b7e6",
@@ -206,7 +368,21 @@
         "ethnicity": "Asian",
         "mrn": "MRN-D4F2B7E6",
         "phone": "+66 d4f2b7e6",
-        "email": "d4f2b7e6@navavej.com"
+        "email": "d4f2b7e6@navavej.com",
+        "benefits": {
+            "memberships": {
+                "smart_life_card": {
+                    "active": true,
+                    "card_number": "NVJ-SL-00119",
+                    "expires": "2026-08-31",
+                    "used_checkup": false,
+                    "used_mri_ct": false,
+                    "room_coupons_remaining": 4
+                }
+            },
+            "corporate_affiliation": "Charoen Pokphand Group",
+            "has_navavej_app": true
+        }
     },
     {
         "patient_id": "id_2b67df89",
@@ -217,7 +393,12 @@
         "ethnicity": "Asian",
         "mrn": "MRN-2B67DF89",
         "phone": "+66 2b67df89",
-        "email": "2b67df89@navavej.com"
+        "email": "2b67df89@navavej.com",
+        "benefits": {
+            "memberships": {},
+            "corporate_affiliation": null,
+            "has_navavej_app": false
+        }
     },
     {
         "patient_id": "id_58k9qlwp",
@@ -228,7 +409,12 @@
         "ethnicity": "Asian",
         "mrn": "MRN-58K9QLWP",
         "phone": "+66 58k9qlwp",
-        "email": "58k9qlwp@navavej.com"
+        "email": "58k9qlwp@navavej.com",
+        "benefits": {
+            "memberships": {},
+            "corporate_affiliation": "Minor International",
+            "has_navavej_app": true
+        }
     },
     {
         "patient_id": "id_7f4e1c01",
@@ -239,7 +425,21 @@
         "ethnicity": "Asian",
         "mrn": "MRN-7F4E1C01",
         "phone": "+66 7f4e1c01",
-        "email": "7f4e1c01@navavej.com"
+        "email": "7f4e1c01@navavej.com",
+        "benefits": {
+            "memberships": {
+                "smart_life_card": {
+                    "active": true,
+                    "card_number": "NVJ-SL-00122",
+                    "expires": "2027-02-28",
+                    "used_checkup": false,
+                    "used_mri_ct": false,
+                    "room_coupons_remaining": 4
+                }
+            },
+            "corporate_affiliation": null,
+            "has_navavej_app": false
+        }
     },
     {
         "patient_id": "id_b278fc19",
@@ -250,6 +450,11 @@
         "ethnicity": "Asian",
         "mrn": "MRN-B278FC19",
         "phone": "+66 b278fc19",
-        "email": "b278fc19@navavej.com"
+        "email": "b278fc19@navavej.com",
+        "benefits": {
+            "memberships": {},
+            "corporate_affiliation": null,
+            "has_navavej_app": false
+        }
     }
 ]

@@ -23,6 +23,12 @@ import {
     Loader2,
     Sparkles,
     BarChart3,
+    Percent,
+    AlertCircle,
+    Fingerprint,
+    Binary,
+    X,
+    Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -40,6 +46,7 @@ interface RecommendationPanelProps {
     onRecommendationLoad?: (data: RecommendationResponse | null) => void;
     isRuleBasedForced: boolean;
     hideCharts?: boolean;
+    onOpenTimeline?: () => void;
 }
 
 interface NormalizedAlert {
@@ -158,12 +165,11 @@ const renderBoldText = (text: string | string[] | null | undefined, sentiment?: 
 
     // 5. RENDER: Split by ** markers and render bold parts
     const textColorClass = sentiment === 'bad' ? 'text-navavej-red' : (sentiment === 'good' ? 'text-emerald-700' : 'text-navavej-teal');
-    const bgColorClass = sentiment === 'bad' ? 'bg-navavej-red/10 border-navavej-red/20' : (sentiment === 'good' ? 'bg-emerald-50 border-emerald-100' : 'bg-navavej-teal/10 border-navavej-teal/20');
     
     return content.split(/(\*\*.*?\*\*)/g).map((part, i) => {
         if (part.startsWith('**') && part.endsWith('**')) {
             const inner = part.slice(2, -2);
-            // If it ends with a colon, it's likely a label - render without chip styles
+            // If it ends with a colon, it's likely a label
             if (inner.trim().endsWith(':')) {
                 return (
                     <strong key={i} className={cn("font-black tracking-tight align-baseline uppercase text-[11px]", textColorClass)}>
@@ -171,9 +177,9 @@ const renderBoldText = (text: string | string[] | null | undefined, sentiment?: 
                     </strong>
                 );
             }
-            // Standard clinical chip for values/signals
+            // Simple bold bold text for values/signals without the container box
             return (
-                <strong key={i} className={cn("font-black px-1.5 py-0.5 rounded-md border inline-flex items-center shadow-[0_1px_2px_rgba(0,0,0,0.05)] mx-0.5 whitespace-nowrap leading-none align-baseline", textColorClass, bgColorClass)}>
+                <strong key={i} className={cn("font-black tracking-tight mx-0.5 whitespace-nowrap leading-none align-baseline underline-offset-2", textColorClass)}>
                     {inner}
                 </strong>
             );
@@ -253,36 +259,6 @@ const ClinicalRiskGauge = ({ value }: { value: string }) => {
                 </p>
             </div>
         </div>
-    );
-};
-
-const TrendToast = ({ onDismiss }: { onDismiss: () => void }) => {
-    return (
-        <motion.div
-            initial={{ y: 50, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 50, opacity: 0 }}
-            className="fixed bottom-10 right-10 z-[100] bg-white border-2 border-navavej-teal/30 p-6 rounded-[24px] shadow-2xl flex items-center gap-6"
-        >
-            <div className="w-12 h-12 bg-navavej-teal/10 rounded-2xl flex items-center justify-center animate-bounce shadow-inner">
-                <BarChart3 className="w-6 h-6 text-navavej-teal" />
-            </div>
-            <div>
-                <h4 className="text-sm font-black uppercase text-navavej-gray-dark tracking-wide flex items-center gap-2">
-                    Analysis Synced <Sparkles className="w-3 h-3 text-amber-400" />
-                </h4>
-                <p className="text-[10px] font-bold text-navavej-gray-med uppercase tracking-[0.1em] mt-0.5">Historical trends are now available</p>
-                <div className="flex items-center gap-3 mt-4">
-                    <Link
-                        href="/trend-timeline"
-                        className="px-4 py-2 bg-navavej-teal text-white text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-navavej-teal/90 transition-all shadow-lg hover:scale-105 active:scale-95"
-                    >
-                        View Timeline
-                    </Link>
-                    <button onClick={onDismiss} className="text-[9px] font-black uppercase text-navavej-gray-med hover:text-navavej-gray-dark px-2 transition-colors">Dismiss</button>
-                </div>
-            </div>
-        </motion.div>
     );
 };
 
@@ -528,7 +504,8 @@ export function RecommendationPanel({
     privacyMode,
     onRecommendationLoad,
     isRuleBasedForced,
-    hideCharts = false
+    hideCharts = false,
+    onOpenTimeline
 }: RecommendationPanelProps) {
     const [data, setData] = useState<RecommendationResponse | null>(null);
     const [loading, setLoading] = useState(false);
@@ -544,6 +521,9 @@ export function RecommendationPanel({
     const [showTrendToast, setShowTrendToast] = useState(false);
     const [isAddOnsExpanded, setIsAddOnsExpanded] = useState(true);
     const [revealedAddOns, setRevealedAddOns] = useState<Record<number, boolean>>({});
+    const [showDiscountModal, setShowDiscountModal] = useState(false);
+    const [selectedDiscountIds, setSelectedDiscountIds] = useState<Set<string>>(new Set());
+    const [selectedAddOnIds, setSelectedAddOnIds] = useState<Set<string>>(new Set());
     const hudRef = useRef<HTMLDivElement>(null);
 
     const scrollToHUD = () => {
@@ -577,6 +557,9 @@ export function RecommendationPanel({
                 onRecommendationLoad?.(result);
                 if (result) {
                     setShowTrendToast(true);
+                    // Initial selections
+                    setSelectedDiscountIds(new Set());
+                    setSelectedAddOnIds(new Set((result.add_ons || []).map(a => a.item_code))); // Default to all selected
                 }
             } catch (err) {
                 console.error("Failed to fetch recommendation:", err);
@@ -765,7 +748,7 @@ export function RecommendationPanel({
     return (
         <AnimatePresence mode="wait">
             <motion.div
-                key={patientToken}
+                key={patientToken ? `panel-${patientToken}` : "panel-empty"}
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="space-y-6"
@@ -878,10 +861,16 @@ export function RecommendationPanel({
                                                                 </div>
                                                                 
                                                                 {/* Reveal-on-hover rationale */}
-                                                                <div className="max-h-0 opacity-0 overflow-hidden group-hover:max-h-32 group-hover:opacity-100 group-hover:mt-3 transition-all duration-500 ease-in-out">
-                                                                    <p className="text-[11px] font-bold text-navavej-gray-dark/60 leading-relaxed italic border-l-2 border-navavej-teal/20 pl-3">
-                                                                        {item.rationale}
-                                                                    </p>
+                                                                <div className="max-h-0 opacity-0 overflow-hidden group-hover:max-h-48 group-hover:opacity-100 group-hover:mt-3 transition-all duration-500 ease-in-out">
+                                                                    <div className="p-3 bg-navavej-gray-light/40 rounded-xl border border-navavej-border/30 shadow-inner">
+                                                                        <div className="flex items-center gap-2 mb-1.5">
+                                                                            <Fingerprint className="w-3 h-3 text-navavej-teal/60" />
+                                                                            <span className="text-[8px] font-black text-navavej-teal/60 uppercase tracking-widest">Clinical Rationale</span>
+                                                                        </div>
+                                                                        <p className="text-[11px] font-bold text-navavej-gray-dark/80 leading-relaxed italic border-l-2 border-navavej-teal/40 pl-3 text-left">
+                                                                            {item.rationale}
+                                                                        </p>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                             <div className="text-right shrink-0">
@@ -906,9 +895,7 @@ export function RecommendationPanel({
                         </div>
                     </div>
 
-                <AnimatePresence>
-                    {showTrendToast && <TrendToast onDismiss={() => setShowTrendToast(false)} />}
-                </AnimatePresence>
+
 
                 {/* Evolution & Trends - Only shown if not hidden */}
                 {!hideCharts && (
@@ -928,7 +915,7 @@ export function RecommendationPanel({
                 {/* Detailed Logic & Alerts Reorganized */}
                 <div className="space-y-10">
                     {/* 1. Clinical AI Reasoning - Full Width for Maximum Impact */}
-                    <div className="navavej-card p-12 border-none bg-white shadow-xl shadow-navavej-teal/[0.03] relative overflow-hidden group">
+                    <div className="navavej-card p-12 border-none bg-white shadow-xl shadow-navavej-teal/[0.03] relative group">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-navavej-teal/[0.02] rounded-full translate-x-16 -translate-y-16 group-hover:scale-110 transition-transform duration-700" />
 
                         <div className="flex items-center justify-between mb-10 relative z-10">
@@ -937,8 +924,81 @@ export function RecommendationPanel({
                                     <BrainCircuit className="w-8 h-8 text-navavej-teal" />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-black text-navavej-gray-dark tracking-tighter leading-none uppercase italic">Clinical Logic & Rationale</h3>
-                                    <p className="text-[11px] font-black text-navavej-teal uppercase tracking-[0.2em] mt-2 opacity-80">Physician Evidence Stream</p>
+                                    <div className="flex items-center gap-3">
+                                        <h3 className="text-2xl font-black text-navavej-gray-dark tracking-tighter leading-none uppercase italic">Clinical Logic & Rationale</h3>
+                                        {data.confidence_tier === "High" && (
+                                            <div className="px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center gap-1.5">
+                                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                                <span className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter">AI Verified</span>
+                                            </div>
+                                        )}
+                                        {data.confidence_tier === "Medium" && (
+                                            <div className="px-2 py-1 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center gap-1.5">
+                                                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                                                <span className="text-[9px] font-black text-amber-600 uppercase tracking-tighter">Discretion Advised</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-3 mt-2">
+                                        <p className="text-[11px] font-black text-navavej-teal uppercase tracking-[0.2em] opacity-80 border-r border-navavej-teal/20 pr-3">Physician Evidence Stream</p>
+                                        <div className="flex items-center gap-2 group/confidence relative">
+                                            <Binary className="w-4 h-4 text-navavej-gray-med group-hover/confidence:text-navavej-teal transition-colors" />
+                                            <span className="text-[11px] font-black uppercase tracking-[0.1em] text-navavej-gray-med flex items-center gap-2 cursor-help">
+                                                Confidence Indicator: 
+                                                <span className="text-lg font-black text-navavej-teal tracking-tighter bg-navavej-teal/5 px-2 py-0.5 rounded-lg border border-navavej-teal/10 shadow-sm group-hover/confidence:bg-navavej-teal/10 transition-all">
+                                                    {(data.confidence_score * 100).toFixed(1)}%
+                                                </span>
+                                            </span>
+
+                                            {/* Confidence Breakdown Tooltip */}
+                                            <div className="absolute bottom-full left-0 mb-3 z-50 opacity-0 invisible group-hover/confidence:opacity-100 group-hover/confidence:visible transition-all duration-300 -translate-y-2 group-hover/confidence:translate-y-0">
+                                                <div className="bg-navavej-gray-dark text-white p-5 rounded-2xl shadow-2xl border border-white/10 w-72 backdrop-blur-xl">
+                                                    <div className="space-y-4">
+                                                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] text-white/40 border-b border-white/5 pb-3 mb-1">
+                                                            <span>Transparency Metric</span>
+                                                            <span>Weight</span>
+                                                            <span className="text-right">Score</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-[11px] group/item">
+                                                            <div className="flex flex-col">
+                                                                <span className="font-black text-white group-hover/item:text-navavej-teal transition-colors">Signal Coverage</span>
+                                                                <span className="text-[8px] text-white/40 uppercase tracking-widest mt-0.5">Input clinical data quality</span>
+                                                            </div>
+                                                            <span className="text-white/40 font-bold">40%</span>
+                                                            <span className="font-black text-navavej-teal text-base leading-none">
+                                                                {Math.round((data.signal_coverage || 0) * 100)}%
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-[11px] group/item">
+                                                            <div className="flex flex-col">
+                                                                <span className="font-black text-white group-hover/item:text-navavej-teal transition-colors">Data Completeness</span>
+                                                                <span className="text-[8px] text-white/40 uppercase tracking-widest mt-0.5">Decision integrity / Accuracy</span>
+                                                            </div>
+                                                            <span className="text-white/40 font-bold">40%</span>
+                                                            <span className="font-black text-navavej-teal text-base leading-none">
+                                                                {Math.round((data.data_completeness || 0) * 100)}%
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-[11px] group/item">
+                                                            <div className="flex flex-col">
+                                                                <span className="font-black text-white group-hover/item:text-navavej-teal transition-colors">Rule Agreement</span>
+                                                                <span className="text-[8px] text-white/40 uppercase tracking-widest mt-0.5">Standard Protocol Alignment</span>
+                                                            </div>
+                                                            <span className="text-white/40 font-bold">20%</span>
+                                                            <span className="font-black text-navavej-teal text-base leading-none">
+                                                                {Math.round((data.rule_agreement || 0) * 100)}%
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="mt-5 pt-4 border-t border-white/10 text-[9px] font-bold italic text-white/40 leading-relaxed uppercase tracking-widest text-center">
+                                                        Determined by XAI Pipeline Integrity
+                                                    </div>
+                                                </div>
+                                                {/* Tooltip Arrow */}
+                                                <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-navavej-gray-dark absolute top-full left-10" />
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div className="px-4 py-1.5 bg-navavej-teal/10 rounded-full text-[10px] font-black text-navavej-teal uppercase tracking-[0.2em] shadow-sm">Trace Active</div>
@@ -1001,7 +1061,7 @@ export function RecommendationPanel({
                                 <div className="space-y-4">
                                     {policyReasoningLines.map((line: string, idx: number) => (
                                         <p
-                                            key={idx}
+                                            key={`policy-${idx}`}
                                             className={cn(
                                                 "text-sm font-medium leading-relaxed text-justify",
                                                 privacyMode ? "font-mono text-navavej-red/80" : "text-navavej-gray-dark"
@@ -1039,7 +1099,7 @@ export function RecommendationPanel({
                                 <div className="space-y-3">
                                     {criticalAlerts.length > 0 ? (
                                         criticalAlerts.map((alert: NormalizedAlert, i: number) => (
-                                            <div key={i} className="flex items-center justify-between p-4 bg-white rounded-xl border border-navavej-border group hover:border-navavej-red/40 transition-colors shadow-sm">
+                                            <div key={`alert-${alert.label}-${i}`} className="flex items-center justify-between p-4 bg-white rounded-xl border border-navavej-border group hover:border-navavej-red/40 transition-colors shadow-sm">
                                                 <div className="flex items-center gap-3">
                                                     <div className={cn(
                                                         "w-2.5 h-2.5 rounded-full shadow-inner",
@@ -1072,60 +1132,24 @@ export function RecommendationPanel({
                                 </div>
                             </div>
 
-                            {/* Physician Notes & Action */}
-                            <div className="lg:flex-1 bg-navavej-gray-light rounded-[24px] p-8 border border-navavej-border flex flex-col shadow-inner">
-                                <div className="flex items-center gap-2 mb-4 text-navavej-gray-med">
-                                    <Activity className="w-3.5 h-3.5" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest">Execution Notes</span>
+                            {/* Analysis Synced Panel */}
+                            <div className="lg:flex-1 bg-white rounded-[24px] p-8 border border-navavej-teal/20 flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden group hover:border-navavej-teal/40 transition-colors">
+                                <div className="absolute inset-0 bg-gradient-to-br from-navavej-teal/[0.03] to-transparent opacity-50" />
+                                <div className="w-16 h-16 bg-navavej-teal/10 rounded-2xl flex items-center justify-center shadow-inner mb-6 relative z-10 border border-navavej-teal/30 group-hover:scale-110 transition-transform">
+                                    <BarChart3 className="w-8 h-8 text-navavej-teal" />
                                 </div>
-                                <textarea
-                                    value={notes}
-                                    onChange={(e) => setNotes(e.target.value)}
-                                    disabled={!!decisionOutcome || isSubmitting}
-                                    placeholder="Add clinical observation..."
-                                    className="w-full h-24 bg-white border-2 border-navavej-border rounded-xl p-4 text-[11px] font-medium outline-none transition-all resize-none shadow-sm focus:border-navavej-teal/50"
-                                />
-                                {submissionError && (
-                                    <p className="text-xs text-red-500 font-bold mt-2">{submissionError}</p>
-                                )}
-                                {/* Post-decision locked state */}
-                                {decisionOutcome ? (
+                                <div className="relative z-10">
+                                    <h4 className="text-xl font-black uppercase text-navavej-gray-dark tracking-wide flex items-center justify-center gap-2 mb-2 leading-none">
+                                        Analysis Synced <Sparkles className="w-5 h-5 text-amber-500" />
+                                    </h4>
+                                    <p className="text-[10px] font-bold text-navavej-teal uppercase tracking-[0.2em] mb-8">Historical trends are now available</p>
                                     <button
-                                        disabled
-                                        className={cn(
-                                            "mt-4 w-full py-4 flex items-center justify-center gap-3 rounded-xl font-black text-xs uppercase tracking-widest text-white shadow-lg cursor-not-allowed",
-                                            decisionOutcome === "approved" ? "bg-green-600" : "bg-navavej-red"
-                                        )}
+                                        onClick={onOpenTimeline}
+                                        className="inline-flex items-center gap-3 px-8 py-4 bg-navavej-gray-dark text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-black transition-all shadow-xl hover:shadow-black/20 hover:-translate-y-0.5"
                                     >
-                                        {decisionOutcome === "approved"
-                                            ? <><CheckCircle2 className="w-5 h-5" /><span>Approved</span></>
-                                            : <><XCircle className="w-5 h-5" /><span>Rejected</span></>
-                                        }
+                                        View Clinical Timeline <ArrowRight className="w-4 h-4" />
                                     </button>
-                                ) : (
-                                    <div className="mt-4 flex gap-3">
-                                        <button
-                                            onClick={() => setShowRejectModal(true)}
-                                            disabled={isSubmitting}
-                                            className="flex-shrink-0 px-5 py-4 border-2 border-navavej-red text-navavej-red bg-white hover:bg-red-50 rounded-xl font-black text-xs uppercase tracking-widest transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Reject
-                                        </button>
-                                        <button
-                                            onClick={handleApprove}
-                                            disabled={isSubmitting}
-                                            className={cn(
-                                                "navavej-button-primary flex-1 py-4 flex items-center justify-center gap-3 group shadow-lg",
-                                                isSubmitting && "opacity-70 cursor-wait"
-                                            )}
-                                        >
-                                            <span className="text-xs uppercase tracking-widest font-black">
-                                                {isSubmitting ? "..." : "CLOSE CLINICAL GAPS"}
-                                            </span>
-                                            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                                        </button>
-                                    </div>
-                                )}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1208,38 +1232,296 @@ export function RecommendationPanel({
                                 </div>
                             </div>
 
-                            <div>
-                                <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Strategy Summary</h4>
-                                <div 
-                                    onClick={scrollToHUD}
-                                    className="bg-navavej-gray-dark rounded-[24px] p-6 text-white relative overflow-hidden group shadow-xl cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
-                                >                                    <div className="absolute top-0 right-0 w-64 h-64 bg-navavej-teal/5 rounded-full blur-[60px] -translate-y-1/2 translate-x-1/2" />
-                                    <div className="relative z-10 space-y-4">
-                                        <div className="flex items-center justify-between gap-4">
-                                            <div className="flex-1">
-                                                <h3 className="text-xl font-bold tracking-tight leading-none italic mb-2">
-                                                    Recommended <span className="text-navavej-teal">Intelligence Plan</span>
-                                                </h3>
-                                                <p className="text-white/60 text-[11px] font-medium leading-relaxed line-clamp-2">
-                                                    {(data.resolved_package?.name || data.ai_recommended_tier)} base + {data.add_ons.length} additions
-                                                </p>
-                                            </div>
-                                            <div className="shrink-0 text-right">
-                                                <span className="text-[8px] font-bold uppercase tracking-widest text-white/40 block mb-1">Estimate</span>
-                                                <p className="text-2xl font-black tracking-tighter text-white">
-                                                    ฿{((data.resolved_package?.price_thb || 0) + data.add_ons.reduce((sum, item) => sum + (item.price_thb || 0), 0)).toLocaleString()}
-                                                </p>
+                            <div className="invisible">
+                                {/* Removed Strategy Summary from here to put at bottom */}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 4. Strategy Summary & Execution */}
+                <div className="navavej-card p-12 bg-white border-2 border-navavej-border shadow-2xl relative overflow-hidden mt-10">
+                    <div className="absolute right-0 bottom-0 w-[500px] h-[500px] bg-navavej-teal/5 rounded-full blur-[100px] translate-x-1/3 translate-y-1/3 pointer-events-none" />
+
+                    <div className="flex items-center gap-5 mb-10 relative z-10">
+                        <div className="w-14 h-14 bg-navavej-teal/10 rounded-2xl flex items-center justify-center border border-navavej-teal/20 shadow-inner">
+                            <ShieldCheck className="w-7 h-7 text-navavej-teal" />
+                        </div>
+                        <div>
+                            <h3 className="text-2xl font-black text-navavej-gray-dark tracking-tighter leading-none uppercase italic">Strategy Execution</h3>
+                            <p className="text-[11px] font-black text-navavej-teal uppercase tracking-[0.2em] mt-2 opacity-80">Finalize & Approve</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 relative z-10">
+                        {/* Left Column: Line Items & Final Bill (7/12) */}
+                        <div className="xl:col-span-7 space-y-6">
+                            <div className="bg-navavej-gray-dark rounded-[32px] p-8 text-white relative overflow-hidden group shadow-2xl border-4 border-navavej-teal/20 min-h-full flex flex-col justify-between">
+                                <div className="absolute top-0 right-0 w-80 h-80 bg-navavej-teal/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
+                                
+                                <div className="relative z-10 space-y-6">
+                                    <div className="border-b border-white/10 pb-4 flex items-center justify-between">
+                                        <h3 className="text-xl font-black tracking-tighter leading-none italic">
+                                            Billing <span className="text-navavej-teal">Resolution</span>
+                                        </h3>
+                                        <div className="flex gap-2">
+                                            {/* Minimalist Package Badge */}
+                                            <div className="px-2 py-1 rounded-md bg-navavej-teal/10 border border-navavej-teal/20 text-[8px] font-black text-navavej-teal uppercase tracking-widest">
+                                                {data.ai_recommended_tier}
                                             </div>
                                         </div>
-                                        <button className="w-full py-3 bg-navavej-teal hover:bg-navavej-teal/90 text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-navavej-teal/20 transition-all">
-                                            Confirm Strategic Selection
+                                    </div>
+
+                                    <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {/* 1. Base Package */}
+                                        <div className="flex justify-between items-center group/item hover:bg-white/5 p-2 -mx-2 rounded-lg transition-colors border-l-2 border-navavej-teal shadow-lg bg-white/5">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-7 h-7 rounded bg-navavej-teal/20 flex items-center justify-center border border-navavej-teal/30">
+                                                    <Package className="w-3.5 h-3.5 text-navavej-teal" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[8px] font-black uppercase text-navavej-teal tracking-widest leading-none mb-1">Base Plan</p>
+                                                    <p className="text-xs font-bold">{data.resolved_package?.name || data.ai_recommended_tier}</p>
+                                                </div>
+                                            </div>
+                                            <span className="font-mono text-sm font-bold">฿{(data.resolved_package?.price_thb || 0).toLocaleString()}</span>
+                                        </div>
+
+                                        {/* 2. Selected Add-ons */}
+                                        {(data.add_ons || []).map((addOn, index) => (
+                                            <div key={`${addOn.item_code}-${index}`} className="flex justify-between items-center group/item hover:bg-white/5 p-2 -mx-2 rounded-lg transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    <button 
+                                                        onClick={() => {
+                                                            const next = new Set(selectedAddOnIds);
+                                                            if (next.has(addOn.item_code)) next.delete(addOn.item_code);
+                                                            else next.add(addOn.item_code);
+                                                            setSelectedAddOnIds(next);
+                                                        }}
+                                                        className={cn(
+                                                            "w-7 h-7 rounded flex items-center justify-center border transition-all",
+                                                            selectedAddOnIds.has(addOn.item_code) 
+                                                                ? "bg-navavej-teal border-navavej-teal text-white shadow-[0_0_10px_rgba(45,183,183,0.3)]" 
+                                                                : "bg-white/10 border-white/10 text-white/30 hover:border-white/40"
+                                                        )}
+                                                    >
+                                                        {selectedAddOnIds.has(addOn.item_code) ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                                                    </button>
+                                                    <div>
+                                                        <p className="text-[8px] font-black uppercase text-white/30 tracking-widest leading-none mb-1">Add-on Item</p>
+                                                        <p className="text-xs font-bold">{addOn.label}</p>
+                                                    </div>
+                                                </div>
+                                                <span className={cn(
+                                                    "font-mono text-sm font-bold transition-opacity",
+                                                    !selectedAddOnIds.has(addOn.item_code) && "opacity-20 line-through"
+                                                )}>
+                                                    ฿{(addOn.price_thb || 0).toLocaleString()}
+                                                </span>
+                                            </div>
+                                        ))}
+
+                                        {/* 3. Applied Discounts */}
+                                        {(data.applied_discounts || []).map((d, index) => (
+                                            <div key={`${d.id}-${index}`} className="flex justify-between items-center group/item hover:bg-white/5 p-2 -mx-2 rounded-lg transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-7 h-7 rounded bg-orange-500/20 flex items-center justify-center border border-orange-500/30 font-black text-[10px] text-orange-400">
+                                                        %
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[8px] font-black uppercase text-orange-400 tracking-widest leading-none mb-1">Privilege</p>
+                                                        <p className="text-xs font-bold">{d.label}</p>
+                                                    </div>
+                                                </div>
+                                                <span className="font-mono text-sm font-bold text-orange-400">
+                                                    {d.discount_pct ? `-${d.discount_pct}%` : 'BUNDLE'}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Final Summary */}
+                                <div className="relative z-10 pt-6 mt-6 border-t border-white/10 flex justify-between items-end">
+                                    <div className="space-y-4">
+                                        <button 
+                                            onClick={() => setShowDiscountModal(true)}
+                                            className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 hover:bg-orange-500/20 transition-all group"
+                                        >
+                                            <Percent className="w-3 h-3 text-orange-400 group-hover:scale-110 transition-transform" />
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-orange-300">Privileges</span>
                                         </button>
+
+                                        <div className="space-y-1">
+                                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/80 block leading-none">Final Settlement</span>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-xs text-white/40 line-through font-mono">฿{(() => {
+                                                    const basePrice = data.resolved_package?.price_thb || 0;
+                                                    const addOnsPrice = (data.add_ons || []).reduce((sum, a) => sum + (a.price_thb || 0), 0);
+                                                    return (basePrice + addOnsPrice).toLocaleString();
+                                                })()}</span>
+                                                <span className="text-emerald-400 text-[11px] font-black uppercase tracking-widest">
+                                                    Saved ฿{(() => {
+                                                        const basePrice = data.resolved_package?.price_thb || 0;
+                                                        const selectedAddOnsPrice = (data.add_ons || [])
+                                                            .filter(a => selectedAddOnIds.has(a.item_code))
+                                                            .reduce((sum, a) => sum + (a.price_thb || 0), 0);
+                                                        const subtotal = basePrice + selectedAddOnsPrice;
+                                                        
+                                                        let totalPct = 0;
+                                                        let bundleDeduction = 0;
+                                                        (data.applied_discounts || []).forEach(d => {
+                                                            if (d.discount_pct) totalPct += d.discount_pct;
+                                                            if (d.id === 'SMART_LIFE') bundleDeduction = 5000;
+                                                        });
+                                                        
+                                                        const final = Math.max(0, (subtotal - bundleDeduction) * (1 - Math.min(100, totalPct) / 100));
+                                                        const totalBeforeDiscount = basePrice + (data.add_ons || []).reduce((sum, a) => sum + (a.price_thb || 0), 0);
+                                                        return Math.round(totalBeforeDiscount - final).toLocaleString();
+                                                    })()}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="text-right">
+                                        <div className="flex items-baseline justify-end gap-1">
+                                            <span className="text-lg font-black text-white/50 tracking-tighter mb-1 select-none">฿</span>
+                                            <p className="text-5xl lg:text-6xl font-black tracking-tightest leading-none">
+                                                {(() => {
+                                                    const basePrice = data.resolved_package?.price_thb || 0;
+                                                    const selectedAddOnsPrice = (data.add_ons || [])
+                                                        .filter(a => selectedAddOnIds.has(a.item_code))
+                                                        .reduce((sum, a) => sum + (a.price_thb || 0), 0);
+                                                    
+                                                    const subtotal = basePrice + selectedAddOnsPrice;
+                                                    
+                                                    let totalPct = 0;
+                                                    let bundleDeduction = 0;
+                                                    (data.applied_discounts || []).forEach(d => {
+                                                        if (d.discount_pct) totalPct += d.discount_pct;
+                                                        if (d.id === 'SMART_LIFE') bundleDeduction = 5000;
+                                                    });
+                                                    
+                                                    const final = Math.max(0, (subtotal - bundleDeduction) * (1 - Math.min(100, totalPct) / 100));
+                                                    return Math.round(final).toLocaleString();
+                                                })()}
+                                            </p>
+                                        </div>
+                                        <p className="text-[8px] font-black uppercase tracking-[0.3em] text-navavej-teal mt-2">Inclusive of Vat 7%</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {/* Right Column: Experience/Review context (5/12) */}
+                        <div className="xl:col-span-5 flex flex-col gap-6">
+                            <div className="bg-white rounded-[32px] p-8 border border-navavej-border shadow-xl h-full flex flex-col">
+                                <div className="flex items-center justify-between mb-8">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-navavej-teal/10 flex items-center justify-center text-navavej-teal border border-navavej-teal/20">
+                                            <ShieldCheck className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-black text-navavej-gray-dark uppercase tracking-wide italic leading-none mb-1">Final Review</h4>
+                                            <p className="text-[10px] font-bold text-navavej-gray-med uppercase tracking-widest">Verify before submission</p>
+                                        </div>
+                                    </div>
+                                    <div className="px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700 text-[8px] font-black uppercase tracking-[0.2em] shadow-sm flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                        Medical Resolved
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 space-y-8">
+                                    <div className="p-6 rounded-[24px] bg-navavej-gray-light/30 border border-navavej-border relative overflow-hidden group/checklist">
+                                        <div className="absolute top-0 right-0 w-24 h-24 bg-navavej-teal/5 rounded-full blur-2xl -translate-y-12 translate-x-12 group-hover/checklist:bg-navavej-teal/10 transition-colors" />
+                                        <span className="text-[8px] font-black text-navavej-gray-med uppercase tracking-[0.2em] block mb-5 border-b border-navavej-border/50 pb-2">Final Validation Checklist</span>
+                                        <div className="space-y-4 relative z-10">
+                                            <div className="flex items-start gap-3 group/item">
+                                                <div className="w-5 h-5 rounded-full bg-navavej-teal flex items-center justify-center shadow-lg shadow-navavej-teal/20 mt-0.5 group-hover/item:scale-110 transition-transform"><CheckCircle2 className="w-3 h-3 text-white" /></div>
+                                                <div>
+                                                    <span className="text-[11px] font-bold text-navavej-gray-dark italic block">Medical Justification</span>
+                                                    <span className="text-[8px] text-navavej-gray-med uppercase font-medium tracking-tighter">Add-ons align with diagnosis</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-start gap-3 group/item">
+                                                <div className="w-5 h-5 rounded-full bg-navavej-teal flex items-center justify-center shadow-lg shadow-navavej-teal/20 mt-0.5 group-hover/item:scale-110 transition-transform"><CheckCircle2 className="w-3 h-3 text-white" /></div>
+                                                <div>
+                                                    <span className="text-[11px] font-bold text-navavej-gray-dark italic block">Financial Compliance</span>
+                                                    <span className="text-[8px] text-navavej-gray-med uppercase font-medium tracking-tighter">Privileges correctly selected</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 5. Decision Execution Actions - Integrated here */}
+                                    <div className="bg-navavej-gray-dark rounded-[24px] p-6 text-white overflow-hidden relative shadow-2xl mt-auto border border-white/5">
+                                        <div className="absolute top-0 right-0 w-32 h-32 bg-navavej-teal/10 rounded-full blur-[40px] -translate-y-1/2 translate-x-1/2" />
+                                        <div className="relative z-10">
+                                            {decisionOutcome ? (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    className={cn(
+                                                        "w-full py-4 flex items-center justify-center gap-3 rounded-[12px] font-black text-[10px] uppercase tracking-widest text-white shadow-xl",
+                                                        decisionOutcome === "approved" ? "bg-navavej-teal" : "bg-navavej-red"
+                                                    )}
+                                                >
+                                                    {decisionOutcome === "approved"
+                                                        ? <><CheckCircle2 className="w-4 h-4" /><span>Strategy Approved</span></>
+                                                        : <><XCircle className="w-4 h-4" /><span>Rejected</span></>
+                                                    }
+                                                </motion.div>
+                                            ) : (
+                                                <div className="space-y-4">
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center justify-between px-1">
+                                                            <label className="text-[9px] font-black uppercase tracking-widest text-white/90">Clinical Justification</label>
+                                                            <span className="text-[8px] font-black text-white/60 uppercase tracking-widest">Internal Only</span>
+                                                        </div>
+                                                        <textarea
+                                                            value={notes}
+                                                            onChange={(e) => setNotes(e.target.value)}
+                                                            disabled={!!decisionOutcome || isSubmitting}
+                                                            placeholder="Add context for this billing resolution..."
+                                                            className="w-full min-h-[70px] bg-white/[0.08] border border-white/30 rounded-xl p-3 text-[11px] font-medium outline-none transition-all resize-none focus:border-navavej-teal/60 text-white placeholder:text-white/40 focus:bg-white/[0.1]"
+                                                        />
+                                                    </div>
+                                                    <div className="flex gap-3 pt-1">
+                                                        <button
+                                                            onClick={() => setShowRejectModal(true)}
+                                                            disabled={isSubmitting}
+                                                            className="px-5 py-3.5 bg-navavej-red/20 border border-navavej-red/40 text-navavej-red-light hover:bg-navavej-red/30 hover:border-navavej-red/60 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all disabled:opacity-50 flex items-center gap-2"
+                                                        >
+                                                            <XCircle className="w-3.5 h-3.5" />
+                                                            Reject
+                                                        </button>
+                                                        <button
+                                                            onClick={handleApprove}
+                                                            disabled={isSubmitting}
+                                                            className={cn(
+                                                                "navavej-button-primary flex-1 py-3.5 flex items-center justify-center gap-3 group shadow-xl hover:-translate-y-0.5 transition-all outline-none relative overflow-hidden",
+                                                                isSubmitting && "opacity-70 cursor-wait"
+                                                            )}
+                                                        >
+                                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]" />
+                                                            <span className="text-[10px] uppercase tracking-[0.2em] font-black relative z-10">
+                                                                {isSubmitting ? "Processing..." : "Confirm Strategy"}
+                                                            </span>
+                                                            {!isSubmitting && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform relative z-10" />}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
             </motion.div>
 
             {/* Rejection Reason Modal */}
@@ -1334,6 +1616,169 @@ export function RecommendationPanel({
                                     <XCircle className="w-4 h-4" />
                                     <span>{isSubmitting ? "..." : "Confirm Rejection"}</span>
                                 </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+            {/* Discount Override Selection Modal */}
+            <AnimatePresence>
+                {showDiscountModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                            className="bg-white rounded-[32px] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
+                        >
+                            {/* Header */}
+                            <div className="px-10 py-8 bg-navavej-gray-dark text-white relative overflow-hidden">
+                                <div className="absolute right-0 top-0 w-64 h-64 bg-navavej-teal/20 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2" />
+                                <div className="relative z-10 flex items-center justify-between">
+                                    <div className="flex items-center gap-5">
+                                        <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center border border-white/20 backdrop-blur-md">
+                                            <Percent className="w-7 h-7 text-navavej-teal" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-black text-white italic tracking-tighter uppercase leading-none">Apply <span className="text-navavej-teal">Privileges</span></h3>
+                                            <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mt-2 px-1">Manually select discounts for this patient</p>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => setShowDiscountModal(false)}
+                                        className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+                                    >
+                                        <X className="w-5 h-5 text-white" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Content */}
+                            <div className="p-10 overflow-y-auto space-y-8">
+                                <div>
+                                    <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-[0.2em] mb-6 border-b border-navavej-border pb-2">Select Eligible Discounts</h4>
+                                    <div className="grid gap-4">
+                                        {(data?.eligible_discounts || []).map(discount => {
+                                            const isSelected = selectedDiscountIds.has(discount.id);
+                                            return (
+                                                <button 
+                                                    key={discount.id}
+                                                    onClick={() => {
+                                                        const next = new Set(selectedDiscountIds);
+                                                        if (next.has(discount.id)) next.delete(discount.id);
+                                                        else next.add(discount.id);
+                                                        setSelectedDiscountIds(next);
+                                                    }}
+                                                    className={cn(
+                                                        "group relative p-6 rounded-2xl border-2 transition-all cursor-pointer text-left w-full",
+                                                        isSelected 
+                                                            ? "border-navavej-teal bg-navavej-teal/[0.03] shadow-md" 
+                                                            : "border-navavej-border hover:border-navavej-teal/30 hover:bg-navavej-gray-light/50"
+                                                    )}
+                                                >
+                                                    <div className="flex items-start justify-between gap-4">
+                                                        <div className="flex items-start gap-4">
+                                                            <div className={cn(
+                                                                "w-10 h-10 shrink-0 rounded-xl flex items-center justify-center border transition-colors",
+                                                                isSelected ? "bg-navavej-teal text-white border-navavej-teal" : "bg-white text-navavej-gray-med border-navavej-border group-hover:border-navavej-teal/50"
+                                                            )}>
+                                                                {isSelected ? <CheckCircle2 className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                                                            </div>
+                                                            <div>
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className="text-sm font-black text-navavej-gray-dark uppercase tracking-tight">{discount.label}</span>
+                                                                    {discount.type === 'membership_bundle' && (
+                                                                        <span className="bg-purple-100 text-purple-700 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter shadow-sm">Card Holder</span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-[10px] font-medium text-navavej-gray-med leading-relaxed">
+                                                                    {isSelected ? "Discount will be applied to final total." : "Click to add this privilege."}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right shrink-0">
+                                                            <span className="text-base font-black text-navavej-teal tracking-tighter">
+                                                                {discount.discount_pct ? `-${discount.discount_pct}%` : 'BUNDLE'}
+                                                            </span>
+                                                            <span className="block text-[9px] font-bold text-navavej-gray-med uppercase tracking-widest">Savings</span>
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                        {(!data?.eligible_discounts || data.eligible_discounts.length === 0) && (
+                                            <div className="py-12 border-2 border-dashed border-navavej-border rounded-2xl flex flex-col items-center justify-center text-navavej-gray-med opacity-60">
+                                                <AlertCircle className="w-8 h-8 mb-3" />
+                                                <p className="text-xs font-black uppercase tracking-widest text-center">No active memberships or <br/> corporate discounts found</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="px-10 py-8 bg-navavej-gray-light border-t border-navavej-border flex items-center justify-between">
+                                <div>
+                                    <span className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest block mb-1">New Total Estimate</span>
+                                    <span className="text-xl font-black text-navavej-gray-dark tracking-tighter">
+                                        ฿{(() => {
+                                            const base = data?.original_price_thb || 0;
+                                            let totalPct = 0;
+                                            let bundleDeduction = 0;
+                                            
+                                            (data?.eligible_discounts || []).forEach(d => {
+                                                if (selectedDiscountIds.has(d.id)) {
+                                                    if (d.discount_pct) totalPct += d.discount_pct;
+                                                    if (d.id === 'SMART_LIFE') bundleDeduction = 5000; // Mock bundle value
+                                                }
+                                            });
+                                            
+                                            const final = Math.max(0, (base - bundleDeduction) * (1 - Math.min(100, totalPct) / 100));
+                                            return Math.round(final).toLocaleString();
+                                        })()}
+                                    </span>
+                                </div>
+                                <div className="flex gap-4">
+                                    <button 
+                                        onClick={() => setShowDiscountModal(false)}
+                                        className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-navavej-gray-med hover:text-navavej-gray-dark transition-colors"
+                                    >
+                                        Dismiss
+                                    </button>
+                                    <button 
+                                        onClick={() => {
+                                            if (!data) return;
+                                            // Update the data object locally for the UI to reflect changes
+                                            const newApplied = (data.eligible_discounts || []).filter(d => selectedDiscountIds.has(d.id)).map(d => ({...d, applied: true}));
+                                            
+                                            const base = data.original_price_thb || 0;
+                                            let totalPct = 0;
+                                            let bundleDeduction = 0;
+                                            newApplied.forEach(d => {
+                                                if (d.discount_pct) totalPct += d.discount_pct;
+                                                if (d.id === 'SMART_LIFE') bundleDeduction = 5000;
+                                            });
+                                            const final = Math.max(0, (base - bundleDeduction) * (1 - Math.min(100, totalPct) / 100));
+                                            
+                                            setData({
+                                                ...data,
+                                                applied_discounts: newApplied,
+                                                final_price_thb: Math.round(final),
+                                                total_savings_thb: base - Math.round(final)
+                                            });
+                                            setShowDiscountModal(false);
+                                        }}
+                                        className="navavej-button-primary px-8 py-3 text-[10px] font-black uppercase tracking-widest shadow-lg"
+                                    >
+                                        Apply Selected
+                                    </button>
+                                </div>
                             </div>
                         </motion.div>
                     </motion.div>

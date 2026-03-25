@@ -18,9 +18,10 @@ from src.mcp_server.tools.biomarker_trends import get_biomarker_trends
 from src.mcp_server.tools.clinical_signals import get_clinical_signals
 from src.mcp_server.tools.patient_event_timeline import get_patient_event_timeline
 from src.mcp_server.tools.program_ruleset import get_program_ruleset
-from src.mcp_server.utils import load_ruleset_add_on_items
+from src.mcp_server.utils import load_ruleset_add_on_items, resolve_patient_id
 from src.services.cache import cache_service
 from src.services.orchestrator import OrchestrationManager
+from src.services.discounts import calculate_discounts
 
 router = APIRouter()
 orchestrator = OrchestrationManager()
@@ -44,11 +45,20 @@ class RecommendResponse(BaseModel):
     resolved_package: dict[str, Any]
     confidence_score: float
     confidence_tier: str
+    signal_coverage: float
+    data_completeness: float
+    rule_agreement: float
     review_required: bool
     recommendation_source: str
     recommendation_hash: str | None = None
     patient_high_alert: dict[str, Any]
     security_metadata: dict[str, Any]
+    eligible_discounts: list[dict[str, Any]]
+    applied_discounts: list[dict[str, Any]]
+    original_price_thb: float
+    final_price_thb: float
+    total_savings_thb: float
+    discount_override_allowed: bool
     metadata: dict[str, Any]
 
 
@@ -550,14 +560,18 @@ def _normalize_stage2(
     missing_data_alerts = _build_missing_data_alerts(missing_signals)
 
     resolved_package = ruleset.get("resolved_package", {}) or {}
+    base_price_thb = resolved_package.get("price_thb", 0.0)
     resolved_package = {
         "tier": resolved_package.get("tier", ai_tier),
         "package_name": resolved_package.get("package_name", ""),
         "package_code": resolved_package.get("package_code", ""),
-        "price_thb": resolved_package.get("price_thb"),
+        "price_thb": base_price_thb,
         "age_band": resolved_package.get("age_band", ""),
         "gender": resolved_package.get("gender", ""),
     }
+
+    patient_id = resolve_patient_id(patient_token)
+    discount_data = calculate_discounts(patient_id, base_price_thb)
 
     return {
         "overall_risk_level": ai_output.get("overall_risk_level", "Moderate"),
@@ -572,6 +586,9 @@ def _normalize_stage2(
         "resolved_package": resolved_package,
         "confidence_score": confidence_score,
         "confidence_tier": confidence_tier,
+        "signal_coverage": round(signal_coverage, 3),
+        "data_completeness": round(data_completeness, 3),
+        "rule_agreement": rule_agreement,
         "review_required": review_required,
         "recommendation_source": recommendation_source,
         "recommendation_hash": ai_output.get("recommendation_hash"),
@@ -580,6 +597,12 @@ def _normalize_stage2(
             "missing_data_alerts": missing_data_alerts,
         },
         "security_metadata": ai_output.get("security_metadata", {}),
+        "eligible_discounts": discount_data["eligible_discounts"],
+        "applied_discounts": discount_data["applied_discounts"],
+        "original_price_thb": discount_data["original_price_thb"],
+        "final_price_thb": discount_data["final_price_thb"],
+        "total_savings_thb": discount_data["total_savings_thb"],
+        "discount_override_allowed": discount_data["discount_override_allowed"],
         "metadata": {
             "request_id": f"req_{uuid.uuid4().hex[:12]}",
             "patient_token": patient_token,
