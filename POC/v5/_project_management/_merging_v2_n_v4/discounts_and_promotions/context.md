@@ -9,15 +9,17 @@ The AI recommends clinically-appropriate packages based on risk signals, but **p
 factor in deal-closing** — more than recommendation quality. Consultants were asking if the platform
 could incorporate a discount/promotion dimension to help them close deals.
 
-## Current State (before this feature)
+## Current State
 
-- Zero promotion/discount infrastructure exists in the codebase
+- Full promotion/discount infrastructure is now live (Phases 1–4 complete)
 - All `price_thb` values in the system are already Expo promotional rates (5th Anniversary Wellbeing
-  Expo 2026, valid through March 31, 2026) — but the system doesn't know or show this
-- Standard (non-promotional) prices are undocumented; only listed as "higher" in the discovery doc
+  Expo 2026, valid through March 31, 2026) — the system now shows this with strikethrough pricing
+- Estimated pre-Expo prices: ~30% markup for packages (specific values) and add-ons (percentage-based)
 - Packages: Basic (฿2,871) → Gold (฿5,900) → Platinum M/F (฿8,700/฿13,500) → Diamond M/F (฿15,000/฿19,000)
-- 72+ add-on programs priced ฿490–฿15,900
-- Price flows: `sample_package_resolution.json` → MCP → BAML → `contracts.py:_normalize_stage2()` → frontend
+- 72+ add-on programs priced ฿490–฿15,900, now with Expo + category-specific promotions
+- Price flows: `sample_package_resolution.json` → MCP → BAML → `contracts.py:_normalize_stage2()` → PromotionEngine → frontend
+- **7 promotions** active: Expo, 2 membership cards, 1 couple bundle, 3 add-on category deals
+- Add-ons are now **selectable** via checkboxes — only selected add-ons count toward Total Investment
 
 ## Navavej's Promotion Types (from website crawl)
 
@@ -43,5 +45,5 @@ could incorporate a discount/promotion dimension to help them close deals.
 |------------|---------------------|
 | 35% Hybrid Engine | Demonstrates hybrid: clinical logic (pure AI) + business logic (deterministic promo overlay) |
 | 25% Data Standards | Promotion Store follows same JSON schema pattern as existing Ruleset Store |
-| 20% UX/Explainability | Strikethrough pricing, urgency countdown, consultant scripts — direct deal-closing tools |
+| 20% UX/Explainability | Strikethrough pricing, urgency countdown, consultant scripts, add-on selection, decluttered HUD — direct deal-closing tools |
 | 20% Security/Audit | Promotions auto-captured in existing SHA-256 hash-chain audit trail |

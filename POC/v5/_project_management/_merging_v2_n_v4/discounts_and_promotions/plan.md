@@ -7,6 +7,7 @@
 | **Phase 1** | Data store + engine + strikethrough pricing + savings badge + urgency countdown | DONE |
 | **Phase 2** | PromotionDrawer with card display + savings breakdown + consultant script | DONE |
 | **Phase 3** | Per-add-on promo badges, Couple bundle toggle, animated savings counter | PARTIAL |
+| **Phase 4** | Add-on selection, add-on-specific promotions, HUD declutter (Tier+Plan merge), confidence score relocation | DONE |
 
 ## Files Changed
 
@@ -14,7 +15,7 @@
 
 | File | Purpose |
 |------|---------|
-| `assets/synthesis/rulesets/sample_promotions.json` | Promotion data store — 4 promotions |
+| `assets/synthesis/rulesets/sample_promotions.json` | Promotion data store — 7 promotions (4 original + 3 add-on category deals) |
 | `backend/src/services/promotions.py` | PromotionEngine class |
 | `frontend/src/components/dashboard/PromotionDrawer.tsx` | Slide-out drawer component |
 
@@ -25,7 +26,7 @@
 | `backend/src/mcp_server/utils.py` | Added `PROMOTIONS_PATH` + `load_promotions()` |
 | `backend/src/api/routes/contracts.py` | Added `promotion_context` to request, `promotion_summary` to response, wired engine into `_normalize_stage2()` |
 | `frontend/src/types/recommendation.ts` | Added `PromotionApplied`, `PromotionSummary` interfaces; extended `ResolvedPackage`, `RecommendationAddOn`, `RecommendationResponse` |
-| `frontend/src/components/dashboard/RecommendationPanel.tsx` | Strikethrough pricing, savings badges, urgency countdown, "฿ Deals" button, PromotionDrawer integration |
+| `frontend/src/components/dashboard/RecommendationPanel.tsx` | Strikethrough pricing, savings badges, urgency countdown, "฿ Deals" button, PromotionDrawer integration, **add-on checkboxes**, **merged Tier+Plan card**, **confidence score moved to risk card** |
 | `frontend/src/services/api.ts` | Added `promotionContext` param to `getRecommendation()` and `streamRecommendation()` |
 
 ## What Was NOT Changed
@@ -35,7 +36,7 @@
 - **Audit trail** — auto-captures promotions via existing pipeline
 - **Clinical recommendation logic** — promotions never influence tier/add-on selection
 
-## Remaining Work (Phase 3)
+## Remaining Work (Phase 3 — partial)
 
 1. Interactive card toggles in PromotionDrawer (Smart Life ON/OFF → live savings update)
    - Currently: drawer displays cards as info cards
@@ -46,6 +47,8 @@
 
 ## Estimated Original Prices (for strikethrough)
 
+### Packages (specific values)
+
 | Package | Expo Price | Est. Original | Savings |
 |---------|-----------|---------------|---------|
 | Gold | ฿5,900 | ฿7,900 | ฿2,000 |
@@ -54,4 +57,39 @@
 | Diamond — Men | ฿15,000 | ฿22,000 | ฿7,000 |
 | Diamond — Women | ฿19,000 | ฿27,000 | ฿8,000 |
 
-These are estimates (~30-40% markup). Replace with actual standard prices when obtained from Navavej.
+### Add-ons (percentage-based markup)
+
+All add-ons use a 30% estimated markup (`add_on_original_price_markup_pct: 0.30`) for Expo strikethrough.
+Example: Echocardiogram ฿2,900 → estimated original ฿3,770.
+
+### Category-Specific Add-on Promotions
+
+| Promo | Discount | Target Add-ons |
+|-------|----------|---------------|
+| Cardiac Screening Bundle | 15% off | exercise_stress_test, echocardiogram, ct_coronary_calcium, cardiac_patch_48h, arrhythmia_screening_program |
+| Cancer Prevention Pack | 20% off | colonoscopy, ldct_lung, mammogram, cervical_cancer_hpv_screen, multi_cancer_spotmas |
+| Imaging Essentials Deal | 10% off | dexa_bone_density, abdominal_ultrasound_full, carotid_ultrasound |
+
+These stack with Expo, e.g., Echocardiogram: ฿3,770 (est. original) → ฿2,465 (Expo + 15% cardiac).
+
+Replace all estimated prices with actual standard prices when obtained from Navavej.
+
+## HUD Layout (Phase 4)
+
+### Before (4 cards)
+```
+┌──────────────┬──────────────┬──────────────┬──────────────────────────┐
+│ Risk Gauge   │ Strategic    │ Plan Type /  │ Add-ons (6 cols)         │
+│ (2 cols)     │ Tier (2 cols)│ Investment   │                          │
+│              │ + confidence │ (2 cols)     │                          │
+└──────────────┴──────────────┴──────────────┴──────────────────────────┘
+```
+
+### After (3 cards — decluttered)
+```
+┌──────────────┬─────────────────────────────┬─────────────────────────┐
+│ Risk Gauge   │ Merged Tier + Plan          │ Add-ons (6 cols)        │
+│ + Confidence │ (gradient bg, 4 cols)       │ with checkboxes         │
+│ (2 cols)     │                             │                         │
+└──────────────┴─────────────────────────────┴─────────────────────────┘
+```

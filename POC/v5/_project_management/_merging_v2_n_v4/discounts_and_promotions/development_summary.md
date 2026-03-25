@@ -19,8 +19,8 @@ Key methods:
 - `_build_promo_entry()` — standardized promo metadata
 
 Supports 3 mechanic types:
-- `pre_applied` — current prices ARE the promo; computes delta from `original_prices`
-- `percentage` — applies % discount on package and/or add-ons
+- `pre_applied` — current prices ARE the promo; computes delta from `original_prices` for packages, uses `add_on_original_price_markup_pct` for add-ons
+- `percentage` — applies % discount on package and/or add-ons (supports specific item codes or `["*"]`)
 - `bundle_fixed_price` — couple bundle at fixed price
 
 ### Step 3: Data Loader
@@ -48,7 +48,7 @@ Modified `frontend/src/types/recommendation.ts`:
 ### Step 6: Strikethrough Pricing in HUD
 Modified `frontend/src/components/dashboard/RecommendationPanel.tsx`:
 - Added state: `showDealsDrawer`
-- Added computed vars: `packageOriginalPrice`, `hasPackageDiscount`, `packageSavings`, `promoSummary`, `urgencyMessages`, `totalSavings`
+- Added computed vars: `packageOriginalPrice`, `packageCurrentPrice`, `promoSummary`, `urgencyMessages`
 - **Plan column** ("Total Investment"): strikethrough original price + current price + green savings pill + pink urgency countdown + "฿ Deals" button
 - **Add-on prices**: strikethrough original + promo label when `promotions_applied` exists
 - **Strategy Summary**: strikethrough "was" total + "Total Savings" line in emerald green
@@ -68,10 +68,65 @@ Modified `frontend/src/services/api.ts`:
 - `streamRecommendation()` — added `promotionContext: Record<string, unknown> = {}` param
 - Both pass `promotion_context` in the request body JSON
 
+### Step 9: Expo Promotion Extended to Add-ons
+Modified `assets/synthesis/rulesets/sample_promotions.json`:
+- Changed Expo's `scope.add_on_item_codes` from `[]` to `["*"]`
+- Added `add_on_original_price_markup_pct: 0.30` to Expo's discount mechanic
+
+Modified `backend/src/services/promotions.py`:
+- Added `pre_applied` handling for add-ons: when `add_on_original_price_markup_pct` exists, computes estimated original price as `price × (1 + markup_pct)` for each add-on
+- Populates `add_on_promotions` entries with Expo savings data
+
+Modified `frontend/src/components/dashboard/RecommendationPanel.tsx`:
+- Added computed vars: `addOnCurrentTotal`, `addOnOriginalTotal`, `fullCurrentPrice`, `fullOriginalPrice`, `hasFullDiscount`
+- Total Investment now shows full price (package + add-ons) with strikethrough
+- Strategy Summary uses `promo_price_thb` instead of `price_thb` for add-on totals (bug fix)
+
+### Step 10: Add-on Selection (Checkboxes)
+Modified `frontend/src/components/dashboard/RecommendationPanel.tsx`:
+- Added state: `selectedAddOns: Set<string>` — initialized with all add-on item_codes via useEffect
+- Added checkbox input to each add-on card (before the priority color dot)
+- Recomputed totals (`addOnCurrentTotal`, `addOnOriginalTotal`, `selectedTotalSavings`) based on selected add-ons only
+- Updated "Plan + N add-ons" subtitle to show "Plan + X of Y add-ons"
+- PromotionDrawer receives `selectedAddOnsList` instead of all add-ons
+
+### Step 11: Add-on-Specific Promotions
+Modified `assets/synthesis/rulesets/sample_promotions.json`:
+- Added 3 new `item_markdown` type promotions targeting specific add-on categories:
+  - `CARDIAC_SCREENING_BUNDLE` — 15% off 5 cardiac add-ons
+  - `CANCER_PREVENTION_PACK` — 20% off 5 cancer screening add-ons
+  - `IMAGING_ESSENTIALS_DEAL` — 10% off 3 imaging add-ons
+- All use `applies_to: "all"`, `discount_mechanic.type: "percentage"`, `stacking_allowed: true`
+- No engine changes needed — existing `percentage` mechanic + specific item code scope handles them
+
+Modified `frontend/src/components/dashboard/PromotionDrawer.tsx`:
+- Added `Stethoscope` import from lucide-react
+- Added `addonDeals` filter for `type === "item_markdown"` promotions
+- Added "Add-on Deals" section after Bundle Deals with per-item breakdown (name, strikethrough original, promo price, savings)
+
+### Step 12: UI Declutter — Merge Tier + Plan Cards, Move Confidence
+Modified `frontend/src/components/dashboard/RecommendationPanel.tsx`:
+
+**Confidence score relocation:**
+- Removed confidence percentage + label from Strategic Tier card
+- Added to Risk-o-meter card (below "Active Monitoring" label): `{confidencePercent}%` + `{confidence_tier} Confidence`
+- Adapted colors for white background (uses `confidenceColorClass` + gray label)
+
+**Tier + Plan card merge:**
+- Deleted the standalone Plan Type card (was `md:col-span-2`, white background)
+- Expanded Strategic Tier card from `md:col-span-2` to `md:col-span-4`
+- Added Plan Type content into the Tier card with horizontal layout:
+  - Left: PackageSeal + tier name + "Trace Verified"
+  - Right: Plan Type label + plan name, Total Investment with strikethrough/savings, urgency badge, Safety Reviewed + Deals button
+- All text adapted for white-on-gradient (was dark text on white)
+- HUD grid: 2 + 4 + 6 columns (was 2 + 2 + 2 + 6)
+
 ## Technical Notes
 
 - The promotion engine runs synchronously (no async) — promotions are a pure data lookup + calculation
 - `frozen_for_demo: true` bypasses all date validation — safe to demo any time
-- Stacking: Expo (pre_applied) always runs first, then percentage cards stack on top
-- Add-on discounts only apply when membership cards are active (Expo doesn't discount add-ons)
-- The PromotionDrawer currently displays promo info read-only — interactive card toggles are Phase 3
+- Stacking order: Expo (pre_applied) runs first, then category deals (percentage), then membership cards (percentage)
+- Add-on category deals (`item_markdown`) apply to specific item codes; Expo applies to all add-ons via `["*"]`
+- The PromotionDrawer currently displays promo info read-only — interactive card toggles are Phase 3 remaining work
+- Add-on selection is client-side only — unchecking an add-on does not trigger a backend re-call
+- `selectedTotalSavings` recalculates by subtracting all add-on savings then adding back only selected add-on savings

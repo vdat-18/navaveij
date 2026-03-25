@@ -23,39 +23,44 @@
 - **Command:** `PYTHONPATH=.:./backend python -c "from src.services.promotions import PromotionEngine"`
 - **Result:** PASS — `PromotionEngine imported OK`
 
-### Promotion Engine Unit Test (manual)
-- **Status:** NOT YET RUN — user interrupted before execution
-- **Planned test:**
-  ```python
-  engine = PromotionEngine(promotions)
-  result = engine.resolve(
-      package_code='DIAM_M',
-      package_price_thb=15000,
-      add_ons=[{'item_code': 'est', 'price_thb': 2900}],
-      active_cards=[],
-  )
-  # Expected: original_package_price=22000, package_savings=7000
-  ```
+### Promotion Engine Smoke Test (Phase 4)
+- **Command:** Loaded all 7 promotions, resolved for Diamond Men with 3 add-ons
+- **Result:** PASS
+- Test input: package `DIAM_M` @ ฿15,000 + echocardiogram (฿2,900) + colonoscopy (฿9,500) + DEXA (฿1,450)
+- Output:
+  - Total savings: ฿13,635
+  - Echocardiogram: orig ฿3,770 → adj ฿2,465 (Expo 2026 + Heart Pack)
+  - Colonoscopy: orig ฿12,350 → adj ฿7,600 (Expo 2026 + Cancer Pack)
+  - DEXA: orig ฿1,885 → adj ฿1,305 (Expo 2026 + Imaging Deal)
+- Stacking confirmed: Expo pre_applied markup + category percentage discount apply correctly
 
-## Integration Testing (not yet performed)
+## Integration Testing
 
 ### Checklist for full verification:
-1. [ ] Start backend → call `/recommend` → response includes `promotion_summary` with Expo campaign
+1. [ ] Start backend → call `/recommend` → response includes `promotion_summary` with Expo campaign + 3 add-on deals
 2. [ ] Response includes `resolved_package.original_price_thb` = 22000 for Diamond Men
 3. [ ] Response includes `resolved_package.savings_thb` = 7000
-4. [ ] `npm run dev` → select patient → HUD shows strikethrough + savings badge
-5. [ ] Urgency badge shows "Expo pricing ends March 31 — 6 days left"
-6. [ ] "฿ Deals" button visible → click → drawer slides in
-7. [ ] Drawer shows Expo campaign, Smart Life, Smart Kid, Couple Bundle
-8. [ ] Strategy Summary shows "was ฿XX,XXX" crossed out + "Total Savings" line
-9. [ ] Add-on prices show strikethrough when membership card promo applies
-10. [ ] `logs/audit.jsonl` → audit entry contains `promotion_summary` data
+4. [ ] Each add-on has `original_price_thb` (30% markup), `promo_price_thb`, `promotions_applied`
+5. [ ] Cardiac add-ons show Expo + Heart Pack promotions stacked
+6. [ ] `npm run dev` → select patient → HUD shows merged Tier+Plan card with gradient
+7. [ ] Confidence score appears in Risk-o-meter card (not Tier card)
+8. [ ] Total Investment shows full price (package + selected add-ons)
+9. [ ] Add-on checkboxes work — unchecking reduces Total Investment
+10. [ ] "Plan + X of Y add-ons" subtitle updates when toggling checkboxes
+11. [ ] Urgency badge shows "Expo pricing ends March 31 — 6 days left"
+12. [ ] "฿ Deals" button visible → click → drawer slides in
+13. [ ] Drawer shows: Active Campaigns, Membership Cards, Bundle Deals, **Add-on Deals**
+14. [ ] Add-on Deals section shows per-item breakdown with prices and savings
+15. [ ] Strategy Summary shows "was ฿XX,XXX" crossed out + "Total Savings" line
+16. [ ] `logs/audit.jsonl` → audit entry contains `promotion_summary` data
 
 ## Known Limitations
 
 1. **Card toggles not interactive yet** — drawer shows cards as read-only info; toggling ON/OFF and
-   live recalculation is Phase 3
-2. **Estimated original prices** — strikethrough values are estimates (~30-40% above Expo rates),
+   live recalculation is Phase 3 remaining work
+2. **Estimated original prices** — strikethrough values are estimates (~30% above Expo rates),
    not confirmed standard prices from Navavej
-3. **No formal unit tests written** — engine logic verified via import check only; recommend adding
+3. **No formal unit tests written** — engine logic verified via smoke test only; recommend adding
    pytest tests for `PromotionEngine.resolve()` before production
+4. **Add-on selection is frontend-only** — unselected add-ons are still in the backend response;
+   selection only affects the displayed totals and what's passed to PromotionDrawer

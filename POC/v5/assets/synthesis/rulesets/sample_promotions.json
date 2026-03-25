@@ -109,6 +109,81 @@
       "urgency_message": "Couple bundle — save ฿8,000 when both partners enroll together",
       "stacking_allowed": false,
       "consultant_note": "If the patient mentions a spouse or partner, suggest the Diamond Couple Bundle for ฿26,000 — that's ฿8,000 less than two individual Diamond packages."
+    },
+    {
+      "promo_id": "CARDIAC_SCREENING_BUNDLE",
+      "type": "item_markdown",
+      "label": "Cardiac Screening Bundle",
+      "label_short": "Heart Pack",
+      "badge_color": "#EF4444",
+      "valid_from": "2026-03-01T00:00:00+07:00",
+      "valid_until": "2026-03-31T23:59:59+07:00",
+      "frozen_for_demo": true,
+      "frozen_days_remaining": 6,
+      "applies_to": "all",
+      "scope": {
+        "package_codes": [],
+        "add_on_item_codes": ["exercise_stress_test", "echocardiogram", "ct_coronary_calcium", "cardiac_patch_48h", "arrhythmia_screening_program"]
+      },
+      "discount_mechanic": {
+        "type": "percentage",
+        "value": 15,
+        "max_discount_thb": null
+      },
+      "original_prices": null,
+      "urgency_message": null,
+      "stacking_allowed": true,
+      "consultant_note": "If cardiac risk signals are present, highlight the Cardiac Screening Bundle — 15% off all heart-related add-ons."
+    },
+    {
+      "promo_id": "CANCER_PREVENTION_PACK",
+      "type": "item_markdown",
+      "label": "Cancer Prevention Pack",
+      "label_short": "Cancer Pack",
+      "badge_color": "#8B5CF6",
+      "valid_from": "2026-03-01T00:00:00+07:00",
+      "valid_until": "2026-03-31T23:59:59+07:00",
+      "frozen_for_demo": true,
+      "frozen_days_remaining": 6,
+      "applies_to": "all",
+      "scope": {
+        "package_codes": [],
+        "add_on_item_codes": ["colonoscopy", "ldct_lung", "mammogram", "cervical_cancer_hpv_screen", "multi_cancer_spotmas"]
+      },
+      "discount_mechanic": {
+        "type": "percentage",
+        "value": 20,
+        "max_discount_thb": null
+      },
+      "original_prices": null,
+      "urgency_message": null,
+      "stacking_allowed": true,
+      "consultant_note": "For patients with cancer risk factors, mention the Cancer Prevention Pack — 20% off all cancer screening add-ons."
+    },
+    {
+      "promo_id": "IMAGING_ESSENTIALS_DEAL",
+      "type": "item_markdown",
+      "label": "Imaging Essentials Deal",
+      "label_short": "Imaging Deal",
+      "badge_color": "#0EA5E9",
+      "valid_from": "2026-03-01T00:00:00+07:00",
+      "valid_until": "2026-03-31T23:59:59+07:00",
+      "frozen_for_demo": true,
+      "frozen_days_remaining": 6,
+      "applies_to": "all",
+      "scope": {
+        "package_codes": [],
+        "add_on_item_codes": ["dexa_bone_density", "abdominal_ultrasound_full", "carotid_ultrasound"]
+      },
+      "discount_mechanic": {
+        "type": "percentage",
+        "value": 10,
+        "max_discount_thb": null
+      },
+      "original_prices": null,
+      "urgency_message": null,
+      "stacking_allowed": true,
+      "consultant_note": "Patients needing multiple imaging tests benefit from the Imaging Essentials discount — 10% off."
     }
   ]
 }

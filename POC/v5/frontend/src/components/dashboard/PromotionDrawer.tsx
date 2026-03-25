@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { X, Tag, CreditCard, Users, Clock, Sparkles } from "lucide-react";
+import { X, Tag, CreditCard, Users, Clock, Sparkles, Stethoscope } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PromotionSummary, PromotionApplied, ResolvedPackage, RecommendationAddOn } from "@/types/recommendation";
 
@@ -28,6 +28,7 @@ export function PromotionDrawer({ isOpen, onClose, promoSummary, resolvedPackage
     const campaigns = (promoSummary?.active_promotions ?? []).filter(p => p.type === "seasonal_campaign");
     const cards = (promoSummary?.active_promotions ?? []).filter(p => p.type === "membership_card");
     const bundles = (promoSummary?.active_promotions ?? []).filter(p => p.type === "bundle");
+    const addonDeals = (promoSummary?.active_promotions ?? []).filter(p => p.type === "item_markdown");
     const urgencyMessages = promoSummary?.urgency_messages ?? [];
     const consultantPrompts = promoSummary?.consultant_prompts ?? [];
     const totalSavings = promoSummary?.total_savings_thb ?? 0;
@@ -139,6 +140,49 @@ export function PromotionDrawer({ isOpen, onClose, promoSummary, resolvedPackage
                                             )}
                                         </PromoCard>
                                     ))}
+                                </Section>
+                            )}
+
+                            {/* Add-on Deals */}
+                            {addonDeals.length > 0 && (
+                                <Section icon={<Stethoscope className="w-3.5 h-3.5 text-sky-600" />} title="Add-on Deals">
+                                    {addonDeals.map(promo => {
+                                        const matchingAddOns = addOns.filter(a =>
+                                            a.promotions_applied?.some(p => p.promo_id === promo.promo_id)
+                                        );
+                                        return (
+                                            <PromoCard key={promo.promo_id} promo={promo}>
+                                                {matchingAddOns.length > 0 && (
+                                                    <div className="mt-2 space-y-1.5">
+                                                        {matchingAddOns.map(addon => {
+                                                            const addonPromo = addon.promotions_applied?.find(p => p.promo_id === promo.promo_id);
+                                                            return (
+                                                                <div key={addon.item_code} className="flex justify-between items-center text-[10px] py-1 border-t border-navavej-border/30">
+                                                                    <span className="font-medium text-navavej-gray-dark truncate flex-1 mr-2">{addon.label}</span>
+                                                                    <div className="flex items-center gap-2 shrink-0">
+                                                                        {addon.original_price_thb && (
+                                                                            <span className="text-navavej-gray-med/50 line-through">฿{addon.original_price_thb.toLocaleString()}</span>
+                                                                        )}
+                                                                        <span className="font-black text-emerald-700">
+                                                                            ฿{(addon.promo_price_thb ?? addon.price_thb ?? 0).toLocaleString()}
+                                                                        </span>
+                                                                        {addonPromo && addonPromo.savings_thb > 0 && (
+                                                                            <span className="text-[8px] font-black text-emerald-600">-฿{addonPromo.savings_thb.toLocaleString()}</span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                                {matchingAddOns.length === 0 && promo.consultant_note && (
+                                                    <p className="text-[10px] font-medium text-navavej-gray-med/80 mt-1.5 italic leading-relaxed">
+                                                        {promo.consultant_note}
+                                                    </p>
+                                                )}
+                                            </PromoCard>
+                                        );
+                                    })}
                                 </Section>
                             )}
                         </div>
