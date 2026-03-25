@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
     ShieldCheck,
     BrainCircuit,
@@ -550,6 +550,11 @@ export function RecommendationPanel({
     const [showTrendToast, setShowTrendToast] = useState(false);
     const [isAddOnsExpanded, setIsAddOnsExpanded] = useState(true);
     const [revealedAddOns, setRevealedAddOns] = useState<Record<number, boolean>>({});
+    const hudRef = useRef<HTMLDivElement>(null);
+
+    const scrollToHUD = () => {
+        hudRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
 
     useEffect(() => {
         if (!patientToken) {
@@ -771,8 +776,10 @@ export function RecommendationPanel({
                 animate={{ opacity: 1, scale: 1 }}
                 className="space-y-6"
             >
-                    <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-12 navavej-card p-0 rounded-[24px] overflow-hidden shadow-2xl relative bg-white border border-navavej-border min-h-[160px] items-stretch">
-                        {/* 1. Active Monitoring (Gauge) - Equally Sized */}
+                    <div 
+                        ref={hudRef}
+                        className="lg:col-span-12 grid grid-cols-1 md:grid-cols-12 navavej-card p-0 rounded-[24px] overflow-hidden shadow-2xl relative bg-white border border-navavej-border min-h-[160px] items-stretch"
+                    >                        {/* 1. Active Monitoring (Gauge) - Equally Sized */}
                         <div className="md:col-span-2 border-r border-navavej-border/60 p-4 flex flex-col items-center justify-center bg-white group relative">
                             <div className="scale-[0.6] origin-center -mb-4">
                                 <ClinicalRiskGauge value={data.overall_risk_level} />
@@ -1218,8 +1225,10 @@ export function RecommendationPanel({
 
                             <div>
                                 <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Strategy Summary</h4>
-                                <div className="bg-navavej-gray-dark rounded-[24px] p-6 text-white relative overflow-hidden group shadow-xl">
-                                    <div className="absolute top-0 right-0 w-64 h-64 bg-navavej-teal/5 rounded-full blur-[60px] -translate-y-1/2 translate-x-1/2" />
+                                <div 
+                                    onClick={scrollToHUD}
+                                    className="bg-navavej-gray-dark rounded-[24px] p-6 text-white relative overflow-hidden group shadow-xl cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
+                                >                                    <div className="absolute top-0 right-0 w-64 h-64 bg-navavej-teal/5 rounded-full blur-[60px] -translate-y-1/2 translate-x-1/2" />
                                     <div className="relative z-10 space-y-4">
                                         <div className="flex items-center justify-between gap-4">
                                             <div className="flex-1">

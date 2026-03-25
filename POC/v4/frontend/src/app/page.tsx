@@ -327,30 +327,6 @@ export default function DashboardPage() {
               hideCharts={true}
             />
 
-            {/* Screening & Vaccination collapsible */}
-            {(screeningGaps.length > 0 || vaccinationGaps.length > 0) && (
-              <div className="mt-6">
-                <button
-                  type="button"
-                  onClick={() => setScreeningPanelOpen((v) => !v)}
-                  className="w-full flex items-center justify-between px-5 py-3 navavej-card bg-white border border-navavej-border rounded-lg hover:border-navavej-teal/40 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest">
-                      Screening &amp; Vaccination Status
-                    </span>
-                    <SummaryBadges screening={screeningGaps} vaccination={vaccinationGaps} />
-                  </div>
-                  <ChevronDown className={`w-4 h-4 text-navavej-gray-med transition-transform ${screeningPanelOpen ? "rotate-180" : ""}`} />
-                </button>
-                {screeningPanelOpen && (
-                  <div className="mt-3 grid grid-cols-1 xl:grid-cols-2 gap-4">
-                    {screeningGaps.length > 0 && <ScreeningGapStatus screeningGaps={screeningGaps} title="Screening Gap Status" />}
-                    {vaccinationGaps.length > 0 && <ScreeningGapStatus screeningGaps={vaccinationGaps} title="Vaccination Gap Status" />}
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Task 4: "View Charts & Timeline" button → opens ClinicalDrawer */}
             <div className="mt-6">
@@ -601,29 +577,6 @@ export default function DashboardPage() {
               isRuleBasedForced={isRuleBasedForced}
             />
 
-            {selectedPatient && (screeningGaps.length > 0 || vaccinationGaps.length > 0) && (
-              <div className="mt-6">
-                <button
-                  type="button"
-                  onClick={() => setScreeningPanelOpen((v) => !v)}
-                  className="w-full flex items-center justify-between px-5 py-3 navavej-card bg-white border border-navavej-border rounded-lg hover:border-navavej-teal/40 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest">
-                      Screening &amp; Vaccination Status
-                    </span>
-                    <SummaryBadges screening={screeningGaps} vaccination={vaccinationGaps} />
-                  </div>
-                  <ChevronDown className={`w-4 h-4 text-navavej-gray-med transition-transform ${screeningPanelOpen ? "rotate-180" : ""}`} />
-                </button>
-                {screeningPanelOpen && (
-                  <div className="mt-3 grid grid-cols-1 xl:grid-cols-2 gap-4">
-                    {screeningGaps.length > 0 && <ScreeningGapStatus screeningGaps={screeningGaps} title="Screening Gap Status" />}
-                    {vaccinationGaps.length > 0 && <ScreeningGapStatus screeningGaps={vaccinationGaps} title="Vaccination Gap Status" />}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </main>
