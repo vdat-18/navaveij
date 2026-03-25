@@ -746,13 +746,14 @@ export function RecommendationPanel({
     const maskedPriceValue = "-";
 
     return (
-        <AnimatePresence mode="wait">
-            <motion.div
-                key={patientToken ? `panel-${patientToken}` : "panel-empty"}
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="space-y-6"
-            >
+        <div className="relative w-full">
+            <AnimatePresence mode="wait">
+                <motion.div
+                    key={patientToken ? `panel-${patientToken}` : "panel-empty"}
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="space-y-6"
+                >
                     <div 
                         ref={hudRef}
                         className="lg:col-span-12 grid grid-cols-1 md:grid-cols-12 navavej-card p-0 rounded-[24px] overflow-hidden shadow-2xl relative bg-white border border-navavej-border min-h-[160px] items-stretch"
@@ -1521,8 +1522,8 @@ export function RecommendationPanel({
                         </div>
                     </div>
                 </div>
-
             </motion.div>
+            </AnimatePresence>
 
             {/* Rejection Reason Modal */}
             <AnimatePresence>
@@ -1784,6 +1785,6 @@ export function RecommendationPanel({
                     </motion.div>
                 )}
             </AnimatePresence>
-        </AnimatePresence>
+        </div>
     );
 }
