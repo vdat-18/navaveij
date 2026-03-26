@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PatientDirectoryColumn } from "@/components/dashboard/PatientDirectoryColumn";
 import { PatientSearchEntry } from "@/components/dashboard/PatientSearchEntry";
 import { RecommendationPanel } from "@/components/dashboard/RecommendationPanel";
@@ -66,6 +67,7 @@ function SummaryBadges({ screening, vaccination }: { screening: ScreeningGapRow[
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { selectedPatient, setSelectedPatient } = usePatient();
   const { privacyMode, togglePrivacyMode } = usePrivacyMode();
   const { user, logout } = useAuth();
@@ -559,7 +561,7 @@ export default function DashboardPage() {
                 setAnalysisTimestamp((data?.metadata?.generated_at as string | undefined) || null);
               }}
               isRuleBasedForced={isRuleBasedForced}
-              onOpenTimeline={() => setDrawerOpen(true)}
+              onOpenTimeline={() => router.push('/trend-timeline')}
             />
 
           </div>

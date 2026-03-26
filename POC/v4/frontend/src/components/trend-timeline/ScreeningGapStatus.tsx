@@ -18,7 +18,24 @@ const priorityStyles = (priority?: string) => {
   return "border-navavej-border bg-white border";
 };
 
+const PRIORITY_ORDER: Record<string, number> = {
+  red: 0,
+  critical: 0,
+  orange: 1,
+  high: 1,
+  yellow: 2,
+  medium: 2,
+  green: 3,
+  low: 3,
+};
+
 export function ScreeningGapStatus({ screeningGaps, title = "Screening Gap Status" }: ScreeningGapStatusProps) {
+  const sorted = [...screeningGaps].sort((a, b) => {
+    const pa = PRIORITY_ORDER[(a.priority_color || "").toLowerCase()] ?? 99;
+    const pb = PRIORITY_ORDER[(b.priority_color || "").toLowerCase()] ?? 99;
+    return pa - pb;
+  });
+
   return (
     <div className="navavej-card bg-white p-5 border border-navavej-border/60">
       <h4 className="text-[11px] font-black text-navavej-gray-dark uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -26,7 +43,7 @@ export function ScreeningGapStatus({ screeningGaps, title = "Screening Gap Statu
         {title}
       </h4>
       <div className="space-y-3">
-        {screeningGaps.map((gap, idx) => (
+        {sorted.map((gap, idx) => (
           <div 
             key={`${gap.label}-${idx}`} 
             className={cn(

@@ -29,6 +29,7 @@ import {
     Binary,
     X,
     Plus,
+    Info,
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -136,12 +137,16 @@ const renderBoldText = (text: string | string[] | null | undefined, sentiment?: 
     content = content.replace(/['"‘’“”]/g, "");
 
     // 2. AUTO-HIGHLIGHT: Clinical measurements and units (e.g., 140/90 mmHg, 5.5 mg/dL, 23%)
-    const unitRegex = /\b(\d+(?:\.\d+)?(?:\/\d+)?\s*(?:mg\/dL|mmol\/L|mmHg|kg\/m²|kg\/m2|mL\/min|years|days|weeks|months|%))\b/gi;
+    // 1. DYNAMIC RISK SIGNALS: Target adjectives of urgency and clinical outcomes
+    const riskSignalRegex = /\b(Elevated|Critical|Abnormal|Borderline|Rising|High Risk|Moderate Risk|Extreme|Gap|Detected|Overdue|Never|Urgent|Recommended|Required|Essential|Confirm)\b/gi;
+    content = content.replace(riskSignalRegex, (match) => `**${match}**`);
+
+    // 2. UNITS & MEASUREMENTS: Re-enforce strictly with numbers
+    const unitRegex = /\b(\d+(?:\.\d+)?(?:\/\d+)?\s*(?:mg\/dL|mmol\/L|mmHg|kg\/m²|kg\/m2|mL\/min|years|days|weeks|months|%|grade \d|stage [ivx]+))\b/gi;
     content = content.replace(unitRegex, (match) => `**${match}**`);
 
-    // 3. AUTO-TRANSLATE: Check for any technical identifiers from our dictionary
+    // 3. AUTO-TRANSLATE & BOLD: Check for technical identifiers from our dictionary
     const dictKeys = Object.keys(CLINICAL_DICTIONARY).sort((a, b) => b.length - a.length);
-
     dictKeys.forEach(key => {
         const regex = new RegExp(`\\b${key}\\b`, 'g');
         if (content.includes(key)) {
@@ -149,19 +154,16 @@ const renderBoldText = (text: string | string[] | null | undefined, sentiment?: 
         }
     });
 
+    // 4. TOKENS: Normalize and bold internal clinical tokens (e.g., ldl_chol)
     content = content.replace(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g, (token) => `**${normalizeClinicalToken(token)}**`);
 
-    // 4. CLEANUP: Normalize multiple asterisks and potential nesting
+    // 5. CLEANUP & NORMALIZE: Ensure we don't have nested or broken markers
     content = content.replace(/\*{3,}/g, '**');
-    content = content.replace(/\*\*\s*\*\*/g, ''); // Fix double bolding markers ** **
-
-    // 4. FIX: Normalize common AI mistake
+    content = content.replace(/\*\*\s*\*\*/g, ''); 
     content = content.replace(/\*+([^*]+):\*+/g, '**$1:**');
 
     const boldMarkerCount = (content.match(/\*\*/g) || []).length;
-    if (boldMarkerCount % 2 !== 0) {
-        content = content.replace(/\*\*/g, "");
-    }
+    if (boldMarkerCount % 2 !== 0) content = content.replace(/\*\*/g, "");
 
     // 5. RENDER: Split by ** markers and render bold parts
     const textColorClass = sentiment === 'bad' ? 'text-navavej-red' : (sentiment === 'good' ? 'text-emerald-700' : 'text-navavej-teal');
@@ -179,7 +181,7 @@ const renderBoldText = (text: string | string[] | null | undefined, sentiment?: 
             }
             // Simple bold bold text for values/signals without the container box
             return (
-                <strong key={i} className={cn("font-black tracking-tight mx-0.5 whitespace-nowrap leading-none align-baseline underline-offset-2", textColorClass)}>
+                <strong key={i} className={cn("font-black tracking-tight mx-0.5 whitespace-nowrap leading-none align-baseline border-b-2", textColorClass === 'text-navavej-red' ? 'border-navavej-red/30' : 'border-current/20')}>
                     {inner}
                 </strong>
             );
@@ -236,7 +238,7 @@ const ClinicalRiskGauge = ({ value }: { value: string }) => {
                 
                 {/* Center text inside arch */}
                 <div className="absolute inset-0 flex items-end justify-center pb-1">
-                    <span className="text-[10px] uppercase font-black tracking-widest text-navavej-gray-med/70">Risk Level</span>
+                    <span className="text-[9px] uppercase font-bold tracking-[0.2em] text-navavej-gray-med/60">Risk Level</span>
                 </div>
             </div>
 
@@ -757,56 +759,52 @@ export function RecommendationPanel({
                     <div 
                         ref={hudRef}
                         className="lg:col-span-12 grid grid-cols-1 md:grid-cols-12 navavej-card p-0 rounded-[24px] overflow-hidden shadow-2xl relative bg-white border border-navavej-border min-h-[160px] items-stretch"
-                    >                        {/* 1. Active Monitoring (Gauge) - Equally Sized */}
-                        <div className="md:col-span-2 border-r border-navavej-border/60 p-4 flex flex-col items-center justify-center bg-white group relative">
+                    >                        {/* 1. Active Monitoring (Gauge) - 3 Columns (Equal with Tier) */}
+                        <div className="md:col-span-3 border-r border-navavej-border/60 p-4 flex flex-col items-center justify-center bg-white group relative">
                             <ClinicalRiskGauge value={data.overall_risk_level} />
                         </div>
 
-                        {/* 2. Strategic Tier (Blue box) - Equally Sized */}
+                        {/* 2 & 3. Consolidated Strategic Tier & Plan Details - 3 Columns (Equal with Monitoring) */}
                         <div className={cn(
-                            "md:col-span-2 p-4 text-white flex flex-col justify-center items-center relative overflow-hidden transition-all duration-1000",
+                            "md:col-span-3 p-6 text-white relative overflow-hidden transition-all duration-1000 flex flex-col items-center justify-center",
                             (data.ai_recommended_tier || "Premium").toLowerCase() === "premium" ? "bg-gradient-to-br from-cyan-600 to-blue-900" :
                                 (data.ai_recommended_tier || "Premium").toLowerCase() === "advanced" ? "bg-gradient-to-br from-[#4A5568] to-[#2D3748]" : "bg-gradient-to-br from-amber-600 to-amber-900"
                         )}>
-                             <div className="flex items-center justify-center gap-1.5 mb-3 opacity-80 relative z-10 w-full group">
-                                <Package className="w-3.5 h-3.5 text-white/40 group-hover:text-white/60 transition-colors" />
-                                <span className="text-[9px] font-bold uppercase tracking-widest text-white/60">Strategic Tier</span>
-                            </div>
-
-                            <div className="flex flex-col items-center gap-4 w-full relative z-10 text-center">
+                            {/* Decorative Background Element */}
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                            <div className="absolute bottom-0 left-0 w-24 h-24 bg-cyan-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+                            
+                            {/* Tier Branding - TOP */}
+                            <div className="flex flex-col items-center relative z-10 mb-4">
                                 <PackageSeal tier={data.ai_recommended_tier || "Premium"} />
-                                <div className="flex flex-col items-center">
-                                    <h3 className="text-xl font-black tracking-tight leading-none mb-1.5 drop-shadow-xl uppercase text-center">
+                                <div className="mt-3 text-center">
+                                    <h3 className="text-xl font-black tracking-tighter leading-none mb-1 drop-shadow-2xl uppercase">
                                         {data.ai_recommended_tier || "Premium"}
                                     </h3>
-                                    <div className="flex items-center gap-1.5 justify-center">
-                                        <div className="w-1 h-1 bg-navavej-teal rounded-full" />
-                                        <span className="text-[6px] font-black uppercase tracking-[0.2em] text-white/50">Trace Verified</span>
+                                    <div className="flex items-center gap-1.5 justify-center opacity-70">
+                                        <div className="w-1 h-1 bg-white rounded-full animate-pulse" />
+                                        <span className="text-[7px] font-black uppercase tracking-[0.3em]">Strategic Trace</span>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* 3. Recommended Plan section - Equally Sized */}
-                        <div className="md:col-span-2 p-4 flex flex-col items-center justify-center bg-white border-r border-navavej-border/60 relative group text-center">
-                            <div className="space-y-3 flex flex-col items-center">
-                                <div className="space-y-0.5">
-                                    <span className="text-[8px] font-bold text-navavej-gray-med uppercase tracking-wider block opacity-70">Plan Type</span>
-                                    <span className={cn("text-sm font-bold leading-tight tracking-tight", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-gray-dark")}>
+                            {/* Separator Line (Horizontal) */}
+                            <div className="w-8 h-[1px] bg-white/20 mb-4 shrink-0" />
+
+                            {/* Plan Details - BOTTOM */}
+                            <div className="space-y-4 relative z-10 text-center w-full">
+                                <div className="space-y-1">
+                                    <span className="text-[8px] font-medium text-white/50 uppercase tracking-[0.25em] block leading-none">Recommended Plan</span>
+                                    <span className={cn("text-[15px] font-semibold leading-tight tracking-normal block", privacyMode ? "text-red-400 font-mono" : "text-white")}>
                                         {privacyMode ? maskedPackageName : (data.resolved_package?.name || data.resolved_package?.package_name || "Unknown Plan")}
                                     </span>
                                 </div>
                                 
-                                <div className="space-y-1">
-                                    <span className="text-[9px] font-bold text-navavej-gray-med uppercase tracking-wider block opacity-70">Total Investment</span>
-                                    <span className={cn("text-2xl font-bold tracking-tighter", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-teal")}>
-                                        {privacyMode ? maskedPriceValue : (data.resolved_package?.price_thb ? `฿${data.resolved_package.price_thb.toLocaleString()}` : "Price TBD")}
-                                    </span>
-                                </div>
-
-                                <div className="mx-auto w-fit px-2 py-1 bg-navavej-gray-light border border-navavej-border/60 rounded-md flex items-center justify-center gap-1.5">
-                                    <ShieldCheck className="w-2.5 h-2.5 text-navavej-teal" />
-                                    <span className="text-[6px] font-black uppercase text-navavej-gray-dark tracking-[0.2em]">Safety OK</span>
+                                <div className="flex justify-center">
+                                    <div className="px-3 py-1.5 bg-white/10 backdrop-blur-md border border-white/20 rounded-full flex items-center gap-2 shadow-xl hover:bg-white/15 transition-all">
+                                        <ShieldCheck className="w-3.5 h-3.5 text-navavej-teal-light" />
+                                        <span className="text-[8px] font-bold uppercase text-white/90 tracking-[0.1em]">Safety Verified</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -816,7 +814,7 @@ export function RecommendationPanel({
                             <div className="flex justify-between items-center mb-3 shrink-0">
                                 <div className="flex items-center gap-2">
                                     <Sparkles className="w-3.5 h-3.5 text-navavej-teal" />
-                                    <h4 className="text-[9px] font-bold text-navavej-teal uppercase tracking-widest">Strategic Add-ons</h4>
+                                    <h4 className="text-[10px] font-bold text-navavej-gray-dark uppercase tracking-widest">Strategic Add-ons</h4>
                                 </div>
                                 <div className="px-3 py-1 bg-navavej-teal/10 rounded-full text-[9px] font-bold text-navavej-teal uppercase tracking-widest">
                                     {data.add_ons?.length || 0} Recommended
@@ -856,7 +854,7 @@ export function RecommendationPanel({
                                                                         isRed ? "bg-navavej-red animate-pulse" :
                                                                         isGreen ? "bg-emerald-500" : "bg-amber-500"
                                                                     )} />
-                                                                    <h5 className="text-[13px] font-bold text-navavej-gray-dark tracking-tight leading-none truncate group-hover:whitespace-normal">
+                                                                    <h5 className="text-[13px] font-semibold text-navavej-gray-dark tracking-normal leading-snug truncate group-hover:whitespace-normal">
                                                                         {item.label}
                                                                     </h5>
                                                                 </div>
@@ -864,23 +862,28 @@ export function RecommendationPanel({
                                                                 {/* Reveal-on-hover rationale */}
                                                                 <div className="max-h-0 opacity-0 overflow-hidden group-hover:max-h-48 group-hover:opacity-100 group-hover:mt-3 transition-all duration-500 ease-in-out">
                                                                     <div className="p-3 bg-navavej-gray-light/40 rounded-xl border border-navavej-border/30 shadow-inner">
-                                                                        <div className="flex items-center gap-2 mb-1.5">
+                                                                        <div className="flex items-center gap-1.5 mb-1.5 border-b border-navavej-border/30 pb-1.5">
                                                                             <Fingerprint className="w-3 h-3 text-navavej-teal/60" />
-                                                                            <span className="text-[8px] font-black text-navavej-teal/60 uppercase tracking-widest">Clinical Rationale</span>
+                                                                            <span className="text-[8px] font-bold text-navavej-teal/70 uppercase tracking-widest">Clinical Rationale</span>
                                                                         </div>
-                                                                        <p className="text-[11px] font-bold text-navavej-gray-dark/80 leading-relaxed italic border-l-2 border-navavej-teal/40 pl-3 text-left">
+                                                                        <p className="text-[11px] font-medium text-navavej-gray-med/90 leading-relaxed pl-1 text-left">
                                                                             {item.rationale}
                                                                         </p>
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                            <div className="text-right shrink-0">
-                                                                <p className={cn(
-                                                                    "text-[14px] font-black tracking-tight",
-                                                                    isRed ? "text-navavej-red" : isGreen ? "text-emerald-700" : "text-amber-700"
+                                                            <div className="shrink-0 flex items-center pr-2">
+                                                                <div className={cn(
+                                                                    "px-3 py-1 rounded-full text-[8px] font-bold uppercase tracking-widest flex items-center gap-1.5 border shadow-sm",
+                                                                    isRed ? "bg-navavej-red/10 text-navavej-red border-navavej-red/20 shadow-navavej-red/5" : 
+                                                                    isGreen ? "bg-emerald-50 text-emerald-700 border-emerald-200" : 
+                                                                    "bg-amber-50 text-amber-700 border-amber-200"
                                                                 )}>
-                                                                    {item.price_thb ? `฿${item.price_thb.toLocaleString()}` : '—'}
-                                                                </p>
+                                                                    {isRed ? <AlertTriangle className="w-2.5 h-2.5" /> : isGreen ? <CheckCircle className="w-2.5 h-2.5" /> : <Info className="w-2.5 h-2.5" />}
+                                                                    <span>
+                                                                        {isRed ? "High Priority" : isGreen ? "Routine" : "Moderate Risk"}
+                                                                    </span>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1026,9 +1029,9 @@ export function RecommendationPanel({
                                                         <div className="w-1.5 h-1.5 rounded-full bg-navavej-gray-med/60" />
                                                     )}
                                                 </div>
-                                                <div className="flex-1">
+                                                <div className="flex-1 min-w-0">
                                                     <p className={cn(
-                                                        "text-[13px] font-bold leading-relaxed text-justify",
+                                                        "text-[13px] font-bold leading-relaxed text-justify break-words",
                                                         sentiment === 'bad' ? "text-navavej-red/90" :
                                                         sentiment === 'good' ? "text-navavej-teal/90" :
                                                         "text-navavej-gray-dark",
@@ -1186,7 +1189,7 @@ export function RecommendationPanel({
                                     {splitConsultationSentences(data.communication_script?.health_summary || "").map((sentence: string, i: number) => (
                                         <div key={i} className="flex gap-2">
                                             <div className="mt-1.5 w-1 h-1 rounded-full bg-navavej-teal shrink-0" />
-                                            <p className="text-sm font-medium text-navavej-gray-dark leading-relaxed text-justify">
+                                            <p className="text-sm font-medium text-navavej-gray-dark leading-relaxed text-justify break-words min-w-0">
                                                 {renderBoldText(sentence)}
                                             </p>
                                         </div>
@@ -1200,7 +1203,7 @@ export function RecommendationPanel({
                                         {data.communication_script.add_on_highlights.map((highlight: string, i: number) => (
                                             <div key={i} className="flex gap-2">
                                                 <div className="mt-1.5 w-1 h-1 rounded-full bg-navavej-teal shrink-0" />
-                                                <p className="text-sm font-medium text-navavej-gray-dark leading-relaxed text-justify">
+                                                <p className="text-sm font-medium text-navavej-gray-dark leading-relaxed text-justify break-words min-w-0">
                                                     {renderBoldText(highlight)}
                                                 </p>
                                             </div>
@@ -1225,7 +1228,7 @@ export function RecommendationPanel({
                                     {splitConsultationSentences(data.communication_script?.next_steps || "").map((sentence: string, i: number) => (
                                         <div key={i} className="flex items-start gap-3">
                                             <div className="mt-1 shrink-0 bg-emerald-100 p-1 rounded-full border border-emerald-200 shadow-sm"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /></div>
-                                            <p className="text-[12px] font-bold text-navavej-gray-dark leading-relaxed text-justify">
+                                            <p className="text-[12px] font-bold text-navavej-gray-dark leading-relaxed text-justify break-words min-w-0">
                                                 {renderBoldText(sentence)}
                                             </p>
                                         </div>
@@ -1502,12 +1505,12 @@ export function RecommendationPanel({
                                                             onClick={handleApprove}
                                                             disabled={isSubmitting}
                                                             className={cn(
-                                                                "navavej-button-primary flex-1 py-3.5 flex items-center justify-center gap-3 group shadow-xl hover:-translate-y-0.5 transition-all outline-none relative overflow-hidden",
+                                                                "navavej-button-primary flex-1 py-4 flex items-center justify-center gap-3 group shadow-2xl hover:-translate-y-0.5 transition-all outline-none relative overflow-hidden",
                                                                 isSubmitting && "opacity-70 cursor-wait"
                                                             )}
                                                         >
-                                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]" />
-                                                            <span className="text-[10px] uppercase tracking-[0.2em] font-black relative z-10">
+                                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]" />
+                                                            <span className="text-[11px] uppercase tracking-[0.25em] font-black relative z-10">
                                                                 {isSubmitting ? "Processing..." : "Confirm Strategy"}
                                                             </span>
                                                             {!isSubmitting && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform relative z-10" />}
@@ -1726,8 +1729,8 @@ export function RecommendationPanel({
                             {/* Footer */}
                             <div className="px-10 py-8 bg-navavej-gray-light border-t border-navavej-border flex items-center justify-between">
                                 <div>
-                                    <span className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest block mb-1">New Total Estimate</span>
-                                    <span className="text-xl font-black text-navavej-gray-dark tracking-tighter">
+                                    <span className="text-[9px] font-medium text-navavej-gray-med uppercase tracking-[0.2em] block mb-1">New Total Estimate</span>
+                                    <span className="text-2xl font-black text-navavej-gray-dark tracking-tighter">
                                         ฿{(() => {
                                             const base = data?.original_price_thb || 0;
                                             let totalPct = 0;
