@@ -93,13 +93,14 @@ function AnnotateReasoningLines(
        - "risk" for lines that describe active risk, worsening trends, overdue actions, or abnormal findings.
        - "reassuring" for lines that describe controlled, normal, negative, or protective findings.
        - "neutral" for descriptive lines that are important but not clearly risk-heavy or reassuring.
-    3. Populate "highlight_terms" with only meaningful substrings from the line.
-       Meaningful means:
-       - clinically decisive measurements and units
-       - named diagnoses, stages, or risk states
-       - decision-driving program or screening terms
+    3. Populate "highlight_terms" with ALL clinically meaningful substrings from the line.
+       Include:
+       - named diagnoses, stages, or risk states (e.g. "Stage 2 Hypertension", "Prediabetes")
+       - clinically decisive measurements with units (e.g. "140/90 mmHg", "92%")
+       - screening or program terms that drive a decision (e.g. "Colonoscopy", "Exercise Stress Test")
+       - actionability markers (e.g. "Overdue", "Urgent")
     4. DO NOT include generic connectors, punctuation fragments, or internal snake_case identifiers in "highlight_terms".
-    5. Keep "highlight_terms" short and selective, ideally 1-3 items per line.
+    5. Be comprehensive — include every meaningful span in the line, not just 1-3 items.
 
     {{ ctx.output_format }}
   "#
@@ -119,9 +120,14 @@ class AddOnItem {
   rationale string
 }
 
+class PolicyAddOnSummary {
+  label string
+  priority PriorityLevel
+}
+
 class PolicyScript {
   program_justification string
-  priority_add_ons string[]
+  priority_add_ons PolicyAddOnSummary[]
 }
 
 class PolicyMatchResult {
@@ -161,7 +167,8 @@ function MatchPolicy(
     3. Write 'policy_reasoning' explaining why this specific package combination was chosen.
     4. In 'policy_script', write:
        - 'program_justification': one short paragraph or two short sentences explaining the chosen Tier and the add-on package logic.
-       - 'priority_add_ons': 2-4 concise short phrases summarising only the highest-value add-ons.
+       - 'priority_add_ons': 2-4 structured items summarising only the highest-value add-ons.
+         Each item has a 'label' (concise name, under 10 words) and 'priority' (Red/Orange/Yellow/Green).
 
     ── CONSTRAINTS (MANDATORY) ───────────────────────────────────────────────
     - NO greetings or conversational filler.

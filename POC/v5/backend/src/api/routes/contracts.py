@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import json
+import re
 import time
 import uuid
 from datetime import datetime, timezone
@@ -338,26 +339,73 @@ def _map_communication_script(script: dict[str, Any]) -> dict[str, Any]:
         or script.get("health_summary")
         or "Clinical recommendation summary."
     )
-    top_findings = script.get("top_findings") or []
+    summary_headline_highlights = script.get("summary_headline_highlights") or []
+
+    # top_findings: new shape is [{ text, highlight_terms }]; legacy is string[]
+    raw_top_findings = script.get("top_findings") or []
+    top_findings = [
+        f if isinstance(f, dict) else {"text": f, "highlight_terms": []}
+        for f in raw_top_findings
+    ]
+
     program_justification = (
         script.get("program_justification")
         or script.get("recommendation_rationale")
         or script.get("recommendation_explanation", "")
     )
-    priority_add_ons = script.get("priority_add_ons") or script.get("addon_highlights") or script.get("add_on_highlights", [])
-    next_actions = script.get("next_actions") or []
+    program_justification_highlights = script.get("program_justification_highlights") or []
+
+    # priority_add_ons: new shape is [{ label, severity }]; legacy is string[]
+    raw_priority_add_ons = script.get("priority_add_ons") or script.get("addon_highlights") or script.get("add_on_highlights") or []
+    priority_add_ons = [
+        p if isinstance(p, dict) else _parse_priority_add_on_string(p)
+        for p in raw_priority_add_ons
+    ]
+
+    # next_actions: new shape is [{ text, highlight_terms }]; legacy is string[]
+    raw_next_actions = script.get("next_actions") or []
+    next_actions = [
+        a if isinstance(a, dict) else {"text": a, "highlight_terms": []}
+        for a in raw_next_actions
+    ]
+
+    # Legacy string aliases for backwards-compat (old FE / cached responses)
+    top_findings_texts = [f["text"] for f in top_findings]
+    next_actions_texts = [a["text"] for a in next_actions]
+    priority_add_on_labels = [p.get("label", "") for p in priority_add_ons]
+
     return {
-        "summary_headline": summary_headline,
-        "top_findings": top_findings,
-        "program_justification": program_justification,
-        "priority_add_ons": priority_add_ons,
-        "next_actions": next_actions,
-        "opening": summary_headline,
-        "health_summary": " ".join(top_findings) if top_findings else summary_headline,
+        # Primary fields (new FE)
+        "summary_headline":                summary_headline,
+        "summary_headline_highlights":     summary_headline_highlights,
+        "top_findings":                    top_findings,
+        "program_justification":           program_justification,
+        "program_justification_highlights": program_justification_highlights,
+        "priority_add_ons":                priority_add_ons,
+        "next_actions":                    next_actions,
+        # Legacy aliases (old FE / cached responses)
+        "opening":                  summary_headline,
+        "health_summary":           " ".join(top_findings_texts) if top_findings_texts else summary_headline,
         "recommendation_explanation": program_justification,
-        "add_on_highlights": priority_add_ons,
-        "next_steps": " ".join(next_actions) if next_actions else "",
+        "add_on_highlights":        priority_add_on_labels,
+        "next_steps":               " ".join(next_actions_texts) if next_actions_texts else "",
     }
+
+
+_PRIORITY_SUFFIX_REGEX = re.compile(r"\s*\((red|orange|yellow|green)\)\s*$", re.IGNORECASE)
+_PRIORITY_SEVERITY_MAP = {"red": "critical", "orange": "caution", "yellow": "moderate", "green": "neutral"}
+
+
+def _parse_priority_add_on_string(value: str) -> dict[str, Any]:
+    """Parse legacy string format 'Label (Red)' into { label, severity }."""
+    m = _PRIORITY_SUFFIX_REGEX.search(value)
+    if m:
+        severity = _PRIORITY_SEVERITY_MAP.get(m.group(1).lower(), "neutral")
+        label = value[: m.start()].strip()
+    else:
+        severity = "neutral"
+        label = value.strip()
+    return {"label": label, "severity": severity}
 
 
 def _build_missing_data_alerts(missing_signals: list[str]) -> list[dict[str, str]]:

@@ -31,7 +31,7 @@ import { cn } from "@/shared/utils";
 import { BiomarkerCharts } from "./BiomarkerCharts";
 import { LabResultsGrid } from "./LabResultsGrid";
 import { CriticalSignal, PatientHighAlert, RecommendationAddOn, RecommendationResponse } from "@/types/recommendation";
-import { parseHighlightSeverity, renderHighlightedText, splitConsultationSentences } from "@/shared/recommendationTextFormatting";
+import { renderHighlightedText, severityToStyles } from "@/shared/recommendationTextFormatting";
 import { PromotionDrawer } from "./PromotionDrawer";
 
 interface RecommendationPanelProps {
@@ -651,41 +651,22 @@ export function RecommendationPanel({
 
     if (!data) return null;
     const criticalAlerts = normalizeCriticalAlerts(data.patient_high_alert);
-    const reasoningTrace = (data.reasoning_trace || "").toString();
-    const parsedReasoningLines = (reasoningTrace?.split('\n') ?? [])
-        .map((line: string) => line.replace(/^[*-]\s*/, '').trim())
-        .filter((line: string) => line.length > 0);
-    const structuredReasoningLines = (data.reasoning_trace_annotated && data.reasoning_trace_annotated.length > 0)
-        ? data.reasoning_trace_annotated
-        : parsedReasoningLines
-            .map((line: string) => {
-                const isPolicyLine = /^policy reasoning\s*:/i.test(line);
-                return {
-                    text: isPolicyLine ? line.replace(/^policy reasoning\s*:\s*/i, "").trim() : line,
-                    scope: (isPolicyLine ? "policy_reasoning" : "clinical_reasoning") as "clinical_reasoning" | "policy_reasoning",
-                    sentiment: (isPolicyLine ? "informational" : "neutral") as "informational" | "neutral",
-                    highlight_terms: [] as string[],
-                };
-            });
+    // reasoning_trace_annotated is always present from the backend; no string-parsing fallback needed.
+    const structuredReasoningLines = data.reasoning_trace_annotated ?? [];
     const clinicalReasoningLines = structuredReasoningLines.filter((line) => line.scope === "clinical_reasoning");
     const policyReasoningLines = structuredReasoningLines.filter((line) => line.scope === "policy_reasoning");
     const consultationSummaryHeadline = data.communication_script?.summary_headline
         || data.communication_script?.opening
         || data.communication_script?.clinical_conclusion
-        || data.communication_script?.health_summary
         || "";
-    const consultationTopFindings = data.communication_script?.top_findings?.length
-        ? data.communication_script.top_findings
-        : splitConsultationSentences(data.communication_script?.health_summary || "");
+    const consultationSummaryHighlights = data.communication_script?.summary_headline_highlights ?? [];
+    const consultationTopFindings = data.communication_script?.top_findings ?? [];
     const consultationProgramJustification = data.communication_script?.program_justification
         || data.communication_script?.recommendation_explanation
         || "";
-    const consultationPriorityAddOns = data.communication_script?.priority_add_ons?.length
-        ? data.communication_script.priority_add_ons
-        : (data.communication_script?.add_on_highlights || []);
-    const consultationNextActions = data.communication_script?.next_actions?.length
-        ? data.communication_script.next_actions
-        : splitConsultationSentences(data.communication_script?.next_steps || "");
+    const consultationProgramHighlights = data.communication_script?.program_justification_highlights ?? [];
+    const consultationPriorityAddOns = data.communication_script?.priority_add_ons ?? [];
+    const consultationNextActions = data.communication_script?.next_actions ?? [];
     const maskedPackageName = "-";
     const maskedPriceValue = "-";
     const confidenceScore = typeof data.confidence_score === "number" ? data.confidence_score : null;
@@ -1029,7 +1010,7 @@ export function RecommendationPanel({
                                                         "text-navavej-gray-dark",
                                                         privacyMode && "font-mono"
                                                     )}>
-                                                        {renderHighlightedText(line.text, sentiment, line.highlight_terms)}
+                                                        {renderHighlightedText(line.text, line.sentiment, line.highlight_terms)}
                                                     </p>
                                                 </div>
                                             </div>
@@ -1063,7 +1044,7 @@ export function RecommendationPanel({
                                                 privacyMode ? "font-mono text-navavej-red/80" : "text-navavej-gray-dark"
                                             )}
                                         >
-                                            {renderHighlightedText(line.text, line.sentiment, line.highlight_terms, line.scope)}
+                                            {renderHighlightedText(line.text, line.sentiment, line.highlight_terms)}
                                         </p>
                                     ))}
                                 </div>
@@ -1207,18 +1188,18 @@ export function RecommendationPanel({
                                 <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Clinical Conclusion</h4>
                                 <div className="p-6 bg-white rounded-[24px] border border-navavej-border shadow-sm">
                                     <p className="text-sm font-medium text-navavej-gray-dark leading-relaxed text-left">
-                                        {renderHighlightedText(consultationSummaryHeadline, "informational")}
+                                        {renderHighlightedText(consultationSummaryHeadline, "informational", consultationSummaryHighlights)}
                                     </p>
                                 </div>
                             </div>
                             <div>
                                 <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Core Health Insights</h4>
                                 <div className="space-y-2">
-                                    {consultationTopFindings.map((sentence: string, i: number) => (
+                                    {consultationTopFindings.map((finding, i) => (
                                         <div key={i} className="flex gap-2">
                                             <div className="mt-1.5 w-1 h-1 rounded-full bg-navavej-teal shrink-0" />
                                             <p className="text-sm font-medium text-navavej-gray-dark leading-relaxed text-left">
-                                                {renderHighlightedText(sentence, "neutral")}
+                                                {renderHighlightedText(finding.text, "neutral", finding.highlight_terms)}
                                             </p>
                                         </div>
                                     ))}
@@ -1228,14 +1209,13 @@ export function RecommendationPanel({
                                 <div className="mt-6 pt-6 border-t border-navavej-border">
                                     <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Special Highlights</h4>
                                     <div className="space-y-2">
-                                        {consultationPriorityAddOns.map((highlight: string, i: number) => {
-                                            const parsedHighlight = parseHighlightSeverity(highlight);
-
+                                        {consultationPriorityAddOns.map((addon, i) => {
+                                            const styles = severityToStyles(addon.severity);
                                             return (
-                                            <div key={i} className={cn("flex gap-3 rounded-2xl border px-3 py-2.5", parsedHighlight.styles.container)}>
-                                                <div className={cn("mt-1.5 h-2 w-2 rounded-full shrink-0", parsedHighlight.styles.dot)} />
-                                                <p className={cn("text-sm font-medium leading-relaxed text-left", parsedHighlight.styles.text)}>
-                                                    {renderHighlightedText(parsedHighlight.label, "informational")}
+                                            <div key={i} className={cn("flex gap-3 rounded-2xl border px-3 py-2.5", styles.container)}>
+                                                <div className={cn("mt-1.5 h-2 w-2 rounded-full shrink-0", styles.dot)} />
+                                                <p className={cn("text-sm font-medium leading-relaxed text-left", styles.text)}>
+                                                    {renderHighlightedText(addon.label, "informational")}
                                                 </p>
                                             </div>
                                             );
@@ -1250,18 +1230,18 @@ export function RecommendationPanel({
                                 <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Why this program?</h4>
                                 <div className="p-6 bg-navavej-gray-light rounded-2xl border-l-4 border-navavej-teal">
                                     <p className="text-sm font-bold text-navavej-gray-dark leading-relaxed text-left">
-                                        {renderHighlightedText(consultationProgramJustification, "informational")}
+                                        {renderHighlightedText(consultationProgramJustification, "informational", consultationProgramHighlights)}
                                     </p>
                                 </div>
                             </div>
                             <div>
                                 <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Next steps</h4>
                                 <div className="space-y-3">
-                                    {consultationNextActions.map((sentence: string, i: number) => (
+                                    {consultationNextActions.map((action, i) => (
                                         <div key={i} className="flex items-start gap-3">
                                             <div className="mt-1 shrink-0 bg-emerald-100 p-1 rounded-full border border-emerald-200 shadow-sm"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /></div>
                                             <p className="text-[12px] font-bold text-navavej-gray-dark leading-relaxed text-left">
-                                                {renderHighlightedText(sentence, "reassuring")}
+                                                {renderHighlightedText(action.text, "reassuring", action.highlight_terms)}
                                             </p>
                                         </div>
                                     ))}

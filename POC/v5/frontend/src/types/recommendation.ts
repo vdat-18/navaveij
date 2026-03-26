@@ -33,12 +33,28 @@ export interface RecommendationAddOn {
   promotions_applied?: PromotionApplied[];
 }
 
+export interface ConsultationFinding {
+  text: string;
+  highlight_terms: string[];
+}
+
+export type HighlightSeverity = "critical" | "caution" | "moderate" | "neutral";
+
+export interface AddOnItem {
+  label: string;
+  severity: HighlightSeverity;
+}
+
 export interface CommunicationScript {
+  // Primary fields (new shape)
   summary_headline?: string;
-  top_findings?: string[];
+  summary_headline_highlights?: string[];
+  top_findings?: ConsultationFinding[];
   program_justification?: string;
-  priority_add_ons?: string[];
-  next_actions?: string[];
+  program_justification_highlights?: string[];
+  priority_add_ons?: AddOnItem[];
+  next_actions?: ConsultationFinding[];
+  // Legacy aliases (backwards-compat)
   opening?: string;
   clinical_conclusion?: string;
   health_summary?: string;

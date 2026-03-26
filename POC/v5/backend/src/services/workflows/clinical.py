@@ -14,10 +14,23 @@ from src.mcp_server.utils import resolve_package
 from src.services.cache import cache_service
 from src.services.privacy import PIIMasker
 from src.services.rules import RuleEvaluator
-from src.services.text_annotations import annotate_reasoning_lines_fallback
+from src.services.text_annotations import annotate_reasoning_lines_fallback, find_highlight_terms
 from src.services.workflows.base import BaseWorkflow, WorkflowContext
 from shared.exceptions import DataIntegrityError
 from shared.settings import settings
+
+
+_PRIORITY_SEVERITY_MAP = {
+    "Red": "critical",
+    "Orange": "caution",
+    "Yellow": "moderate",
+    "Green": "neutral",
+}
+
+
+def _priority_to_severity(priority: str) -> str:
+    """Map PriorityLevel enum value to a FE-consumable severity string."""
+    return _PRIORITY_SEVERITY_MAP.get(priority, "neutral")
 
 
 def _risk_profile_cache_key(masked_context: dict) -> str:
@@ -231,10 +244,14 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
                 }
                 for item in policy_result.selected_add_ons
             ]
-            policy_reasoning       = policy_result.policy_reasoning or ""
+            policy_reasoning      = policy_result.policy_reasoning or ""
             program_justification = policy_result.policy_script.program_justification
-            priority_add_ons      = policy_result.policy_script.priority_add_ons
-            review_required          = False
+            # priority_add_ons: BAML now returns PolicyAddOnSummary[]; map to wire shape
+            priority_add_ons = [
+                {"label": addon.label, "severity": _priority_to_severity(addon.priority.value)}
+                for addon in policy_result.policy_script.priority_add_ons
+            ]
+            review_required = False
         else:
             # MatchPolicy failed — use rule tier + signal-matched add-ons
             ai_tier            = rule_result["rule_tier"]
@@ -244,7 +261,10 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             program_justification = (
                 "Rule-based package and add-on selection applied while the policy agent was unavailable."
             )
-            priority_add_ons   = [item["label"] for item in add_ons[:4]]
+            priority_add_ons = [
+                {"label": item["label"], "severity": _priority_to_severity(item.get("priority", "Yellow"))}
+                for item in add_ons[:4]
+            ]
             review_required    = True
 
         resolved_package = resolve_package(
@@ -257,16 +277,31 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         # ── Narrative (from WriteNarrative or fallback from risk_profile) ────
         if narrative is not None:
             summary_headline = narrative.summary_headline
-            top_findings     = narrative.top_findings
-            next_actions     = narrative.next_actions
+            # Enrich top_findings and next_actions with highlight_terms via Python phrase matching.
+            # BAML returns string[]; we wrap each into { text, highlight_terms } here so the FE
+            # can render chips without running its own phrase-matching logic.
+            top_findings = [
+                {"text": s, "highlight_terms": find_highlight_terms(s)}
+                for s in narrative.top_findings
+            ]
+            next_actions = [
+                {"text": s, "highlight_terms": find_highlight_terms(s)}
+                for s in narrative.next_actions
+            ]
         else:
             # WriteNarrative failed — build from risk_profile.clinical_summary_bullets
-            bullets = getattr(risk_profile, "clinical_summary_bullets", []) or []
+            bullets_raw = getattr(risk_profile, "clinical_summary_bullets", []) or []
             summary_headline = risk_profile.severity_assessment or "Clinical findings require physician review."
-            top_findings = bullets[:5] if bullets else [summary_headline]
+            top_findings = [
+                {"text": s, "highlight_terms": find_highlight_terms(s)}
+                for s in (bullets_raw[:5] if bullets_raw else [summary_headline])
+            ]
             next_actions = [
-                "Review the identified clinical findings with your physician.",
-                "Discuss the recommended programme items and follow-up priorities.",
+                {"text": s, "highlight_terms": find_highlight_terms(s)}
+                for s in [
+                    "Review the identified clinical findings with your physician.",
+                    "Discuss the recommended programme items and follow-up priorities.",
+                ]
             ]
 
         # ── Reasoning trace from Agent 1 ─────────────────────────────────────
@@ -274,8 +309,9 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         reasoning_lines = [f"- {line}" for line in bullets]
         if policy_reasoning:
             reasoning_lines.append(f"- Policy reasoning: {policy_reasoning}")
-        reasoning_trace_annotated = (
-            [
+
+        if reasoning_annotations is not None:
+            reasoning_trace_annotated = [
                 {
                     "text": item.text,
                     "scope": "clinical_reasoning",
@@ -284,13 +320,13 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
                 }
                 for item in reasoning_annotations
             ]
-            if reasoning_annotations is not None
-            else annotate_reasoning_lines_fallback(bullets, policy_reasoning)
-        )
-        if reasoning_annotations is not None and policy_reasoning:
-            reasoning_trace_annotated.extend(
-                annotate_reasoning_lines_fallback([], policy_reasoning)
-            )
+            if policy_reasoning:
+                reasoning_trace_annotated.extend(
+                    annotate_reasoning_lines_fallback([], policy_reasoning)
+                )
+        else:
+            # LLM annotation failed — use deterministic fallback (always populated)
+            reasoning_trace_annotated = annotate_reasoning_lines_fallback(bullets, policy_reasoning)
 
         return {
             "ai_recommended_tier":        ai_tier,
@@ -301,11 +337,13 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             "supporting_signals":         risk_profile.supporting_signal_ids,
             "missing_signals":            risk_profile.missing_signal_ids,
             "communication_script": {
-                "summary_headline":       summary_headline,
-                "top_findings":           top_findings,
-                "program_justification":  program_justification,
-                "priority_add_ons":       priority_add_ons,
-                "next_actions":           next_actions,
+                "summary_headline":                summary_headline,
+                "summary_headline_highlights":     find_highlight_terms(summary_headline),
+                "top_findings":                    top_findings,
+                "program_justification":           program_justification,
+                "program_justification_highlights": find_highlight_terms(program_justification),
+                "priority_add_ons":                priority_add_ons,
+                "next_actions":                    next_actions,
             },
             "rule_preliminary_tier":      rule_result["rule_tier"],
             "recommendation_source":      "AI",
@@ -344,13 +382,20 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             "missing_signals": clinical_signals.get("missing_signals", []),
             "communication_script": {
                 "summary_headline": f"Current clinical findings ({matched_text}) indicate a {rule_tier} package.",
-                "top_findings": [f"Matched signals: {matched_text}"],
+                "summary_headline_highlights": [],
+                "top_findings": [
+                    {"text": f"Matched signals: {matched_text}", "highlight_terms": []},
+                ],
                 "program_justification": (
                     "This recommendation follows deterministic rule matching while the AI chain is unavailable."
                 ),
-                "priority_add_ons": [item["label"] for item in add_ons[:4]],
+                "program_justification_highlights": [],
+                "priority_add_ons": [
+                    {"label": item["label"], "severity": _priority_to_severity(item.get("priority", "Yellow"))}
+                    for item in add_ons[:4]
+                ],
                 "next_actions": [
-                    "Please confirm this recommendation with the clinical team.",
+                    {"text": "Please confirm this recommendation with the clinical team.", "highlight_terms": []},
                 ],
             },
             "rule_preliminary_tier": rule_tier,

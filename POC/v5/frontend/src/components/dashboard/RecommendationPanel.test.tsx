@@ -48,15 +48,18 @@ const makeResponse = (overrides?: Partial<RecommendationResponse>): Recommendati
   tier_deviation_justification: null,
   add_ons: [],
   reasoning_trace: "Clinical note",
+  reasoning_trace_annotated: [],
   supporting_signals: [],
   missing_signals: [],
   communication_script: {
     opening: "Start",
     clinical_conclusion: "Conclusion",
-    health_summary: "Summary.",
-    recommendation_explanation: "Explain.",
-    add_on_highlights: [],
-    next_steps: "Next.",
+    summary_headline_highlights: [],
+    top_findings: [],
+    program_justification: "Explain.",
+    program_justification_highlights: [],
+    priority_add_ons: [],
+    next_actions: [],
   },
   rule_preliminary_tier: "Premium",
   resolved_package: {
@@ -120,15 +123,11 @@ describe("RecommendationPanel", () => {
       makeResponse({
         communication_script: {
           opening: "Start",
-          clinical_conclusion: "Conclusion",
-          health_summary: "Summary.",
-          recommendation_explanation: "Explain.",
-          add_on_highlights: [
-            "Overdue Colonoscopy (Red)",
-            "Influenza Vaccine (Orange)",
-            "Exercise Stress Test for ASCVD risk (Yellow)",
+          priority_add_ons: [
+            { label: "Overdue Colonoscopy", severity: "critical" },
+            { label: "Influenza Vaccine", severity: "caution" },
+            { label: "Exercise Stress Test for ASCVD risk", severity: "moderate" },
           ],
-          next_steps: "Next.",
         },
       })
     );
@@ -143,7 +142,6 @@ describe("RecommendationPanel", () => {
     );
 
     expect(await screen.findByText("Medical Screening Add-ons")).toBeInTheDocument();
-    expect(screen.getByText("Safety Reviewed")).toBeInTheDocument();
     expect(screen.getByText("Data Integrity")).toBeInTheDocument();
     expect(screen.getByText("Logic Review")).toBeInTheDocument();
     expect(screen.getByText("Overdue Colonoscopy")).toBeInTheDocument();
@@ -254,17 +252,20 @@ describe("RecommendationPanel", () => {
     expect(clinicalConclusion).not.toHaveClass("text-justify");
   });
 
-  it("normalizes core insights tokens and keeps decimal values in one sentence", async () => {
+  it("renders highlight chips for named diagnoses supplied via top_findings highlight_terms", async () => {
     mockStreamRecommendation(
       makeResponse({
         communication_script: {
-          opening: "Start",
-          clinical_conclusion: "Conclusion",
-          health_summary:
-            "bp_stage2_htn is worsening (SBP 151 mmHg, DBP 93 mmHg) and prediabetes_confirmed is progressing (Fasting glucose 115.8 mg/dL, HbA1c 6.3%). family_hx_premature_cad increases risk. LDL cholesterol has risen to **149.5 mg/dL** with low_hdl.",
-          recommendation_explanation: "Explain.",
-          add_on_highlights: [],
-          next_steps: "Next.",
+          top_findings: [
+            {
+              text: "Stage 2 Hypertension is worsening (SBP 151 mmHg) and Prediabetes Confirmed is progressing (Fasting glucose 115.8 mg/dL, HbA1c 6.3%).",
+              highlight_terms: ["Stage 2 Hypertension", "Prediabetes Confirmed"],
+            },
+            {
+              text: "Family History of Premature CAD increases cardiovascular risk.",
+              highlight_terms: ["Family History of Premature CAD"],
+            },
+          ],
         },
       })
     );
@@ -281,22 +282,21 @@ describe("RecommendationPanel", () => {
     expect(await screen.findByText("Stage 2 Hypertension")).toBeInTheDocument();
     expect(screen.getByText("Prediabetes Confirmed")).toBeInTheDocument();
     expect(screen.getByText("Family History of Premature CAD")).toBeInTheDocument();
-    expect(screen.queryByText(/\*\*/)).not.toBeInTheDocument();
+    // Decimal values not in highlight_terms remain as plain text, not split
     expect(container.textContent).toContain("115.8 mg/dL");
     expect(container.textContent).toContain("6.3%");
-    expect(screen.queryByText(/^3%\)\.$/)).not.toBeInTheDocument();
   });
 
-  it("highlights blood pressure values even when spaces exist around the slash", async () => {
+  it("highlights blood pressure values supplied via top_findings highlight_terms", async () => {
     mockStreamRecommendation(
       makeResponse({
         communication_script: {
-          opening: "Start",
-          clinical_conclusion: "Conclusion",
-          health_summary: "Stage 1 Hypertension (BP 135 / 87 mmHg) is present.",
-          recommendation_explanation: "Explain.",
-          add_on_highlights: [],
-          next_steps: "Next.",
+          top_findings: [
+            {
+              text: "Stage 1 Hypertension (BP 135 / 87 mmHg) is present.",
+              highlight_terms: ["135 / 87 mmHg"],
+            },
+          ],
         },
       })
     );
@@ -358,43 +358,15 @@ describe("RecommendationPanel", () => {
     expect(container.textContent).toContain("Premium package selected");
   });
 
-  it("renders neutral sentiment lines with gray styling", async () => {
+  it("renders without error when reasoning_trace_annotated is absent", async () => {
     mockStreamRecommendation(
       makeResponse({
-        reasoning_trace_annotated: [
-          {
-            text: "Kidney function is within acceptable parameters.",
-            scope: "clinical_reasoning",
-            sentiment: "neutral",
-            highlight_terms: [],
-          },
-        ],
-      })
-    );
-
-    const { container } = render(
-      <RecommendationPanel
-        patientId="p-1"
-        patientToken="tok-1"
-        privacyMode={false}
-        isRuleBasedForced={false}
-      />
-    );
-
-    await screen.findByText("Clinical Logic & Rationale");
-    // Neutral line is visible in the reasoning section
-    expect(container.textContent).toContain("Kidney function is within acceptable parameters");
-  });
-
-  it("shows policy reasoning section on fallback path when raw trace contains policy prefix", async () => {
-    mockStreamRecommendation(
-      makeResponse({
-        reasoning_trace: "Blood pressure elevated.\n- Policy reasoning: Premium selected due to hypertension.",
+        reasoning_trace: "Blood pressure elevated.",
         reasoning_trace_annotated: undefined,
       })
     );
 
-    const { container } = render(
+    render(
       <RecommendationPanel
         patientId="p-1"
         patientToken="tok-1"
@@ -403,8 +375,9 @@ describe("RecommendationPanel", () => {
       />
     );
 
-    expect(await screen.findByText("Policy Reasoning")).toBeInTheDocument();
-    expect(container.textContent).toContain("Premium selected due to hypertension");
+    // Panel renders without crashing; reasoning sections are empty
+    expect(await screen.findByText("Clinical Conclusion")).toBeInTheDocument();
+    expect(screen.queryByText("Policy Reasoning")).not.toBeInTheDocument();
   });
 
   it("renders new CommunicationScript fields when provided", async () => {
@@ -412,10 +385,21 @@ describe("RecommendationPanel", () => {
       makeResponse({
         communication_script: {
           summary_headline: "Elevated cardiovascular risk requiring active management.",
-          top_findings: ["Stage 1 Hypertension confirmed.", "Prediabetes trajectory worsening."],
+          summary_headline_highlights: ["cardiovascular risk"],
+          top_findings: [
+            { text: "Stage 1 Hypertension confirmed.", highlight_terms: ["Stage 1 Hypertension"] },
+            { text: "Prediabetes trajectory worsening.", highlight_terms: ["Prediabetes"] },
+          ],
           program_justification: "Premium tier covers all required cardiovascular and metabolic monitoring.",
-          priority_add_ons: ["Exercise Stress Test for ASCVD risk", "Kidney Disease Screening"],
-          next_actions: ["Schedule follow-up in 3 months.", "Begin antihypertensive therapy."],
+          program_justification_highlights: [],
+          priority_add_ons: [
+            { label: "Exercise Stress Test for ASCVD risk", severity: "caution" },
+            { label: "Kidney Disease Screening", severity: "moderate" },
+          ],
+          next_actions: [
+            { text: "Schedule follow-up in 3 months.", highlight_terms: [] },
+            { text: "Begin antihypertensive therapy.", highlight_terms: ["antihypertensive therapy"] },
+          ],
         },
       })
     );
@@ -431,7 +415,7 @@ describe("RecommendationPanel", () => {
 
     await screen.findByText("Clinical Conclusion");
     expect(container.textContent).toContain("Elevated cardiovascular risk requiring active management");
-    // "Stage 1 Hypertension" is human-readable prose from the LLM — should not be abbreviated
+    // "Stage 1 Hypertension" is a chip; "confirmed." is plain text — both in textContent
     expect(container.textContent).toContain("Stage 1 Hypertension confirmed");
     expect(container.textContent).toContain("Prediabetes trajectory worsening");
     expect(container.textContent).toContain("Premium tier covers all required cardiovascular");
