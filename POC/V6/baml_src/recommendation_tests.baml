@@ -662,3 +662,318 @@ test AnalyzeRisks_Healthy {
   // Severity assessment must be present (expected: Low or Minimal)
   @@assert( {{ this.severity_assessment|length > 0 }} )
 }
+
+
+// ── TEST 4: MatchPolicy — Healthy Patient (Kanya Prasert, 35M) ──────────────
+//
+// Input: ClinicalRiskProfile for a healthy 35M — Standard tier, low severity,
+//   all biomarkers normal, no supporting signals.
+// Ruleset: same tier_selection_rules as metabolic syndrome test.
+// Expected: Standard tier, zero or minimal add-ons (no risk triggers).
+
+test MatchPolicy_Healthy {
+  functions [MatchPolicy]
+  args {
+    risk_profile {
+      primary_risks [
+        "No active clinical risks identified — all biomarkers within normal reference ranges",
+        "Low ASCVD 10-year risk (1.8%) with no risk-enhancing factors"
+      ]
+      severity_assessment "Low — no pathological findings; all metabolic, cardiovascular, and renal markers within normal limits with stable trajectories."
+      biomarker_interpretation "BMI 22.4 kg/m2 (normal Asian-adjusted). BP 116/72 mmHg normal. FBS 91 mg/dL and HbA1c 5.3% normal. LDL 98 mg/dL optimal, HDL 58 mg/dL normal. ASCVD 10-yr 1.8% low. eGFR 99 mL/min/1.73m2 CKD G1 stable."
+      clinical_summary_bullets [
+        "All metabolic markers normal — no diabetes, dyslipidemia, or metabolic syndrome risk",
+        "Blood pressure 116/72 mmHg well within normal range; no hypertension concern",
+        "Cardiovascular risk low (ASCVD 1.8%) — no family history of premature CAD",
+        "Kidney function normal — eGFR 99, stable slope, CKD Stage G1",
+        "Healthy lifestyle — non-smoker, moderate exercise, no alcohol"
+      ]
+      suggested_tier Standard
+      supporting_signal_ids []
+      missing_signal_ids [
+        "tg_status", "alt_status", "ast_status", "tsh_status", "uric_acid_status",
+        "est_gap", "echo_gap", "hepatitis_b_vaccination_status"
+      ]
+    }
+    program_ruleset #"
+{
+  "ruleset_version": "v2026.03.1-draft",
+  "rule_preliminary_tier": "Standard",
+  "tier_selection_rules": [
+    {
+      "rule_id": "PREMIUM_SEVERE_SINGLE", "priority": 1, "tier": "Premium", "match_logic": "ANY",
+      "conditions": [
+        {"type": "signal_active", "signal_ids": ["ckd_rapid_progression"]},
+        {"type": "signal_active", "signal_ids": ["ascvd_very_high"]},
+        {"type": "signal_active", "signal_ids": ["diabetes_confirmed"], "and_signal_active": ["dm_organ_complication_screening"]}
+      ]
+    },
+    {
+      "rule_id": "ADVANCED_METABOLIC_OR_CVD", "priority": 3, "tier": "Advanced", "match_logic": "ANY",
+      "conditions": [
+        {"type": "signal_active", "signal_ids": ["prediabetes_confirmed"]},
+        {"type": "signal_active", "signal_ids": ["ascvd_risk_intermediate"]},
+        {"type": "signal_active", "signal_ids": ["bmi_obese_asian"]}
+      ]
+    },
+    {"rule_id": "STANDARD_DEFAULT", "priority": 4, "tier": "Standard", "match_logic": "DEFAULT", "conditions": []}
+  ],
+  "add_on_library": [
+    {
+      "item_code": "exercise_stress_test",
+      "label": "Exercise Stress Test (EST) — Treadmill ECG",
+      "category": "cardiac",
+      "trigger_signals": ["ascvd_risk_intermediate", "est_gap"],
+      "priority_level_default": "Yellow",
+      "safety_contraindication_signals": ["hypertensive_crisis"],
+      "navavej_product": {"product_name": "Exercise Stress Test (EST)", "product_code": "EST_TREADMILL", "price_thb": 2900},
+      "gender_constraint": null,
+      "age_min": 30,
+      "guideline": "AHA/ACC Exercise Testing Guidelines 2002"
+    },
+    {
+      "item_code": "mammogram",
+      "label": "Mammography (Bilateral Digital Screening)",
+      "category": "cancer_screening",
+      "trigger_signals": ["mammogram_screening_gap", "mammogram_screening_gap_overdue"],
+      "priority_level_default": "Yellow",
+      "navavej_product": {"product_name": "Mammogram (Digital Bilateral)", "product_code": "MAMMO_DIGITAL", "price_thb": 3500},
+      "gender_constraint": "female",
+      "age_min": 40,
+      "guideline": "USPSTF Breast Cancer Screening 2024"
+    }
+  ],
+  "package_resolution_map": {
+    "Standard": {"male": {"age_any": {"package_name": "Gold — Men", "package_code": "GOLD_M_ANY", "price_thb": 5900}}},
+    "Advanced": {"male": {"age_any": {"package_name": "Platinum — Men", "package_code": "PLAT_M_ANY", "price_thb": 12500}}},
+    "Premium":  {"male": {"age_any": {"package_name": "Diamond — Men",  "package_code": "DIAM_M_ANY",  "price_thb": 22000}}}
+  }
+}
+    "#
+  }
+  // Tier must be Standard — no risk signals, STANDARD_DEFAULT applies
+  @@assert( {{ this.ai_recommended_tier == "Standard" }} )
+  // Policy reasoning must explain the Standard selection
+  @@assert( {{ this.policy_reasoning|length > 0 }} )
+  // Policy script must be populated
+  @@assert( {{ this.policy_script.recommendation_rationale|length > 0 }} )
+}
+
+
+// ── TEST 5: WriteNarrative — Healthy Patient (Kanya Prasert, 35M) ────────────
+//
+// Input: same ClinicalRiskProfile as MatchPolicy_Healthy — low severity, normal biomarkers.
+// Expected: summary_headline, top_findings, next_actions all populated; tone is reassuring.
+
+test WriteNarrative_Healthy {
+  functions [WriteNarrative]
+  args {
+    risk_profile {
+      primary_risks [
+        "No active clinical risks identified — all biomarkers within normal reference ranges",
+        "Low ASCVD 10-year risk (1.8%) with no risk-enhancing factors"
+      ]
+      severity_assessment "Low — no pathological findings; all metabolic, cardiovascular, and renal markers within normal limits with stable trajectories."
+      biomarker_interpretation "BMI 22.4 kg/m2 (normal Asian-adjusted). BP 116/72 mmHg normal. FBS 91 mg/dL and HbA1c 5.3% normal. LDL 98 mg/dL optimal, HDL 58 mg/dL normal. ASCVD 10-yr 1.8% low. eGFR 99 mL/min/1.73m2 CKD G1 stable."
+      clinical_summary_bullets [
+        "All metabolic markers normal — no diabetes, dyslipidemia, or metabolic syndrome risk",
+        "Blood pressure 116/72 mmHg well within normal range; no hypertension concern",
+        "Cardiovascular risk low (ASCVD 1.8%) — no family history of premature CAD",
+        "Kidney function normal — eGFR 99, stable slope, CKD Stage G1"
+      ]
+      suggested_tier Standard
+      supporting_signal_ids []
+      missing_signal_ids [
+        "tg_status", "alt_status", "ast_status", "tsh_status", "uric_acid_status"
+      ]
+    }
+  }
+  // summary_headline must be a non-empty clinical sentence
+  @@assert( {{ this.summary_headline|length > 0 }} )
+  // top_findings must list at least 1 finding (even for healthy patients — e.g. "all normal")
+  @@assert( {{ this.top_findings|length > 0 }} )
+  // next_actions must list at least 1 action (e.g. "continue annual checkup")
+  @@assert( {{ this.next_actions|length > 0 }} )
+}
+
+
+// ── TEST 6: AnalyzeClinicalRisks — Senior Cancer Screening Gap (Wichai Silpa, 70F) ──
+//
+// Clinical picture: 70F, overweight, Stage 1 HTN, intermediate ASCVD (8.8%),
+//   colonoscopy overdue 3707 days (>10yr), mammogram overdue 1145 days (>3yr),
+//   DEXA never done, family history colon cancer, 3 vaccination gaps.
+// Signals fired: 13. Expected tier: Advanced (screening + cardiovascular signals).
+
+test AnalyzeRisks_SeniorCancerScreening {
+  functions [AnalyzeClinicalRisks]
+  args {
+    clinical_signals #"
+{
+  "rule_preliminary_tier": "Standard",
+  "overall_risk_level": "Moderate",
+  "signals_fired": [
+    "colonoscopy_overdue_3650d", "dexa_screening_gap", "mammogram_overdue_1095d",
+    "bmi_overweight_asian", "ascvd_risk_intermediate", "bp_stage1_hypertension",
+    "family_hx_colon_ca", "influenza_vaccination_gap", "pneumococcal_vaccination_gap",
+    "shingrix_vaccination_gap", "htn_comorbidity", "physical_activity_level", "ldl_status"
+  ],
+  "missing_signals": [
+    "hdl_status", "tg_status", "alt_status", "ast_status", "tsh_status",
+    "uric_acid_status", "pap_smear_screening_gap", "est_gap", "echo_gap",
+    "hepatitis_b_vaccination_status", "hpv_vaccination_gap",
+    "dm_organ_complication_screening", "sleep_apnea_screen_result",
+    "reproductive_history", "frax_bone_density_risk", "family_hx_breast_ca"
+  ],
+  "risk_flags": [
+    {
+      "flag_id": "colonoscopy_screening_gap",
+      "label": "Colorectal cancer screening overdue",
+      "severity": "High",
+      "source_signals": ["colonoscopy_overdue_3650d"],
+      "guideline": "USPSTF Colorectal Cancer Screening 2021",
+      "add_on_triggers": ["colonoscopy_now"]
+    }
+  ],
+  "comorbidity_tags": [],
+  "screening_gaps": [
+    {
+      "screening_id": "colonoscopy",
+      "label": "Colonoscopy (colorectal cancer screening)",
+      "last_performed_date": "2016-01-20",
+      "recommended_interval_months": 120,
+      "overdue_days": 3707,
+      "priority_color": "Red",
+      "guideline": "USPSTF Colorectal Cancer Screening 2021",
+      "note": "Last colonoscopy > 10 years ago; patient age 70 (A-grade screening window)."
+    },
+    {
+      "screening_id": "mammogram",
+      "label": "Mammography (breast cancer screening)",
+      "last_performed_date": "2023-01-25",
+      "recommended_interval_months": 24,
+      "overdue_days": 1145,
+      "priority_color": "Orange",
+      "guideline": "USPSTF Breast Cancer Screening 2024",
+      "note": "Last mammogram > 3 years ago (recommended biennial 40-74)."
+    },
+    {
+      "screening_id": "dexa",
+      "label": "Bone density DEXA",
+      "last_performed_date": null,
+      "recommended_interval_months": 24,
+      "priority_color": "Red",
+      "guideline": "USPSTF Osteoporosis Screening 2018",
+      "note": "Female >= 65 with no prior DEXA; screening indicated."
+    }
+  ],
+  "vaccination_gaps": [
+    {"vaccine_id": "influenza", "priority_color": "Orange", "guideline": "CDC ACIP 2024", "note": "Missed current-season vaccine."},
+    {"vaccine_id": "pneumococcal", "priority_color": "Orange", "guideline": "CDC ACIP 2022", "note": "Age >= 65 with no documented pneumococcal vaccination."},
+    {"vaccine_id": "shingrix", "priority_color": "Orange", "guideline": "CDC ACIP 2017", "note": "Second Shingrix dose overdue by ~8 months."}
+  ],
+  "family_history_flags": {
+    "ca_breast": false,
+    "ca_colon": true,
+    "premature_cad": false
+  },
+  "behavioral_flags": {
+    "smoking": {"status": "never", "lung_ct_threshold_met": false},
+    "alcohol": {"risk_level": "none"},
+    "physical_activity": {"days_per_week": 1, "level": "sedentary"}
+  },
+  "symptom_tags": []
+}
+    "#
+    biomarker_trends #"
+{
+  "bmi": {
+    "current": 25.5,
+    "unit": "kg/m2",
+    "category": "Overweight (Asian-adjusted >= 23 kg/m2)",
+    "trend_direction": "stable",
+    "slope_per_year": 0.2
+  },
+  "blood_pressure": {
+    "latest": {"sbp": 130, "dbp": 80, "date": "2026-02-20"},
+    "unit": "mmHg",
+    "category": "Stage 1 Hypertension (130-139/80-89)",
+    "trend_direction": "stable",
+    "sbp_slope_per_year": 1.2
+  },
+  "egfr": {
+    "current": 70.0,
+    "unit": "mL/min/1.73m2",
+    "ckd_stage": "G2",
+    "ckd_stage_label": "CKD Stage G2 — mildly decreased",
+    "annual_slope": -1.2,
+    "rapid_progression": false
+  },
+  "labs": [
+    {"lab_id": "fbs", "label": "Fasting Blood Glucose", "current_value": 98.0, "unit": "mg/dL", "category": "Normal (70-99 mg/dL)", "trend_direction": "stable"},
+    {"lab_id": "hba1c", "label": "HbA1c", "current_value": 5.6, "unit": "%", "category": "Normal (< 5.7%)", "trend_direction": "stable"},
+    {"lab_id": "hdl", "label": "HDL Cholesterol", "current_value": 53.0, "unit": "mg/dL", "category": "Normal", "trend_direction": "stable"},
+    {"lab_id": "ldl", "label": "LDL Cholesterol", "current_value": 128.0, "unit": "mg/dL", "category": "Near-optimal", "trend_direction": "stable", "velocity_per_year": 1.2}
+  ],
+  "ascvd_10yr_risk": {
+    "score_pct": 8.8,
+    "category": "Intermediate",
+    "category_label": "Intermediate risk (7.5-20%)"
+  }
+}
+    "#
+    hard_constraints #"
+{
+  "patient_demographics": {
+    "gender": "female",
+    "age": 70,
+    "ethnicity": "asian",
+    "bmi_threshold_profile": "asian_adjusted"
+  },
+  "eligibility_exclusions": [],
+  "active_safety_flags": [],
+  "tier_ceiling": null
+}
+    "#
+    program_ruleset #"
+{
+  "ruleset_version": "v2026.03.1-draft",
+  "rule_preliminary_tier": "Standard",
+  "tier_selection_rules": [
+    {
+      "rule_id": "PREMIUM_SEVERE_SINGLE", "priority": 1, "tier": "Premium", "match_logic": "ANY",
+      "conditions": [
+        {"type": "signal_active", "signal_ids": ["ckd_rapid_progression"]},
+        {"type": "signal_active", "signal_ids": ["ascvd_very_high"]},
+        {"type": "signal_active", "signal_ids": ["diabetes_confirmed"], "and_signal_active": ["dm_organ_complication_screening"]}
+      ]
+    },
+    {
+      "rule_id": "PREMIUM_MULTI_SIGNAL", "priority": 2, "tier": "Premium", "match_logic": "COUNT_THRESHOLD",
+      "conditions": [{"type": "signal_count_threshold", "signal_pool": ["prediabetes_confirmed", "htn_active", "dyslipidemia_active", "bmi_obese_asian", "ascvd_risk_intermediate", "family_hx_premature_cad", "lung_ct_threshold_met"], "min_count": 5}]
+    },
+    {
+      "rule_id": "ADVANCED_METABOLIC_OR_CVD", "priority": 3, "tier": "Advanced", "match_logic": "ANY",
+      "conditions": [
+        {"type": "signal_active", "signal_ids": ["prediabetes_confirmed", "diabetes_confirmation_required"]},
+        {"type": "signal_active", "signal_ids": ["ascvd_risk_intermediate"]},
+        {"type": "signal_active", "signal_ids": ["htn_active"]},
+        {"type": "signal_active", "signal_ids": ["bmi_obese_asian"]},
+        {"type": "signal_count_threshold", "signal_pool": ["bmi_overweight_asian", "low_hdl", "high_triglycerides", "high_ldl", "bp_stage1_htn", "family_hx_premature_cad", "dyslipidemia_active"], "min_count": 2}
+      ]
+    },
+    {"rule_id": "STANDARD_DEFAULT", "priority": 4, "tier": "Standard", "match_logic": "DEFAULT", "conditions": []}
+  ]
+}
+    "#
+  }
+  // Tier: should be Advanced or Premium — 13 signals fired including ASCVD intermediate + screening gaps
+  @@assert( {{ this.suggested_tier == "Advanced" or this.suggested_tier == "Premium" }} )
+  // Primary risks: must identify at least 3 (screening gaps + CVD signals + lifestyle)
+  @@assert( {{ this.primary_risks|length >= 3 }} )
+  // Clinical summary bullets must be populated
+  @@assert( {{ this.clinical_summary_bullets|length >= 3 }} )
+  // Must reference at least some of the 13 fired signals
+  @@assert( {{ this.supporting_signal_ids|length > 0 }} )
+  // Severity assessment must be present
+  @@assert( {{ this.severity_assessment|length > 0 }} )
+}
