@@ -42,8 +42,8 @@ interface ScreeningGapsResponse {
     pipeline_run_id: string;
 }
 
-const API_BASE_URL_V1 = process.env.NEXT_PUBLIC_API_URL_V1 || "http://localhost:8000/api/v1";
-const API_BASE_URL_V3 = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+const API_BASE_URL_V1 = process.env.NEXT_PUBLIC_API_URL_V1 || "http://localhost:8001/api/v1";
+const API_BASE_URL_V3 = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001/api";
 const API_TIMEOUT_MS = 60000;
 
 /**

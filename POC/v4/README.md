@@ -62,7 +62,7 @@ baml-cli generate
 # Start the API Server
 PYTHONPATH=.:./backend uv run python -m src.api.main
 ```
-*API will be available at `http://localhost:8000`*
+*API will be available at `http://localhost:8001`*
 
 ### 2. Frontend Setup & Run
 ```bash
@@ -74,7 +74,7 @@ npm install
 # Start development server
 npm run dev
 ```
-*Web dashboard will be available at `http://localhost:3000`*
+*Web dashboard will be available at `http://localhost:3001`*
 
 ---
 

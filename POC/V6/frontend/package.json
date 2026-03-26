@@ -12,6 +12,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@shadcn/ui": "^0.0.4",
     "axios": "^1.13.6",
     "clsx": "^2.1.1",
     "framer-motion": "^12.36.0",

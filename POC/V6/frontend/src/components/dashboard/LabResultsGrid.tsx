@@ -3,7 +3,9 @@
 import React from "react";
 import { Beaker, ArrowUpRight, ArrowDownRight, Minus, AlertCircle } from "lucide-react";
 import { cn } from "@/shared/utils";
-import { translateIdentifier } from "@/shared/clinical-dictionary";
+
+const formatCategory = (key: string): string =>
+    key ? key.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()) : "--";
 
 interface LabResult {
     lab_id: string;
@@ -60,7 +62,7 @@ export function LabResultsGrid({ labs }: LabResultsGridProps) {
                                     "px-2 py-0.5 rounded text-[8px] font-black uppercase border",
                                     getStatusColor(lab.interpretation)
                                 )}>
-                                    {translateIdentifier(lab.category)}
+                                    {formatCategory(lab.category)}
                                 </div>
                             </div>
 
