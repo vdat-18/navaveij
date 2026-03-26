@@ -62,6 +62,16 @@ export interface RecommendationMetadata {
   [key: string]: unknown;
 }
 
+export interface DiscountBreakdown {
+  id: string;
+  label: string;
+  type: string;
+  discount_pct?: number | null;
+  estimated_savings_thb?: number | null;
+  applied: boolean;
+  reason_not_applied?: string | null;
+}
+
 export interface RecommendationResponse {
   overall_risk_level: string;
   ai_recommended_tier: string;
@@ -75,9 +85,18 @@ export interface RecommendationResponse {
   resolved_package: ResolvedPackage;
   confidence_score: number;
   confidence_tier: string;
+  signal_coverage: number;
+  data_completeness: number;
+  rule_agreement: number;
   review_required: boolean;
   recommendation_source: string;
   recommendation_hash: string | null;
+  eligible_discounts?: DiscountBreakdown[];
+  applied_discounts?: DiscountBreakdown[];
+  original_price_thb?: number;
+  final_price_thb?: number;
+  total_savings_thb?: number;
+  discount_override_allowed?: boolean;
   patient_high_alert: PatientHighAlert | CriticalSignal[];
   biomarker_trends?: {
     bmi?: { history?: { date: string; value: number }[] };

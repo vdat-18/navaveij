@@ -15,9 +15,10 @@ interface TrendTimelineScreenProps {
   patientId: string;
   patientToken: string;
   privacyMode?: boolean;
+  onClose?: () => void;
 }
 
-export function TrendTimelineScreen({ patientName, patientId, patientToken, privacyMode = false }: TrendTimelineScreenProps) {
+export function TrendTimelineScreen({ patientName, patientId, patientToken, privacyMode = false, onClose }: TrendTimelineScreenProps) {
   const [timeline, setTimeline] = useState<TimelinePayload | null>(null);
   const [biomarkers, setBiomarkers] = useState<BiomarkerTrendsResponse | null>(null);
   const [screeningGaps, setScreeningGaps] = useState<ScreeningGapRow[]>([]);
@@ -160,16 +161,25 @@ export function TrendTimelineScreen({ patientName, patientId, patientToken, priv
           <select
             value={rangeYears}
             onChange={(e) => setRangeYears(Number(e.target.value))}
-            className="border border-navavej-border rounded-lg px-2 py-1 text-xs font-bold"
+            className="border border-navavej-border rounded-lg px-2 py-1 text-xs font-bold bg-white focus:outline-none focus:ring-2 focus:ring-navavej-teal/50"
           >
             <option value={1}>1 year</option>
             <option value={3}>3 years</option>
             <option value={5}>5 years</option>
             <option value={10}>10 years</option>
           </select>
-          <Link href="/" className="text-xs font-black text-navavej-teal uppercase">
-            Back to Summary
-          </Link>
+          {onClose ? (
+            <button
+              onClick={onClose}
+              className="text-xs font-black text-navavej-teal uppercase hover:text-navavej-teal/80 transition-colors"
+            >
+              Back to Summary
+            </button>
+          ) : (
+            <Link href="/" className="text-xs font-black text-navavej-teal uppercase hover:text-navavej-teal/80 transition-colors">
+              Back to Summary
+            </Link>
+          )}
         </div>
       </div>
 

@@ -14,6 +14,13 @@ enum PriorityLevel {
   Green
 }
 
+enum RiskLevel {
+  Low
+  Moderate
+  High
+  Critical
+}
+
 // ── AGENT 1: CLINICAL RISK ANALYZER ────────────────────────────────────────
 
 class ClinicalRiskProfile {
@@ -22,6 +29,7 @@ class ClinicalRiskProfile {
   biomarker_interpretation string
   clinical_summary_bullets string[]
   suggested_tier Tier // AI-led preliminary tiering based on medical risk
+  overall_risk_level RiskLevel
   supporting_signal_ids string[]
   missing_signal_ids string[]
 }
@@ -46,8 +54,9 @@ function AnalyzeClinicalRisks(
 
     ── INSTRUCTIONS ───────────────────────────────────────────────────────────
     1. Identify the top 3-5 primary clinical risks (e.g., "**Active Hypertension**", "**Obesity**").
-    2. Provide a severity assessment (Low/Moderate/High) and justify it medically.
-    3. Determine a 'suggested_tier' (Standard, Advanced, or Premium) by evaluating
+    2. Assess 'overall_risk_level' strictly as Low, Moderate, High, or Critical.
+    3. In 'severity_assessment', write a 2-sentence medical justification for the chosen risk level.
+    4. Determine a 'suggested_tier' (Standard, Advanced, or Premium) by evaluating
        the clinical findings against the 'tier_selection_rules' in the hospital ruleset.
        Use these rules as a baseline for clinical severity at Navavej hospital.
     4. Interpret biomarker trends (e.g., "**eGFR is declining** at a rate of 5.5 mL/min/year").
