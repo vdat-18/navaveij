@@ -34,6 +34,13 @@
   - DEXA: orig ฿1,885 → adj ฿1,305 (Expo 2026 + Imaging Deal)
 - Stacking confirmed: Expo pre_applied markup + category percentage discount apply correctly
 
+### TypeScript Type-Check (Phase 5 — `npx tsc --noEmit`)
+- **Result:** PASS
+- `RecommendationPanel.tsx` — zero errors (confirmed with targeted grep)
+- Removed `Package` import: no unused-import error after removal
+- `PackageSeal` tier badge removal: no TS impact (JSX-only change)
+- Pre-existing test file errors (`*.test.tsx` — missing vitest types) remain unrelated to our changes
+
 ## Integration Testing
 
 ### Checklist for full verification:
@@ -53,6 +60,10 @@
 14. [ ] Add-on Deals section shows per-item breakdown with prices and savings
 15. [ ] Strategy Summary shows "was ฿XX,XXX" crossed out + "Total Savings" line
 16. [ ] `logs/audit.jsonl` → audit entry contains `promotion_summary` data
+17. [ ] Plan card seal has no text badge — gradient SVG only
+18. [ ] Add-on list renders as compact rows with divide-y separators (no card borders/shadows)
+19. [ ] Unchecked add-ons appear dimmed (`opacity-40`), checked items full opacity
+20. [ ] Hover on any add-on row reveals slim italic rationale below the name
 
 ## Known Limitations
 

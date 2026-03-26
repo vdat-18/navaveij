@@ -34,6 +34,11 @@ export interface RecommendationAddOn {
 }
 
 export interface CommunicationScript {
+  summary_headline?: string;
+  top_findings?: string[];
+  program_justification?: string;
+  priority_add_ons?: string[];
+  next_actions?: string[];
   opening?: string;
   clinical_conclusion?: string;
   health_summary?: string;
@@ -44,7 +49,9 @@ export interface CommunicationScript {
 
 export interface AnnotatedReasoningLine {
   text: string;
-  sentiment: "good" | "bad" | "neutral";
+  scope: "clinical_reasoning" | "policy_reasoning";
+  sentiment: "risk" | "reassuring" | "neutral" | "informational";
+  highlight_terms: string[];
 }
 
 export interface ResolvedPackage {

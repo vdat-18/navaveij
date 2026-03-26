@@ -26,6 +26,18 @@ class ClinicalRiskProfile {
   missing_signal_ids string[]
 }
 
+enum LineSentiment {
+  Risk @alias("risk")
+  Reassuring @alias("reassuring")
+  Neutral @alias("neutral")
+}
+
+class ReasoningLineAnnotation {
+  text string
+  sentiment LineSentiment
+  highlight_terms string[]
+}
+
 function AnalyzeClinicalRisks(
   clinical_signals: string,
   biomarker_trends: string,
@@ -64,6 +76,35 @@ function AnalyzeClinicalRisks(
   "#
 }
 
+function AnnotateReasoningLines(
+  clinical_lines: string[]
+) -> ReasoningLineAnnotation[] {
+  client ActiveModel
+  prompt #"
+    Role: Clinical Annotation Specialist.
+    Classify each clinical reasoning line and identify only meaningful highlights.
+
+    ── INPUT DATA ─────────────────────────────────────────────────────────────
+    CLINICAL LINES: {{ clinical_lines }}
+
+    ── INSTRUCTIONS ───────────────────────────────────────────────────────────
+    1. Return one annotation item for each input line, preserving order.
+    2. Assign:
+       - "risk" for lines that describe active risk, worsening trends, overdue actions, or abnormal findings.
+       - "reassuring" for lines that describe controlled, normal, negative, or protective findings.
+       - "neutral" for descriptive lines that are important but not clearly risk-heavy or reassuring.
+    3. Populate "highlight_terms" with only meaningful substrings from the line.
+       Meaningful means:
+       - clinically decisive measurements and units
+       - named diagnoses, stages, or risk states
+       - decision-driving program or screening terms
+    4. DO NOT include generic connectors, punctuation fragments, or internal snake_case identifiers in "highlight_terms".
+    5. Keep "highlight_terms" short and selective, ideally 1-3 items per line.
+
+    {{ ctx.output_format }}
+  "#
+}
+
 // ── AGENT 2a: POLICY MATCHER ─────────────────────────────────────────────────
 // Runs in parallel with WriteNarrative (Agent 2b) after AnalyzeClinicalRisks.
 // Responsible for: tier selection, add-on selection, and add-on-dependent communication text.
@@ -79,8 +120,8 @@ class AddOnItem {
 }
 
 class PolicyScript {
-  recommendation_rationale string
-  addon_highlights string[]
+  program_justification string
+  priority_add_ons string[]
 }
 
 class PolicyMatchResult {
@@ -119,13 +160,15 @@ function MatchPolicy(
          item_id (from ruleset item_code), label, product_code, price_thb, category, priority, rationale.
     3. Write 'policy_reasoning' explaining why this specific package combination was chosen.
     4. In 'policy_script', write:
-       - 'recommendation_rationale': explain the chosen Tier and selected Add-ons.
-       - 'addon_highlights': concise short phrases summarising each selected add-on.
+       - 'program_justification': one short paragraph or two short sentences explaining the chosen Tier and the add-on package logic.
+       - 'priority_add_ons': 2-4 concise short phrases summarising only the highest-value add-ons.
 
     ── CONSTRAINTS (MANDATORY) ───────────────────────────────────────────────
     - NO greetings or conversational filler.
     - Professional, direct medical English. No raw snake_case identifiers.
     - Use Markdown bolding (**text**) for: Clinical terms, risk factors, and medication names.
+    - Keep 'program_justification' compact and non-repetitive.
+    - Keep each item in 'priority_add_ons' under 10 words where possible.
 
     {{ ctx.output_format }}
   "#
@@ -137,8 +180,9 @@ function MatchPolicy(
 // no ruleset or add-on context required.
 
 class NarrativeScript {
-  health_summary string
-  next_steps string
+  summary_headline string
+  top_findings string[]
+  next_actions string[]
 }
 
 function WriteNarrative(
@@ -153,18 +197,19 @@ function WriteNarrative(
     CLINICAL RISK PROFILE: {{ risk_profile }}
 
     ── INSTRUCTIONS ───────────────────────────────────────────────────────────
-    1. Write 'health_summary': a concise paragraph starting directly with the most significant
-       clinical findings. Summarise the patient's current health status and key risks.
-    2. Write 'next_steps': an actionable paragraph describing what the patient should do
-       based on the identified risks and clinical findings.
+    1. Write 'summary_headline': one short physician-facing sentence that starts directly with the most important clinical picture.
+    2. Write 'top_findings': 3-5 concise bullet-style strings, each focused on one clinically meaningful finding.
+    3. Write 'next_actions': 3-5 concise action strings describing what the patient should do next.
 
     ── CONSTRAINTS (MANDATORY) ────────────────────────────────────────────────
     - NO greetings like "Hello" or "Dear patient".
     - NO conversational filler or small talk.
-    - Write BOTH fields as clean prose paragraphs.
-    - STRICTLY FORBIDDEN: Do NOT use bullet markers ('-','*') or numbered lists.
+    - Keep 'summary_headline' under 24 words.
+    - Keep each item in 'top_findings' and 'next_actions' under 20 words.
+    - STRICTLY FORBIDDEN: Do NOT prefix items with bullet markers ('-','*') or numbers.
     - Professional, direct, and empathetic medical English.
     - Use Markdown bolding (**text**) for: Clinical terms, diagnoses, biomarker values, and drugs.
+    - Avoid repeating the same concept across fields.
 
     {{ ctx.output_format }}
   "#

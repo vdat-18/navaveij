@@ -11,7 +11,7 @@ could incorporate a discount/promotion dimension to help them close deals.
 
 ## Current State
 
-- Full promotion/discount infrastructure is now live (Phases 1–4 complete)
+- Full promotion/discount infrastructure is now live (Phases 1–5 complete)
 - All `price_thb` values in the system are already Expo promotional rates (5th Anniversary Wellbeing
   Expo 2026, valid through March 31, 2026) — the system now shows this with strikethrough pricing
 - Estimated pre-Expo prices: ~30% markup for packages (specific values) and add-ons (percentage-based)
@@ -20,6 +20,7 @@ could incorporate a discount/promotion dimension to help them close deals.
 - Price flows: `sample_package_resolution.json` → MCP → BAML → `contracts.py:_normalize_stage2()` → PromotionEngine → frontend
 - **7 promotions** active: Expo, 2 membership cards, 1 couple bundle, 3 add-on category deals
 - Add-ons are now **selectable** via checkboxes — only selected add-ons count toward Total Investment
+- HUD Plan card fully decluttered: tier-name badge removed from seal, add-on list redesigned as compact rows
 
 ## Navavej's Promotion Types (from website crawl)
 
@@ -45,5 +46,5 @@ could incorporate a discount/promotion dimension to help them close deals.
 |------------|---------------------|
 | 35% Hybrid Engine | Demonstrates hybrid: clinical logic (pure AI) + business logic (deterministic promo overlay) |
 | 25% Data Standards | Promotion Store follows same JSON schema pattern as existing Ruleset Store |
-| 20% UX/Explainability | Strikethrough pricing, urgency countdown, consultant scripts, add-on selection, decluttered HUD — direct deal-closing tools |
+| 20% UX/Explainability | Strikethrough pricing, urgency countdown, consultant scripts, add-on selection, decluttered HUD, compact add-on list — direct deal-closing tools |
 | 20% Security/Audit | Promotions auto-captured in existing SHA-256 hash-chain audit trail |

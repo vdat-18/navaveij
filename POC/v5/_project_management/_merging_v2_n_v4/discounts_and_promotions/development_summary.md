@@ -116,10 +116,28 @@ Modified `frontend/src/components/dashboard/RecommendationPanel.tsx`:
 - Deleted the standalone Plan Type card (was `md:col-span-2`, white background)
 - Expanded Strategic Tier card from `md:col-span-2` to `md:col-span-4`
 - Added Plan Type content into the Tier card with horizontal layout:
-  - Left: PackageSeal + tier name + "Trace Verified"
-  - Right: Plan Type label + plan name, Total Investment with strikethrough/savings, urgency badge, Safety Reviewed + Deals button
+  - Left: PackageSeal + plan name + add-on count
+  - Right: Total Investment with strikethrough/savings, urgency badge, Safety Reviewed + Deals button
 - All text adapted for white-on-gradient (was dark text on white)
 - HUD grid: 2 + 4 + 6 columns (was 2 + 2 + 2 + 6)
+
+### Step 13: Plan Card Polish + Compact Add-on Rows
+Modified `frontend/src/components/dashboard/RecommendationPanel.tsx`:
+
+**Plan card cleanup:**
+- Removed `Package` from lucide-react imports (was used for the now-deleted "Strategic Tier" header)
+- Removed the `{tier}` text badge from `PackageSeal` — the pill overlaid at the seal's bottom was noisy; the SVG gradient + diamond/circle/star emblem provide sufficient visual identity
+- Result: clean card with [Seal] | [Plan Name] left, [Total Investment] right, no redundant tier text
+
+**Add-on list redesign:**
+- Replaced `p-3 rounded-2xl border-2 space-y-3` card-per-item layout with compact `py-1.5 px-2` rows
+- Rows separated by `divide-y divide-navavej-border/20` hairlines (no gap between items)
+- Priority signalled via `border-l-2` left-accent (red / amber / green) instead of full card background tint
+- Unchecked items: `opacity-40` dim, lightens on hover for feedback
+- Name: `text-[11px] font-semibold truncate` (was `text-[13px] font-bold`)
+- Price: `text-[12px] font-bold` (was `text-[14px] font-black`); promo label stays `text-[7px]`
+- Rationale expand on hover: `max-h-10 line-clamp-2` slim reveal (was `max-h-32` full expand)
+- 9 items now fit within `max-h-[220px]` without scroll on most screens
 
 ## Technical Notes
 
@@ -130,3 +148,4 @@ Modified `frontend/src/components/dashboard/RecommendationPanel.tsx`:
 - The PromotionDrawer currently displays promo info read-only — interactive card toggles are Phase 3 remaining work
 - Add-on selection is client-side only — unchecking an add-on does not trigger a backend re-call
 - `selectedTotalSavings` recalculates by subtracting all add-on savings then adding back only selected add-on savings
+- `PackageSeal` tier parameter still used to select gradient colors and SVG emblem — just the text label was removed

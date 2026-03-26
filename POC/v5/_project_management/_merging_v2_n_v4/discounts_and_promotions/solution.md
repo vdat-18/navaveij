@@ -19,7 +19,7 @@ MCP Tools → BAML Agents (clinical) → _normalize_stage2() → Promotion Engin
 | Add-on original prices | 30% markup via `add_on_original_price_markup_pct` | Avoids maintaining 72+ individual prices |
 | Add-on selection | Client-side checkboxes, all selected by default | Consultants can toggle add-ons to show price impact in real-time |
 | Expo expiry behavior | Frozen for demo (always "6 days left") | Safe for any demo date |
-| UI layout | Merged Tier+Plan card (gradient), risk card gains confidence score | Decluttered from 4 HUD cards to 3 |
+| UI layout | Merged Tier+Plan card (gradient), risk card gains confidence score, tier badge removed, add-ons as compact rows | Decluttered from 4 HUD cards to 3; dense add-on list fits 9+ items without overflow |
 | Savings recalculation | Client-side (no backend re-call) | Avoids re-running AI pipeline just for price toggle |
 | Stacking | Expo + category deals + membership cards can all stack | Matches real-world hospital pricing behavior |
 | Audit integration | Automatic via existing pipeline | `promotion_summary` flows into SHA-256 chain naturally |
@@ -84,21 +84,33 @@ Extended: `ResolvedPackage` (+original_price_thb, savings_thb, promotions_applie
 `RecommendationAddOn` (+original_price_thb, promo_price_thb, promotions_applied),
 `RecommendationResponse` (+promotion_summary)
 
-### 6. HUD — Merged Tier + Plan Card with Add-on Selection
+### 6. HUD — Plan Card Polish + Compact Add-on List
 **File:** `frontend/src/components/dashboard/RecommendationPanel.tsx`
 
 **Layout change (Phase 4):** Merged the Strategic Tier card and Plan Type card into a single 4-column
 gradient card. Moved AI confidence score from Tier card to the Risk-o-meter card.
 
-- **Merged card** (gradient background): Tier seal + name on left, Plan Type + Total Investment on right
+**Layout polish (Phase 5):**
+- **Tier badge removed**: `PackageSeal` no longer renders the `{tier}` text pill at the seal's base — the gradient seal SVG itself is the visual identity
+- `Package` lucide icon import removed (was used for now-deleted "Strategic Tier" header label)
+
+- **Merged card** (gradient background): Seal on left, plan name below + add-on count subtitle, cost breakdown on right
 - **Total Investment**: Shows full price (package + selected add-ons) with strikethrough original
 - **Add-on checkboxes**: Each add-on has a checkbox; toggling recalculates Total Investment client-side
 - **Savings badge**: Shows combined savings for selected add-ons only
 - **Urgency badge**: "Expo pricing ends March 31 — 6 days left" in pink, animated pulse
 - **"฿ Deals" button**: Opens the promotion drawer
-- **Add-on prices**: Strikethrough original + promo label when promotions apply
-- **Strategy Summary**: Total with strikethrough "was" price + "Total Savings" in emerald green
 - **Confidence score**: Now displayed in Risk-o-meter card with colored percentage
+
+**Add-on list (Phase 5 compact redesign):**
+- Replaced `p-3 rounded-2xl border-2 space-y-3` card-per-item layout with bare `py-1.5 px-2` rows separated by `divide-y divide-navavej-border/20`
+- Each row: `border-l-2` priority accent (red/amber/green) + checkbox + 1px dot + truncated name + price column
+- Unchecked items dim to `opacity-40` for clear visual contrast
+- Hover reveals slim 2-line italic rationale (`max-h-10 line-clamp-2`) instead of the previous full-card expand
+- Promo strikethrough (`text-[9px]`) + current price (`text-[12px] font-bold`) + promo label (`text-[7px]`) remain intact
+- All 9 items fit in `max-h-[220px]` without forced scrolling
+
+**Strategy Summary**: Total with strikethrough "was" price + "Total Savings" in emerald green
 
 ### 7. Promotion Drawer
 **File:** `frontend/src/components/dashboard/PromotionDrawer.tsx`

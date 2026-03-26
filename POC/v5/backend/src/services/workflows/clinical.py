@@ -14,6 +14,7 @@ from src.mcp_server.utils import resolve_package
 from src.services.cache import cache_service
 from src.services.privacy import PIIMasker
 from src.services.rules import RuleEvaluator
+from src.services.text_annotations import annotate_reasoning_lines_fallback
 from src.services.workflows.base import BaseWorkflow, WorkflowContext
 from shared.exceptions import DataIntegrityError
 from shared.settings import settings
@@ -142,25 +143,31 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             )
             return
 
-        # ── Agent 2a + 2b in parallel: MatchPolicy + WriteNarrative ──────────
+        # ── Parallel fan-out: MatchPolicy + WriteNarrative + line annotation ─
         # return_exceptions=True so a single failure doesn't cancel the other call.
-        policy_result, narrative = await asyncio.gather(
+        policy_result, narrative, reasoning_annotations = await asyncio.gather(
             b.MatchPolicy(
                 risk_profile=risk_profile,
                 program_ruleset=json.dumps(context.masked_context.get("get_program_ruleset"), indent=2),
             ),
             b.WriteNarrative(risk_profile=risk_profile),
+            b.AnnotateReasoningLines(
+                clinical_lines=getattr(risk_profile, "clinical_summary_bullets", []) or [],
+            ),
             return_exceptions=True,
         )
         context.metadata["ai_chain_ms"] = int((time.monotonic() - _ai_start) * 1000)
 
         policy_failed   = isinstance(policy_result, Exception)
         narrative_failed = isinstance(narrative, Exception)
+        annotation_failed = isinstance(reasoning_annotations, Exception)
 
         if policy_failed:
             logger.warning(f"Agent 2a (MatchPolicy) failed: {policy_result}")
         if narrative_failed:
             logger.warning(f"Agent 2b (WriteNarrative) failed: {narrative}")
+        if annotation_failed:
+            logger.warning(f"Agent 2c (AnnotateReasoningLines) failed: {reasoning_annotations}")
 
         if policy_failed and narrative_failed:
             # Both parallel agents failed — fall back to rule-based
@@ -176,6 +183,7 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         context.ai_output = self._map_final_to_ai_output(
             policy_result=policy_result if not policy_failed else None,
             narrative=narrative if not narrative_failed else None,
+            reasoning_annotations=reasoning_annotations if not annotation_failed else None,
             risk_profile=risk_profile,
             rule_result=rule_result,
             demographics=demographics,
@@ -195,6 +203,7 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         *,
         policy_result: Any,   # PolicyMatchResult | None
         narrative: Any,        # NarrativeScript | None
+        reasoning_annotations: Any,  # list[ReasoningLineAnnotation] | None
         risk_profile: Any,
         rule_result: dict[str, Any],
         demographics: dict[str, Any],
@@ -223,8 +232,8 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
                 for item in policy_result.selected_add_ons
             ]
             policy_reasoning       = policy_result.policy_reasoning or ""
-            recommendation_rationale = policy_result.policy_script.recommendation_rationale
-            addon_highlights         = policy_result.policy_script.addon_highlights
+            program_justification = policy_result.policy_script.program_justification
+            priority_add_ons      = policy_result.policy_script.priority_add_ons
             review_required          = False
         else:
             # MatchPolicy failed — use rule tier + signal-matched add-ons
@@ -232,11 +241,10 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             tier_deviation     = "Policy matching unavailable; rule-based tier applied."
             add_ons            = self._match_add_ons_from_signals(signals_fired=signals_fired, ruleset=ruleset)
             policy_reasoning   = f"Rule fallback: {rule_result.get('applied_rule_id')}"
-            recommendation_rationale = (
-                "Add-on recommendations are based on deterministic signal matching "
-                "while the policy agent was unavailable."
+            program_justification = (
+                "Rule-based package and add-on selection applied while the policy agent was unavailable."
             )
-            addon_highlights   = [item["label"] for item in add_ons]
+            priority_add_ons   = [item["label"] for item in add_ons[:4]]
             review_required    = True
 
         resolved_package = resolve_package(
@@ -248,35 +256,56 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
 
         # ── Narrative (from WriteNarrative or fallback from risk_profile) ────
         if narrative is not None:
-            health_summary = narrative.health_summary
-            next_steps     = narrative.next_steps
+            summary_headline = narrative.summary_headline
+            top_findings     = narrative.top_findings
+            next_actions     = narrative.next_actions
         else:
             # WriteNarrative failed — build from risk_profile.clinical_summary_bullets
             bullets = getattr(risk_profile, "clinical_summary_bullets", []) or []
-            health_summary = " ".join(bullets) if bullets else risk_profile.severity_assessment or ""
-            next_steps = (
-                "Please review the identified clinical findings with your physician "
-                "and follow up on the recommended programme items."
-            )
+            summary_headline = risk_profile.severity_assessment or "Clinical findings require physician review."
+            top_findings = bullets[:5] if bullets else [summary_headline]
+            next_actions = [
+                "Review the identified clinical findings with your physician.",
+                "Discuss the recommended programme items and follow-up priorities.",
+            ]
 
         # ── Reasoning trace from Agent 1 ─────────────────────────────────────
         bullets = getattr(risk_profile, "clinical_summary_bullets", []) or []
         reasoning_lines = [f"- {line}" for line in bullets]
         if policy_reasoning:
             reasoning_lines.append(f"- Policy reasoning: {policy_reasoning}")
+        reasoning_trace_annotated = (
+            [
+                {
+                    "text": item.text,
+                    "scope": "clinical_reasoning",
+                    "sentiment": item.sentiment,
+                    "highlight_terms": item.highlight_terms,
+                }
+                for item in reasoning_annotations
+            ]
+            if reasoning_annotations is not None
+            else annotate_reasoning_lines_fallback(bullets, policy_reasoning)
+        )
+        if reasoning_annotations is not None and policy_reasoning:
+            reasoning_trace_annotated.extend(
+                annotate_reasoning_lines_fallback([], policy_reasoning)
+            )
 
         return {
             "ai_recommended_tier":        ai_tier,
             "tier_deviation_justification": tier_deviation,
             "add_ons":                    add_ons,
             "reasoning_trace":            "\n".join(reasoning_lines),
+            "reasoning_trace_annotated":  reasoning_trace_annotated,
             "supporting_signals":         risk_profile.supporting_signal_ids,
             "missing_signals":            risk_profile.missing_signal_ids,
             "communication_script": {
-                "health_summary":            health_summary,
-                "recommendation_rationale":  recommendation_rationale,
-                "addon_highlights":          addon_highlights,
-                "next_steps":                next_steps,
+                "summary_headline":       summary_headline,
+                "top_findings":           top_findings,
+                "program_justification":  program_justification,
+                "priority_add_ons":       priority_add_ons,
+                "next_actions":           next_actions,
             },
             "rule_preliminary_tier":      rule_result["rule_tier"],
             "recommendation_source":      "AI",
@@ -308,15 +337,21 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
                 f"Rule-based fallback applied. Matched rule: {rule_result.get('applied_rule_id')} | "
                 f"Condition: {rule_result.get('applied_condition')}"
             ),
+            "reasoning_trace_annotated": annotate_reasoning_lines_fallback(
+                [f"Rule-based fallback applied. Matched rule: {rule_result.get('applied_rule_id')}"]
+            ),
             "supporting_signals": matched_signals,
             "missing_signals": clinical_signals.get("missing_signals", []),
             "communication_script": {
-                "health_summary": f"Current clinical findings ({matched_text}) indicate a {rule_tier} package.",
-                "recommendation_rationale": (
+                "summary_headline": f"Current clinical findings ({matched_text}) indicate a {rule_tier} package.",
+                "top_findings": [f"Matched signals: {matched_text}"],
+                "program_justification": (
                     "This recommendation follows deterministic rule matching while the AI chain is unavailable."
                 ),
-                "addon_highlights": [item["label"] for item in add_ons],
-                "next_steps": "Please confirm this recommendation with the clinical team.",
+                "priority_add_ons": [item["label"] for item in add_ons[:4]],
+                "next_actions": [
+                    "Please confirm this recommendation with the clinical team.",
+                ],
             },
             "rule_preliminary_tier": rule_tier,
             "recommendation_source": "RuleBased",

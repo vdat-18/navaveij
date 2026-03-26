@@ -313,4 +313,128 @@ describe("RecommendationPanel", () => {
     const valueChip = await screen.findByText("135 / 87 mmHg");
     expect(valueChip.tagName).toBe("STRONG");
   });
+
+  it("renders clinical and policy reasoning lines from structured annotations", async () => {
+    mockStreamRecommendation(
+      makeResponse({
+        reasoning_trace_annotated: [
+          {
+            text: "Blood pressure is elevated at 151/93 mmHg.",
+            scope: "clinical_reasoning",
+            sentiment: "risk",
+            highlight_terms: ["151/93 mmHg"],
+          },
+          {
+            text: "eGFR is within normal range.",
+            scope: "clinical_reasoning",
+            sentiment: "reassuring",
+            highlight_terms: ["eGFR"],
+          },
+          {
+            text: "Premium package selected based on hypertension and kidney risk profile.",
+            scope: "policy_reasoning",
+            sentiment: "informational",
+            highlight_terms: ["Premium"],
+          },
+        ],
+      })
+    );
+
+    const { container } = render(
+      <RecommendationPanel
+        patientId="p-1"
+        patientToken="tok-1"
+        privacyMode={false}
+        isRuleBasedForced={false}
+      />
+    );
+
+    // Clinical reasoning lines are visible (text may be split by highlight chips)
+    await screen.findByText("Policy Reasoning");
+    expect(container.textContent).toContain("Blood pressure is elevated at");
+    expect(container.textContent).toContain("eGFR is within normal range");
+
+    // Policy reasoning section is visible and contains the policy line
+    expect(container.textContent).toContain("Premium package selected");
+  });
+
+  it("renders neutral sentiment lines with gray styling", async () => {
+    mockStreamRecommendation(
+      makeResponse({
+        reasoning_trace_annotated: [
+          {
+            text: "Kidney function is within acceptable parameters.",
+            scope: "clinical_reasoning",
+            sentiment: "neutral",
+            highlight_terms: [],
+          },
+        ],
+      })
+    );
+
+    const { container } = render(
+      <RecommendationPanel
+        patientId="p-1"
+        patientToken="tok-1"
+        privacyMode={false}
+        isRuleBasedForced={false}
+      />
+    );
+
+    await screen.findByText("Clinical Logic & Rationale");
+    // Neutral line is visible in the reasoning section
+    expect(container.textContent).toContain("Kidney function is within acceptable parameters");
+  });
+
+  it("shows policy reasoning section on fallback path when raw trace contains policy prefix", async () => {
+    mockStreamRecommendation(
+      makeResponse({
+        reasoning_trace: "Blood pressure elevated.\n- Policy reasoning: Premium selected due to hypertension.",
+        reasoning_trace_annotated: undefined,
+      })
+    );
+
+    const { container } = render(
+      <RecommendationPanel
+        patientId="p-1"
+        patientToken="tok-1"
+        privacyMode={false}
+        isRuleBasedForced={false}
+      />
+    );
+
+    expect(await screen.findByText("Policy Reasoning")).toBeInTheDocument();
+    expect(container.textContent).toContain("Premium selected due to hypertension");
+  });
+
+  it("renders new CommunicationScript fields when provided", async () => {
+    mockStreamRecommendation(
+      makeResponse({
+        communication_script: {
+          summary_headline: "Elevated cardiovascular risk requiring active management.",
+          top_findings: ["Stage 1 Hypertension confirmed.", "Prediabetes trajectory worsening."],
+          program_justification: "Premium tier covers all required cardiovascular and metabolic monitoring.",
+          priority_add_ons: ["Exercise Stress Test for ASCVD risk", "Kidney Disease Screening"],
+          next_actions: ["Schedule follow-up in 3 months.", "Begin antihypertensive therapy."],
+        },
+      })
+    );
+
+    const { container } = render(
+      <RecommendationPanel
+        patientId="p-1"
+        patientToken="tok-1"
+        privacyMode={false}
+        isRuleBasedForced={false}
+      />
+    );
+
+    await screen.findByText("Clinical Conclusion");
+    expect(container.textContent).toContain("Elevated cardiovascular risk requiring active management");
+    // "Stage 1 Hypertension" is human-readable prose from the LLM — should not be abbreviated
+    expect(container.textContent).toContain("Stage 1 Hypertension confirmed");
+    expect(container.textContent).toContain("Prediabetes trajectory worsening");
+    expect(container.textContent).toContain("Premium tier covers all required cardiovascular");
+    expect(container.textContent).toContain("Schedule follow-up in 3 months");
+  });
 });

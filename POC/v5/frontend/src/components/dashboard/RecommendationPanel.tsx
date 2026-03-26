@@ -655,15 +655,37 @@ export function RecommendationPanel({
     const parsedReasoningLines = (reasoningTrace?.split('\n') ?? [])
         .map((line: string) => line.replace(/^[*-]\s*/, '').trim())
         .filter((line: string) => line.length > 0);
-    const policyReasoningLines = parsedReasoningLines
-        .filter((line: string) => /^policy reasoning\s*:/i.test(line))
-        .map((line: string) => line.replace(/^policy reasoning\s*:\s*/i, "").trim())
-        .filter((line: string) => line.length > 0);
-    const clinicalReasoningLines = (data.reasoning_trace_annotated && data.reasoning_trace_annotated.length > 0)
+    const structuredReasoningLines = (data.reasoning_trace_annotated && data.reasoning_trace_annotated.length > 0)
         ? data.reasoning_trace_annotated
         : parsedReasoningLines
-            .filter((line: string) => !/^policy reasoning\s*:/i.test(line))
-            .map((line: string) => ({ text: line, sentiment: "neutral" as const }));
+            .map((line: string) => {
+                const isPolicyLine = /^policy reasoning\s*:/i.test(line);
+                return {
+                    text: isPolicyLine ? line.replace(/^policy reasoning\s*:\s*/i, "").trim() : line,
+                    scope: (isPolicyLine ? "policy_reasoning" : "clinical_reasoning") as "clinical_reasoning" | "policy_reasoning",
+                    sentiment: (isPolicyLine ? "informational" : "neutral") as "informational" | "neutral",
+                    highlight_terms: [] as string[],
+                };
+            });
+    const clinicalReasoningLines = structuredReasoningLines.filter((line) => line.scope === "clinical_reasoning");
+    const policyReasoningLines = structuredReasoningLines.filter((line) => line.scope === "policy_reasoning");
+    const consultationSummaryHeadline = data.communication_script?.summary_headline
+        || data.communication_script?.opening
+        || data.communication_script?.clinical_conclusion
+        || data.communication_script?.health_summary
+        || "";
+    const consultationTopFindings = data.communication_script?.top_findings?.length
+        ? data.communication_script.top_findings
+        : splitConsultationSentences(data.communication_script?.health_summary || "");
+    const consultationProgramJustification = data.communication_script?.program_justification
+        || data.communication_script?.recommendation_explanation
+        || "";
+    const consultationPriorityAddOns = data.communication_script?.priority_add_ons?.length
+        ? data.communication_script.priority_add_ons
+        : (data.communication_script?.add_on_highlights || []);
+    const consultationNextActions = data.communication_script?.next_actions?.length
+        ? data.communication_script.next_actions
+        : splitConsultationSentences(data.communication_script?.next_steps || "");
     const maskedPackageName = "-";
     const maskedPriceValue = "-";
     const confidenceScore = typeof data.confidence_score === "number" ? data.confidence_score : null;
@@ -721,7 +743,7 @@ export function RecommendationPanel({
                         className="lg:col-span-12 grid grid-cols-1 md:grid-cols-12 navavej-card p-0 rounded-[24px] overflow-hidden shadow-2xl relative bg-white border border-navavej-border min-h-[160px] items-stretch"
                     >                        {/* 1. Active Monitoring (Gauge) - Equally Sized */}
                         <div className={cn(
-                            "md:col-span-2 border-r border-navavej-border/60 p-4 flex flex-col items-center justify-center bg-white group relative",
+                            "md:col-span-3 border-r border-navavej-border/60 p-4 flex flex-col items-center justify-center bg-white group relative",
                             riskToast ? "z-20" : "z-10"
                         )}>
                             <div className="scale-[0.6] origin-center -mb-4">
@@ -783,88 +805,68 @@ export function RecommendationPanel({
                             </div>
                         </div>
 
-                        {/* 2. Strategic Tier + Plan (Merged) */}
+                        {/* 2. Plan Identity Card */}
                         <div className={cn(
-                            "md:col-span-4 p-4 text-white flex flex-col justify-center relative overflow-hidden transition-all duration-1000",
+                            "md:col-span-2 p-5 text-white flex flex-col items-center justify-center relative overflow-hidden transition-all duration-1000",
                             (data.ai_recommended_tier || "Premium").toLowerCase() === "premium" ? "bg-gradient-to-br from-cyan-600 to-blue-900" :
                                 (data.ai_recommended_tier || "Premium").toLowerCase() === "advanced" ? "bg-gradient-to-br from-[#4A5568] to-[#2D3748]" : "bg-gradient-to-br from-amber-600 to-amber-900"
                         )}>
-                            <div className="flex items-center justify-center gap-1.5 mb-3 opacity-80 relative z-10 w-full group">
-                                <Package className="w-3.5 h-3.5 text-white/40 group-hover:text-white/60 transition-colors" />
-                                <span className="text-[9px] font-bold uppercase tracking-widest text-white/60">Strategic Tier</span>
-                            </div>
-
-                            <div className="flex items-start gap-5 w-full relative z-10">
-                                {/* Left: Tier identity */}
-                                <div className="flex flex-col items-center gap-2 shrink-0">
-                                    <PackageSeal tier={data.ai_recommended_tier || "Premium"} />
-                                    <h3 className="text-xl font-black tracking-tight leading-none drop-shadow-xl uppercase text-center">
-                                        {data.ai_recommended_tier || "Premium"}
-                                    </h3>
-                                    <div className="flex items-center gap-1.5 justify-center">
-                                        <div className="w-1 h-1 bg-navavej-teal rounded-full" />
-                                        <span className="text-[6px] font-black uppercase tracking-[0.2em] text-white/50">Trace Verified</span>
-                                    </div>
-                                </div>
-
-                                {/* Right: Plan details + investment */}
-                                <div className="flex-1 flex flex-col items-center gap-2 text-center">
-                                    <div className="space-y-0.5">
-                                        <span className="text-[8px] font-bold uppercase tracking-wider block text-white/50">Plan Type</span>
-                                        <span className={cn("text-sm font-bold leading-tight tracking-tight", privacyMode ? "text-navavej-red/70 font-mono" : "text-white")}>
-                                            {privacyMode ? maskedPackageName : (data.resolved_package?.name || data.resolved_package?.package_name || "Unknown Plan")}
-                                        </span>
-                                    </div>
-
-                                    <div className="space-y-1">
-                                        <span className="text-[9px] font-bold uppercase tracking-wider block text-white/50">Total Investment</span>
-                                        {!privacyMode && data.add_ons.length > 0 && (
-                                            <span className="text-[7px] font-medium text-white/40 block">Plan + {selectedAddOns.size} of {data.add_ons.length} add-on{data.add_ons.length !== 1 ? "s" : ""}</span>
-                                        )}
-                                        {!privacyMode && hasFullDiscount && (
-                                            <span className="text-xs font-bold text-white/40 line-through tracking-tight block">
-                                                ฿{fullOriginalPrice.toLocaleString()}
-                                            </span>
-                                        )}
-                                        <span className={cn("text-2xl font-bold tracking-tighter block", privacyMode ? "text-navavej-red/70 font-mono" : "text-white")}>
-                                            {privacyMode ? maskedPriceValue : (fullCurrentPrice > 0 ? `฿${fullCurrentPrice.toLocaleString()}` : "Price TBD")}
-                                        </span>
-                                        {!privacyMode && selectedTotalSavings > 0 && (
-                                            <span className="inline-block px-2 py-0.5 bg-emerald-400/20 border border-emerald-300/30 rounded-full text-[9px] font-black text-emerald-300 uppercase tracking-wider">
-                                                Save ฿{selectedTotalSavings.toLocaleString()}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    {!privacyMode && urgencyMessages.length > 0 && (
-                                        <div className="px-2 py-1 bg-pink-500/20 border border-pink-300/30 rounded-lg">
-                                            <span className="text-[8px] font-black text-pink-200 uppercase tracking-wider animate-pulse">
-                                                {urgencyMessages[0]}
-                                            </span>
-                                        </div>
+                            <div className="relative z-10 flex flex-col items-center gap-3 text-center">
+                                <PackageSeal tier={data.ai_recommended_tier || "Premium"} />
+                                <div>
+                                    <h4 className={cn("text-base font-black leading-tight tracking-tight mt-1", privacyMode ? "text-navavej-red/70 font-mono" : "text-white drop-shadow-md")}>
+                                        {privacyMode ? maskedPackageName : (data.resolved_package?.name || data.resolved_package?.package_name || "Unknown Plan")}
+                                    </h4>
+                                    {!privacyMode && data.add_ons.length > 0 && (
+                                        <p className="text-[9px] font-bold text-white/80 uppercase tracking-widest mt-1">
+                                            + {selectedAddOns.size}/{data.add_ons.length} select add-ons
+                                        </p>
                                     )}
-
-                                    <div className="flex items-center gap-2">
-                                        <div className="px-2 py-1 bg-white/10 border border-white/20 rounded-md flex items-center justify-center gap-1.5">
-                                            <ShieldCheck className="w-2.5 h-2.5 text-emerald-300" />
-                                            <span className="text-[6px] font-black uppercase text-white/70 tracking-[0.2em]">Safety Reviewed</span>
-                                        </div>
-                                        {!privacyMode && promoSummary && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowDealsDrawer(true)}
-                                                className="px-2 py-1 bg-amber-400/20 border border-amber-300/30 rounded-md flex items-center justify-center gap-1 hover:bg-amber-400/30 transition-colors cursor-pointer"
-                                            >
-                                                <span className="text-[6px] font-black uppercase text-amber-200 tracking-[0.2em]">฿ Deals</span>
-                                            </button>
-                                        )}
-                                    </div>
                                 </div>
                             </div>
                         </div>
 
+                        {/* 3. Pricing Card */}
+                        <div className="md:col-span-2 bg-[#F8FAFC] p-5 flex flex-col justify-center gap-2 border-r border-navavej-border/40 relative">
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-navavej-gray-med">Total Investment</span>
+                            <div className="flex flex-col gap-0.5 mt-1">
+                                {!privacyMode && hasFullDiscount && (
+                                    <span className="text-[13px] font-bold text-navavej-gray-med/70 line-through tracking-tight">
+                                        ฿{fullOriginalPrice.toLocaleString()}
+                                    </span>
+                                )}
+                                <span className={cn("text-4xl font-black tracking-tighter leading-none -ml-0.5", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-gray-dark")}>
+                                    {privacyMode ? maskedPriceValue : (fullCurrentPrice > 0 ? `฿${fullCurrentPrice.toLocaleString()}` : "Price TBD")}
+                                </span>
+                            </div>
+                            
+                            {!privacyMode && (selectedTotalSavings > 0 || urgencyMessages.length > 0 || promoSummary) && (
+                                <div className="flex flex-wrap items-center gap-2 mt-3">
+                                    {selectedTotalSavings > 0 && (
+                                        <span className="px-2.5 py-1 bg-emerald-100 border border-emerald-200 rounded-md text-[9px] font-black text-emerald-700 uppercase tracking-widest shadow-sm">
+                                            Save ฿{selectedTotalSavings.toLocaleString()}
+                                        </span>
+                                    )}
+                                    {promoSummary && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowDealsDrawer(true)}
+                                            className="px-2.5 py-1 bg-amber-100 border border-amber-300 rounded-md flex items-center gap-1 hover:bg-amber-200 transition-colors shadow-sm active:scale-95 cursor-pointer"
+                                        >
+                                            <span className="text-[9px] font-black uppercase text-amber-700 tracking-widest">฿ Deals</span>
+                                        </button>
+                                    )}
+                                    {urgencyMessages.length > 0 && (
+                                        <span className="px-2.5 py-1 bg-pink-100 border border-pink-200 rounded-md text-[8px] font-black text-pink-600 uppercase tracking-widest animate-pulse shadow-sm block w-full mt-1">
+                                            {urgencyMessages[0]}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
                         {/* 4. Strategic Add-ons HUD - Single Column Vertical List */}
-                        <div className="md:col-span-6 bg-white p-4 flex flex-col relative border-l border-navavej-border/40">
+                        <div className="md:col-span-5 bg-white p-4 flex flex-col relative border-l border-navavej-border/40">
                             <div className="flex justify-between items-center mb-3 shrink-0">
                                 <div className="flex items-center gap-2">
                                     <Sparkles className="w-3.5 h-3.5 text-navavej-teal" />
@@ -876,7 +878,7 @@ export function RecommendationPanel({
                             </div>
                             
                             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar max-h-[220px]">
-                                <div className="space-y-3">
+                                <div className="divide-y divide-navavej-border/20">
                                     {data.add_ons && data.add_ons.length > 0 ? (
                                         [...data.add_ons]
                                             .sort((a, b) => {
@@ -889,71 +891,63 @@ export function RecommendationPanel({
                                                 const prio = (item.priority_level || item.priority || "").toLowerCase();
                                                 const isRed = prio === 'red' || prio === 'critical' || prio === 'high';
                                                 const isGreen = prio === 'green' || prio === 'low';
+                                                const isSelected = selectedAddOns.has(item.item_code);
                                                 
                                                 return (
                                                     <div 
                                                         key={idx} 
                                                         className={cn(
-                                                            "group relative p-3 rounded-2xl border-2 transition-all duration-300 hover:shadow-xl hover:scale-[1.01] cursor-help",
-                                                            isRed ? "bg-navavej-red/[0.03] border-navavej-red/10 hover:border-navavej-red/30" :
-                                                            isGreen ? "bg-emerald-50/20 border-emerald-100 hover:border-emerald-300" :
-                                                            "bg-amber-50/20 border-amber-100 hover:border-amber-300"
+                                                            "group relative py-1.5 px-3 transition-colors duration-200 cursor-help flex items-center gap-3",
+                                                            "border-l-[3px]",
+                                                            isSelected ? (isRed ? "border-navavej-red hover:bg-navavej-red/[0.02]" : isGreen ? "border-emerald-500 hover:bg-emerald-50/20" : "border-yellow-500 hover:bg-amber-50/20") : "border-navavej-border/40 opacity-50 hover:opacity-100 bg-transparent"
                                                         )}
                                                     >
-                                                        <div className="flex justify-between items-center gap-4">
-                                                            <div className="flex-1 min-w-0">
-                                                                <div className="flex items-center gap-2">
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={selectedAddOns.has(item.item_code)}
-                                                                        onChange={() => {
-                                                                            setSelectedAddOns(prev => {
-                                                                                const next = new Set(prev);
-                                                                                if (next.has(item.item_code)) {
-                                                                                    next.delete(item.item_code);
-                                                                                } else {
-                                                                                    next.add(item.item_code);
-                                                                                }
-                                                                                return next;
-                                                                            });
-                                                                        }}
-                                                                        className="w-3.5 h-3.5 rounded border-2 border-navavej-border text-navavej-teal focus:ring-navavej-teal/30 shrink-0 cursor-pointer accent-[var(--color-navavej-teal)]"
-                                                                    />
-                                                                    <div className={cn(
-                                                                        "w-1.5 h-1.5 rounded-full shadow-sm shrink-0",
-                                                                        isRed ? "bg-navavej-red animate-pulse" :
-                                                                        isGreen ? "bg-emerald-500" : "bg-amber-500"
-                                                                    )} />
-                                                                    <h5 className="text-[13px] font-bold text-navavej-gray-dark tracking-tight leading-none truncate group-hover:whitespace-normal">
-                                                                        {item.label}
-                                                                    </h5>
-                                                                </div>
-                                                                
-                                                                {/* Reveal-on-hover rationale */}
-                                                                <div className="max-h-0 opacity-0 overflow-hidden group-hover:max-h-32 group-hover:opacity-100 group-hover:mt-3 transition-all duration-500 ease-in-out">
-                                                                    <p className="text-[11px] font-bold text-navavej-gray-dark/60 leading-relaxed italic border-l-2 border-navavej-teal/20 pl-3">
-                                                                        {item.rationale}
-                                                                    </p>
-                                                                </div>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSelected}
+                                                            onChange={() => {
+                                                                setSelectedAddOns(prev => {
+                                                                    const next = new Set(prev);
+                                                                    if (next.has(item.item_code)) next.delete(item.item_code);
+                                                                    else next.add(item.item_code);
+                                                                    return next;
+                                                                });
+                                                            }}
+                                                            className="w-[14px] h-[14px] rounded-[3px] border-2 border-navavej-border text-navavej-teal focus:ring-navavej-teal/30 shrink-0 cursor-pointer accent-[var(--color-navavej-teal)]"
+                                                        />
+                                                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className={cn(
+                                                                    "w-[5px] h-[5px] rounded-full shrink-0",
+                                                                    isRed ? "bg-navavej-red" : isGreen ? "bg-emerald-500" : "bg-yellow-500"
+                                                                )} />
+                                                                <h5 className="text-[11px] font-bold text-navavej-gray-dark tracking-tight truncate">
+                                                                    {item.label}
+                                                                </h5>
                                                             </div>
-                                                            <div className="text-right shrink-0">
-                                                                {item.promotions_applied && item.promotions_applied.length > 0 && item.original_price_thb && (
-                                                                    <p className="text-[10px] font-bold text-navavej-gray-med/50 line-through">
-                                                                        ฿{item.original_price_thb.toLocaleString()}
-                                                                    </p>
-                                                                )}
-                                                                <p className={cn(
-                                                                    "text-[14px] font-black tracking-tight",
-                                                                    isRed ? "text-navavej-red" : isGreen ? "text-emerald-700" : "text-amber-700"
-                                                                )}>
-                                                                    {item.price_thb ? `฿${(item.promo_price_thb ?? item.price_thb).toLocaleString()}` : '—'}
+                                                            <div className="max-h-0 opacity-0 overflow-hidden group-hover:max-h-[30px] group-hover:opacity-100 group-hover:mt-0.5 transition-all duration-300 ease-in-out">
+                                                                <p className="text-[10px] font-medium text-navavej-gray-med italic line-clamp-1 ml-3.5">
+                                                                    {item.rationale}
                                                                 </p>
-                                                                {item.promotions_applied && item.promotions_applied.length > 0 && (
-                                                                    <span className="text-[7px] font-black uppercase tracking-wider text-amber-600">
-                                                                        {item.promotions_applied[0].label_short}
-                                                                    </span>
-                                                                )}
                                                             </div>
+                                                        </div>
+                                                        <div className="text-right shrink-0 flex flex-col items-end justify-center">
+                                                            {item.promotions_applied && item.promotions_applied.length > 0 && item.original_price_thb && (
+                                                                <span className="text-[9px] font-bold text-navavej-gray-med/50 line-through leading-none mb-0.5">
+                                                                    ฿{item.original_price_thb.toLocaleString()}
+                                                                </span>
+                                                            )}
+                                                            <span className={cn(
+                                                                "text-[12px] font-black tracking-tight leading-none",
+                                                                isRed ? "text-navavej-red" : isGreen ? "text-emerald-700" : "text-amber-700"
+                                                            )}>
+                                                                {item.price_thb ? `฿${(item.promo_price_thb ?? item.price_thb).toLocaleString()}` : '—'}
+                                                            </span>
+                                                            {item.promotions_applied && item.promotions_applied.length > 0 && (
+                                                                <span className="text-[7px] font-bold uppercase tracking-wider text-amber-600 mt-0.5 leading-none">
+                                                                    {item.promotions_applied[0].label_short}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 );
@@ -1014,14 +1008,14 @@ export function RecommendationPanel({
                                         return (
                                             <div key={idx} className={cn(
                                                 "flex items-start gap-3 p-3 rounded-2xl transition-all border",
-                                                sentiment === 'bad' ? "bg-navavej-red/[0.03] border-navavej-red/10" : 
-                                                sentiment === 'good' ? "bg-navavej-teal/[0.03] border-navavej-teal/10" : 
+                                                sentiment === 'risk' ? "bg-navavej-red/[0.03] border-navavej-red/10" : 
+                                                sentiment === 'reassuring' ? "bg-navavej-teal/[0.03] border-navavej-teal/10" : 
                                                 "bg-navavej-gray-light/40 border-navavej-border/20"
                                             )}>
                                                 <div className="mt-1 shrink-0 flex flex-col items-center">
-                                                    {sentiment === 'bad' ? (
+                                                    {sentiment === 'risk' ? (
                                                         <div className="w-2 h-2 rounded-full bg-navavej-red animate-pulse shadow-[0_0_8px_rgba(190,18,60,0.4)]" />
-                                                    ) : sentiment === 'good' ? (
+                                                    ) : sentiment === 'reassuring' ? (
                                                         <div className="w-2 h-2 rounded-full bg-navavej-teal shadow-[0_0_8px_rgba(20,184,166,0.4)]" />
                                                     ) : (
                                                         <div className="w-1.5 h-1.5 rounded-full bg-navavej-gray-med/60" />
@@ -1030,12 +1024,12 @@ export function RecommendationPanel({
                                                 <div className="flex-1">
                                                     <p className={cn(
                                                         "text-[13px] font-bold leading-relaxed text-left",
-                                                        sentiment === 'bad' ? "text-navavej-red/90" :
-                                                        sentiment === 'good' ? "text-navavej-teal/90" :
+                                                        sentiment === 'risk' ? "text-navavej-red/90" :
+                                                        sentiment === 'reassuring' ? "text-navavej-teal/90" :
                                                         "text-navavej-gray-dark",
                                                         privacyMode && "font-mono"
                                                     )}>
-                                                        {renderHighlightedText(line.text, sentiment)}
+                                                        {renderHighlightedText(line.text, sentiment, line.highlight_terms)}
                                                     </p>
                                                 </div>
                                             </div>
@@ -1061,7 +1055,7 @@ export function RecommendationPanel({
                                     </h4>
                                 </div>
                                 <div className="space-y-4">
-                                    {policyReasoningLines.map((line: string, idx: number) => (
+                                    {policyReasoningLines.map((line, idx: number) => (
                                         <p
                                             key={idx}
                                             className={cn(
@@ -1069,7 +1063,7 @@ export function RecommendationPanel({
                                                 privacyMode ? "font-mono text-navavej-red/80" : "text-navavej-gray-dark"
                                             )}
                                         >
-                                            {renderHighlightedText(line)}
+                                            {renderHighlightedText(line.text, line.sentiment, line.highlight_terms, line.scope)}
                                         </p>
                                     ))}
                                 </div>
@@ -1213,35 +1207,35 @@ export function RecommendationPanel({
                                 <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Clinical Conclusion</h4>
                                 <div className="p-6 bg-white rounded-[24px] border border-navavej-border shadow-sm">
                                     <p className="text-sm font-medium text-navavej-gray-dark leading-relaxed text-left">
-                                        {renderHighlightedText(data.communication_script?.opening || data.communication_script?.clinical_conclusion)}
+                                        {renderHighlightedText(consultationSummaryHeadline, "informational")}
                                     </p>
                                 </div>
                             </div>
                             <div>
                                 <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Core Health Insights</h4>
                                 <div className="space-y-2">
-                                    {splitConsultationSentences(data.communication_script?.health_summary || "").map((sentence: string, i: number) => (
+                                    {consultationTopFindings.map((sentence: string, i: number) => (
                                         <div key={i} className="flex gap-2">
                                             <div className="mt-1.5 w-1 h-1 rounded-full bg-navavej-teal shrink-0" />
                                             <p className="text-sm font-medium text-navavej-gray-dark leading-relaxed text-left">
-                                                {renderHighlightedText(sentence)}
+                                                {renderHighlightedText(sentence, "neutral")}
                                             </p>
                                         </div>
                                     ))}
                                 </div>
                             </div>
-                            {data.communication_script?.add_on_highlights && data.communication_script.add_on_highlights.length > 0 && (
+                            {consultationPriorityAddOns.length > 0 && (
                                 <div className="mt-6 pt-6 border-t border-navavej-border">
                                     <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Special Highlights</h4>
                                     <div className="space-y-2">
-                                        {data.communication_script.add_on_highlights.map((highlight: string, i: number) => {
+                                        {consultationPriorityAddOns.map((highlight: string, i: number) => {
                                             const parsedHighlight = parseHighlightSeverity(highlight);
 
                                             return (
                                             <div key={i} className={cn("flex gap-3 rounded-2xl border px-3 py-2.5", parsedHighlight.styles.container)}>
                                                 <div className={cn("mt-1.5 h-2 w-2 rounded-full shrink-0", parsedHighlight.styles.dot)} />
                                                 <p className={cn("text-sm font-medium leading-relaxed text-left", parsedHighlight.styles.text)}>
-                                                    {renderHighlightedText(parsedHighlight.label)}
+                                                    {renderHighlightedText(parsedHighlight.label, "informational")}
                                                 </p>
                                             </div>
                                             );
@@ -1256,18 +1250,18 @@ export function RecommendationPanel({
                                 <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Why this program?</h4>
                                 <div className="p-6 bg-navavej-gray-light rounded-2xl border-l-4 border-navavej-teal">
                                     <p className="text-sm font-bold text-navavej-gray-dark leading-relaxed text-left">
-                                        {renderHighlightedText(data.communication_script?.recommendation_explanation)}
+                                        {renderHighlightedText(consultationProgramJustification, "informational")}
                                     </p>
                                 </div>
                             </div>
                             <div>
                                 <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Next steps</h4>
                                 <div className="space-y-3">
-                                    {splitConsultationSentences(data.communication_script?.next_steps || "").map((sentence: string, i: number) => (
+                                    {consultationNextActions.map((sentence: string, i: number) => (
                                         <div key={i} className="flex items-start gap-3">
                                             <div className="mt-1 shrink-0 bg-emerald-100 p-1 rounded-full border border-emerald-200 shadow-sm"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /></div>
                                             <p className="text-[12px] font-bold text-navavej-gray-dark leading-relaxed text-left">
-                                                {renderHighlightedText(sentence)}
+                                                {renderHighlightedText(sentence, "reassuring")}
                                             </p>
                                         </div>
                                     ))}

@@ -22,7 +22,6 @@ from src.mcp_server.utils import load_promotions, load_ruleset_add_on_items
 from src.services.cache import cache_service
 from src.services.orchestrator import OrchestrationManager
 from src.services.promotions import PromotionEngine
-from src.services.text_annotations import annotate_reasoning_lines
 
 router = APIRouter()
 orchestrator = OrchestrationManager()
@@ -332,19 +331,32 @@ def _filter_audit_entries(
 
 
 def _map_communication_script(script: dict[str, Any]) -> dict[str, Any]:
-    opening = (
-        script.get("opening")
+    summary_headline = (
+        script.get("summary_headline")
+        or script.get("opening")
         or script.get("clinical_conclusion")
         or script.get("health_summary")
         or "Clinical recommendation summary."
     )
+    top_findings = script.get("top_findings") or []
+    program_justification = (
+        script.get("program_justification")
+        or script.get("recommendation_rationale")
+        or script.get("recommendation_explanation", "")
+    )
+    priority_add_ons = script.get("priority_add_ons") or script.get("addon_highlights") or script.get("add_on_highlights", [])
+    next_actions = script.get("next_actions") or []
     return {
-        "opening": opening,
-        "health_summary": script.get("health_summary", ""),
-        "recommendation_explanation": script.get("recommendation_rationale")
-        or script.get("recommendation_explanation", ""),
-        "add_on_highlights": script.get("addon_highlights") or script.get("add_on_highlights", []),
-        "next_steps": script.get("next_steps", ""),
+        "summary_headline": summary_headline,
+        "top_findings": top_findings,
+        "program_justification": program_justification,
+        "priority_add_ons": priority_add_ons,
+        "next_actions": next_actions,
+        "opening": summary_headline,
+        "health_summary": " ".join(top_findings) if top_findings else summary_headline,
+        "recommendation_explanation": program_justification,
+        "add_on_highlights": priority_add_ons,
+        "next_steps": " ".join(next_actions) if next_actions else "",
     }
 
 
@@ -635,7 +647,7 @@ def _normalize_stage2(
         "tier_deviation_justification": ai_output.get("tier_deviation_justification"),
         "add_ons": enriched_add_ons,
         "reasoning_trace": ai_output.get("reasoning_trace", ""),
-        "reasoning_trace_annotated": annotate_reasoning_lines(ai_output.get("reasoning_trace", "")),
+        "reasoning_trace_annotated": ai_output.get("reasoning_trace_annotated", []),
         "supporting_signals": ai_output.get("supporting_signals", []),
         "missing_signals": missing_signals,
         "communication_script": _map_communication_script(ai_output.get("communication_script", {})),

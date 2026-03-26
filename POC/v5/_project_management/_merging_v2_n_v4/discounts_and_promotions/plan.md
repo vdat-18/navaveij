@@ -8,6 +8,7 @@
 | **Phase 2** | PromotionDrawer with card display + savings breakdown + consultant script | DONE |
 | **Phase 3** | Per-add-on promo badges, Couple bundle toggle, animated savings counter | PARTIAL |
 | **Phase 4** | Add-on selection, add-on-specific promotions, HUD declutter (Tier+Plan merge), confidence score relocation | DONE |
+| **Phase 5** | Plan card polish (remove tier-name badge from seal), compact add-on list rows | DONE |
 
 ## Files Changed
 
@@ -26,7 +27,7 @@
 | `backend/src/mcp_server/utils.py` | Added `PROMOTIONS_PATH` + `load_promotions()` |
 | `backend/src/api/routes/contracts.py` | Added `promotion_context` to request, `promotion_summary` to response, wired engine into `_normalize_stage2()` |
 | `frontend/src/types/recommendation.ts` | Added `PromotionApplied`, `PromotionSummary` interfaces; extended `ResolvedPackage`, `RecommendationAddOn`, `RecommendationResponse` |
-| `frontend/src/components/dashboard/RecommendationPanel.tsx` | Strikethrough pricing, savings badges, urgency countdown, "฿ Deals" button, PromotionDrawer integration, **add-on checkboxes**, **merged Tier+Plan card**, **confidence score moved to risk card** |
+| `frontend/src/components/dashboard/RecommendationPanel.tsx` | Strikethrough pricing, savings badges, urgency countdown, "฿ Deals" button, PromotionDrawer integration, **add-on checkboxes**, **merged Tier+Plan card**, **confidence score moved to risk card**, **tier badge removed from seal**, **compact add-on rows** |
 | `frontend/src/services/api.ts` | Added `promotionContext` param to `getRecommendation()` and `streamRecommendation()` |
 
 ## What Was NOT Changed
@@ -74,22 +75,38 @@ These stack with Expo, e.g., Echocardiogram: ฿3,770 (est. original) → ฿2,4
 
 Replace all estimated prices with actual standard prices when obtained from Navavej.
 
-## HUD Layout (Phase 4)
+## HUD Layout (Phase 4 → Phase 5)
 
-### Before (4 cards)
+### Before Phase 4 (4 cards)
 ```
 ┌──────────────┬──────────────┬──────────────┬──────────────────────────┐
 │ Risk Gauge   │ Strategic    │ Plan Type /  │ Add-ons (6 cols)         │
-│ (2 cols)     │ Tier (2 cols)│ Investment   │                          │
+│ (2 cols)     │ Tier (2 cols)│ Investment   │  card-per-item, p-3      │
 │              │ + confidence │ (2 cols)     │                          │
 └──────────────┴──────────────┴──────────────┴──────────────────────────┘
 ```
 
-### After (3 cards — decluttered)
+### After Phase 4 (3 cards — Tier+Plan merged)
 ```
 ┌──────────────┬─────────────────────────────┬─────────────────────────┐
 │ Risk Gauge   │ Merged Tier + Plan          │ Add-ons (6 cols)        │
 │ + Confidence │ (gradient bg, 4 cols)       │ with checkboxes         │
-│ (2 cols)     │                             │                         │
+│ (2 cols)     │ Seal | PREMIUM | Plan Name  │  card-per-item, p-3     │
 └──────────────┴─────────────────────────────┴─────────────────────────┘
 ```
+
+### After Phase 5 (final — clean Plan card + compact add-on rows)
+```
+┌──────────────┬─────────────────────────────┬─────────────────────────┐
+│ Risk Gauge   │ Plan Card (gradient, 4 cols)│ Add-ons (6 cols)        │
+│ + Confidence │ [Seal]  │  Total Investment │ compact rows, divide-y  │
+│ (2 cols)     │ Plan    │  ฿77K → ฿55,766  │ border-l accent + price │
+│              │ Name    │  Save ฿21,583    │ hover reveals rationale  │
+│              │ +9/9 ←  │  [Reviewed][฿ D] │                         │
+└──────────────┴─────────────────────────────┴─────────────────────────┘
+```
+
+Changes in Phase 5:
+- Removed `Package` import (unused after removing "Strategic Tier" header)
+- `PackageSeal`: removed the `{tier}` text badge overlaid at the seal's bottom — visual identity preserved via SVG design + gradient background
+- Add-on list: `p-3 rounded-2xl border-2 space-y-3` cards → bare `py-1.5 px-2 divide-y` rows with `border-l-2` priority accent, `text-[11px]` names, `text-[12px]` prices, `opacity-40` for unchecked items
