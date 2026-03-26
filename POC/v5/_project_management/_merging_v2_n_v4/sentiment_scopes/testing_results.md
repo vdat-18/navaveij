@@ -4,46 +4,64 @@
 
 ### Vitest
 
-- `frontend/src/components/dashboard/RecommendationPanel.test.tsx` — **14/15 passing**
-- 1 pre-existing failure: `"renames the add-on section and renders highlight severity with color-only labels"` — asserts `"Safety Reviewed"` which is split across an SVG icon node and a text node; unrelated to this scope
+- `frontend/src/components/dashboard/RecommendationPanel.test.tsx` — **15/15 passing**
+- `frontend/src/shared/recommendationTextFormatting.test.ts` — **13/13 passing**
+- **Total in scope: 28/28 passing**
+- 4 pre-existing failures in unrelated test files (AuditLogSearchPanel, TrendTimelinePage, Sidebar, DashboardPage) — not introduced by this scope
 
-Coverage added (new tests):
+### Test coverage by area
 
-| Test | What it verifies |
-|---|---|
-| `renders clinical and policy reasoning lines from structured annotations` | `reasoning_trace_annotated` scope filtering; Policy Reasoning section visible; clinical lines visible |
-| `shows policy reasoning section on fallback path when raw trace contains policy prefix` | Fallback path correctly assigns `scope: "policy_reasoning"` from `"Policy reasoning:"` prefix |
-| `renders new CommunicationScript fields when provided` | `summary_headline`, `top_findings`, `program_justification`, `next_actions` all render |
-
-Existing tests that exercise the formatter changes:
-
-- `normalizes core insights tokens and keeps decimal values in one sentence` — confirms snake_case tokens like `bp_stage2_htn` → `Stage 2 Hypertension` chip, and decimal values like `115.8 mg/dL` are **not** auto-highlighted (appear as plain text unless in `highlight_terms`)
-- `highlights blood pressure values even when spaces exist around the slash` — `135 / 87 mmHg` renders as a `<strong>` chip
-
-### Key highlight behavior confirmed
-
-| Input | Expected | Reason |
+| Test file | Tests | What is covered |
 |---|---|---|
-| `135/87 mmHg` | ✅ highlighted | BP composite — UNIT_HIGHLIGHT_REGEX |
-| `135 / 87 mmHg` | ✅ highlighted | BP composite with spaces — UNIT_HIGHLIGHT_REGEX |
-| `92%` | ✅ highlighted | Percentage — UNIT_HIGHLIGHT_REGEX |
-| `108.5 mg/dL` | ✅ not highlighted | Concentration value — excluded from UNIT_HIGHLIGHT_REGEX |
-| `86 mL/min/1.73 m²` | ✅ not highlighted | eGFR unit — excluded from UNIT_HIGHLIGHT_REGEX |
-| `Stage 2 Hypertension` | ✅ highlighted | HIGHLIGHT_PHRASES_REGEX |
-| `Atherogenic Dyslipidemia` | ✅ highlighted | HIGHLIGHT_PHRASES_REGEX |
-| `Colonoscopy` | ✅ highlighted | HIGHLIGHT_PHRASES_REGEX |
-| `Influenza Vaccine` | ✅ highlighted | HIGHLIGHT_PHRASES_REGEX |
-| `bp_stage2_htn` in text | ✅ highlighted as `Stage 2 Hypertension` | Dictionary (snake_case key) |
-| `Stage 1 Hypertension confirmed` | ✅ phrase highlighted, "confirmed" plain | HIGHLIGHT_PHRASES_REGEX matches phrase; dictionary skips (no `_` in key) |
+| `RecommendationPanel.test.tsx` | 15 | Annotation path, policy scope, consultation fields, add-on severity, privacy mode, risk gauge, record decision |
+| `recommendationTextFormatting.test.ts` | 13 | `collectHighlightSpans` (LLM terms, case insensitivity, dedup), `deduplicateSpans` (priority, length, overlap) |
+
+### Key behavior confirmed
+
+#### Reasoning trace
+
+| Scenario | Expected |
+|---|---|
+| `reasoning_trace_annotated` present | Used directly; clinical + policy sections populated |
+| `reasoning_trace_annotated` absent (legacy) | Empty sections; no crash |
+| `sentiment` from annotation | Used for chip color (was hardcoded `"informational"`) |
+| `highlight_terms` per line | Applied as chips in reasoning lines |
+
+#### Consultation fields
+
+| Input | Expected |
+|---|---|
+| `top_findings: [{ text, highlight_terms }]` | Each finding rendered with chips from `highlight_terms` |
+| `135 / 87 mmHg` in `highlight_terms` | Renders as `<strong>` chip |
+| `"Stage 1 Hypertension"` in `highlight_terms` | Renders as chip; "confirmed." is plain text |
+| `priority_add_ons: [{ label, severity }]` | `severityToStyles(severity)` drives color; no `(Red)` suffix visible |
+| `priority_add_ons: []` | Special Highlights section hidden |
+| `summary_headline_highlights` | Passed to `renderHighlightedText` for Clinical Conclusion chips |
+
+#### Removed FE behavior (now BE responsibility)
+
+| Former FE behavior | Status |
+|---|---|
+| Auto-highlight `Stage 2 Hypertension` in prose | Moved to BE `find_highlight_terms()` |
+| Auto-highlight `135/87 mmHg` via regex | Moved to BE `_BP_UNIT_REGEX` |
+| Parse `"Label (Red)"` suffix | Moved to BE `_parse_priority_add_on_string()` |
+| Split `health_summary` string into sentences | Retired — BE returns arrays |
+| Parse raw `reasoning_trace` string | Retired — `reasoning_trace_annotated` always present |
+| Dictionary substitution for snake_case | Retired — BE never sends snake_case in text |
 
 ## Backend
 
 ### Unit Tests (pytest)
 
-- `backend/tests/test_text_annotations.py` — validates policy-line filtering and deterministic sentiment labeling
+- `backend/tests/test_text_annotations.py`
 - Run via: `python3 -m pytest tests/test_text_annotations.py`
 
-Notes:
+Coverage includes:
 
-- Full backend suite execution may depend on runtime environment and external dependencies; this scope focused on isolated unit verification.
-- LLM annotation path (`AnnotateReasoningLines`) is tested indirectly via frontend fixture tests using `reasoning_trace_annotated` payloads.
+- Policy-line filtering and deterministic sentiment labeling
+- `find_highlight_terms()`: clinical phrase matching, BP regex, overlap resolution, quote cleanup
+- Fallback path `highlight_terms` now populated (not empty list)
+
+### LLM annotation path
+
+Tested indirectly via frontend fixture tests that supply `reasoning_trace_annotated` payloads with `highlight_terms` and verify chip rendering. End-to-end testing requires a live backend + real patient payload.

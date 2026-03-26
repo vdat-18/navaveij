@@ -49,21 +49,38 @@
 
 ## Phase 5 — Highlight-Rule Narrowing ✅ DONE
 
-1. `UNIT_HIGHLIGHT_REGEX` narrowed to blood pressure composites and percentages only:
-   - Auto-highlights: `135/87 mmHg`, `92%`
-   - No longer auto-highlights: `108.5 mg/dL`, `86 mL/min/1.73 m²`, `100 mg/dL`
-2. `HIGHLIGHT_PHRASES` list added — directly matches human-readable clinical names in prose (case-insensitive):
-   - Diagnoses: `Stage 2 Hypertension`, `Atherogenic Dyslipidemia`, `Prediabetes`, `Metabolic Syndrome`, etc.
-   - Screenings: `Colonoscopy`, `Influenza Vaccine`, `Exercise Stress Test`, `Carotid Ultrasound`, etc.
-   - Package tiers: `Premium`, `Advanced`
-3. Dictionary step scoped to snake_case keys only (`key.includes("_")`):
-   - Translates `bp_stage2_htn` → `Stage 2 Hypertension` in text
-   - No longer abbreviates readable LLM prose like `Stage 1 Hypertension confirmed`
-4. `scope`-aware rendering:
-   - `policy_reasoning` lines skip the unit regex sweep entirely (policy text is program logic, not measurements)
+1. `UNIT_HIGHLIGHT_REGEX` narrowed to blood pressure composites and percentages only.
+2. `HIGHLIGHT_PHRASES` list added — directly matches human-readable clinical names in prose.
+3. Dictionary step scoped to snake_case keys only.
+4. `scope`-aware rendering in `renderHighlightedText`.
 
-## Phase 6 — Verification ✅ DONE
+## Phase 6 — Consolidate Highlight Rules to Backend ✅ DONE
 
-- 14/15 frontend tests passing
-- 1 pre-existing failure (`Safety Reviewed` text split by icon node) — unrelated to this scope
-- 3 new tests added covering: structured annotation path, fallback path policy visibility, new `CommunicationScript` fields
+**Motivation:** FE overhaul planned. Rules moved to BE so any future FE is a dumb renderer ("find these terms, color them") with no matching logic.
+
+### What moved to backend
+
+| Former FE item | Backend equivalent |
+|---|---|
+| `CLINICAL_TERMS` list (60+ phrases) + `UNIT_HIGHLIGHT_REGEX` | `CLINICAL_PHRASES` + `_BP_UNIT_REGEX` in `text_annotations.py`; expanded BAML prompt |
+| `parseHighlightSeverity` string parsing `"Label (Red)"` | `priority_add_ons` is now `{ label, severity }[]`; suffix parsed in `_map_communication_script()` |
+| `splitConsultationSentences` | BE always returns arrays; string fallback paths retired |
+| `reasoning_trace` string parsing | `reasoning_trace_annotated` is always present; FE string fallback removed |
+| `**...**` markdown extraction | Replaced by explicit `highlight_terms` per consultation field |
+| Quote cleanup | Added to Python normalization in `text_annotations.py` |
+
+### API contract additions
+
+- `reasoning_trace_annotated` — always present; `highlight_terms` always populated (was `[]` in fallback)
+- `priority_add_ons` — `string[]` → `{ label, severity }[]`
+- `top_findings` / `next_actions` — `string[]` → `{ text, highlight_terms }[]`
+- New: `summary_headline_highlights: string[]` and `program_justification_highlights: string[]`
+
+### What stays in frontend
+
+`renderHighlightedText` (React JSX), `collectHighlightSpans`/`deduplicateSpans` (span position finding), `severityToStyles` (severity→CSS), all layout/component logic.
+
+## Phase 7 — Verification ✅ DONE
+
+- 28/28 tests passing across `RecommendationPanel.test.tsx` and `recommendationTextFormatting.test.ts`
+- 4 pre-existing failures in unrelated test files (AuditLogSearchPanel, TrendTimelinePage, Sidebar, DashboardPage) — not introduced by this scope
