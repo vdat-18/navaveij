@@ -46,7 +46,9 @@ CLINICAL_PHRASES: list[str] = sorted(
         "Hypertensive Crisis",
         "Active Hypertension",
         "Worsening BP Trend",
+        "Stage 2 HTN",
         "Stage 1 HTN",
+        "HTN Crisis",
         # Dyslipidemia
         "Atherogenic Dyslipidemia",
         "Active Dyslipidemia",
@@ -80,6 +82,12 @@ CLINICAL_PHRASES: list[str] = sorted(
         # BMI
         "Obese (Asian)",
         "Overweight (Asian)",
+        "Overweight",
+        "Obese",
+        # Biomarker states (V4 cherry-pick)
+        "Near-optimal",
+        "Protective",
+        "Optimal",
         # Screenings and procedures
         "Eligible for Low-dose CT Lung Screening",
         "CT Coronary Artery Calcium Scoring",
@@ -102,6 +110,7 @@ CLINICAL_PHRASES: list[str] = sorted(
         # Package tiers
         "Premium",
         "Advanced",
+        "Standard",
     ],
     key=len,
     reverse=True,

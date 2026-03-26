@@ -184,6 +184,56 @@
       "urgency_message": null,
       "stacking_allowed": true,
       "consultant_note": "Patients needing multiple imaging tests benefit from the Imaging Essentials discount — 10% off."
+    },
+    {
+      "promo_id": "CORPORATE_PARTNER",
+      "type": "institutional",
+      "label": "Corporate / Co-Partner Discount",
+      "label_short": "Corporate",
+      "badge_color": "#374151",
+      "valid_from": null,
+      "valid_until": null,
+      "frozen_for_demo": false,
+      "frozen_days_remaining": null,
+      "applies_to": "institutional_member",
+      "scope": {
+        "package_codes": ["GOLD_ANY", "PLAT_M", "PLAT_F", "DIAM_M", "DIAM_F"],
+        "add_on_item_codes": ["*"]
+      },
+      "discount_mechanic": {
+        "type": "percentage",
+        "value": 15,
+        "max_discount_thb": null
+      },
+      "original_prices": null,
+      "urgency_message": null,
+      "stacking_allowed": true,
+      "consultant_note": "Verify patient has valid corporate / co-partner agreement on file. Provides 15% discount on packages and add-ons."
+    },
+    {
+      "promo_id": "NAVAVEJ_APP_LOYALTY",
+      "type": "loyalty",
+      "label": "Navavej Plus App Loyalty",
+      "label_short": "App Loyalty",
+      "badge_color": "#10B981",
+      "valid_from": null,
+      "valid_until": null,
+      "frozen_for_demo": false,
+      "frozen_days_remaining": null,
+      "applies_to": "app_member",
+      "scope": {
+        "package_codes": ["GOLD_ANY", "PLAT_M", "PLAT_F", "DIAM_M", "DIAM_F"],
+        "add_on_item_codes": ["*"]
+      },
+      "discount_mechanic": {
+        "type": "percentage",
+        "value": 5,
+        "max_discount_thb": null
+      },
+      "original_prices": null,
+      "urgency_message": null,
+      "stacking_allowed": true,
+      "consultant_note": "Ask if patient uses the Navavej Plus app. Registered app members receive 5% loyalty discount on all packages and add-ons."
     }
   ]
 }
