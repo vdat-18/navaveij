@@ -144,6 +144,9 @@ export const renderHighlightedText = (
   // Strip curly/smart quotes.
   content = content.replace(QUOTE_CLEANUP_REGEX, "");
 
+  // Strip markdown bold markers (safety net — backend should already strip).
+  content = content.replace(/\*\*(.+?)\*\*/g, "$1");
+
   // Collect and deduplicate highlight spans from API-supplied terms only.
   const spans = deduplicateSpans(collectHighlightSpans(content, highlightTerms));
 

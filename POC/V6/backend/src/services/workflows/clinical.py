@@ -14,7 +14,7 @@ from src.mcp_server.utils import resolve_package
 from src.services.cache import cache_service
 from src.services.privacy import PIIMasker
 from src.services.rules import RuleEvaluator
-from src.services.text_annotations import annotate_reasoning_lines_fallback, find_highlight_terms
+from src.services.text_annotations import annotate_reasoning_lines_fallback, find_highlight_terms, strip_markdown_bold
 from src.services.workflows.base import BaseWorkflow, WorkflowContext
 from shared.exceptions import DataIntegrityError
 from shared.settings import settings
@@ -281,11 +281,11 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             # BAML returns string[]; we wrap each into { text, highlight_terms } here so the FE
             # can render chips without running its own phrase-matching logic.
             top_findings = [
-                {"text": s, "highlight_terms": find_highlight_terms(s)}
+                {"text": strip_markdown_bold(s), "highlight_terms": find_highlight_terms(s)}
                 for s in narrative.top_findings
             ]
             next_actions = [
-                {"text": s, "highlight_terms": find_highlight_terms(s)}
+                {"text": strip_markdown_bold(s), "highlight_terms": find_highlight_terms(s)}
                 for s in narrative.next_actions
             ]
         else:
@@ -293,7 +293,7 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             bullets_raw = getattr(risk_profile, "clinical_summary_bullets", []) or []
             summary_headline = risk_profile.severity_assessment or "Clinical findings require physician review."
             top_findings = [
-                {"text": s, "highlight_terms": find_highlight_terms(s)}
+                {"text": strip_markdown_bold(s), "highlight_terms": find_highlight_terms(s)}
                 for s in (bullets_raw[:5] if bullets_raw else [summary_headline])
             ]
             next_actions = [
@@ -313,9 +313,9 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         if reasoning_annotations is not None:
             reasoning_trace_annotated = [
                 {
-                    "text": item.text,
+                    "text": strip_markdown_bold(item.text),
                     "scope": "clinical_reasoning",
-                    "sentiment": item.sentiment,
+                    "sentiment": item.sentiment.lower() if isinstance(item.sentiment, str) else str(item.sentiment).lower(),
                     "highlight_terms": item.highlight_terms,
                 }
                 for item in reasoning_annotations
@@ -337,10 +337,10 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             "supporting_signals":         risk_profile.supporting_signal_ids,
             "missing_signals":            risk_profile.missing_signal_ids,
             "communication_script": {
-                "summary_headline":                summary_headline,
+                "summary_headline":                strip_markdown_bold(summary_headline),
                 "summary_headline_highlights":     find_highlight_terms(summary_headline),
                 "top_findings":                    top_findings,
-                "program_justification":           program_justification,
+                "program_justification":           strip_markdown_bold(program_justification),
                 "program_justification_highlights": find_highlight_terms(program_justification),
                 "priority_add_ons":                priority_add_ons,
                 "next_actions":                    next_actions,

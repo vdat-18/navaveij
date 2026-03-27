@@ -1,5 +1,7 @@
 """Orchestration Manager to coordinate workflows, safety, and audit."""
 
+import copy
+import re
 import time
 from typing import Any
 
@@ -111,6 +113,31 @@ class OrchestrationManager:
 
             context.ai_output["recommendation_hash"] = recommendation_hash
 
+            # Save masked AI output before rehydration
+            masked_ai_output = copy.deepcopy(context.ai_output)
+
+            # Rehydrate: replace tokens with real values in string fields
+            rmap = context.rehydration_map or {}
+            if rmap:
+                # Sort tokens longest-first to prevent partial prefix replacement
+                # (e.g., tok_1 must not corrupt tok_10 → Alice0)
+                sorted_tokens = sorted(rmap.items(), key=lambda kv: len(kv[0]), reverse=True)
+
+                def _rehydrate_value(v: Any) -> Any:
+                    if isinstance(v, str):
+                        for tok, real in sorted_tokens:
+                            v = v.replace(tok, real)
+                        return v
+                    if isinstance(v, list):
+                        return [_rehydrate_value(item) for item in v]
+                    if isinstance(v, dict):
+                        return {k: _rehydrate_value(val) for k, val in v.items()}
+                    return v
+
+                for key in ("reasoning_trace", "reasoning_trace_annotated", "communication_script"):
+                    if key in context.ai_output:
+                        context.ai_output[key] = _rehydrate_value(context.ai_output[key])
+
             # Expose raw data for visualization/HUDs
             result = {
                 **context.ai_output,
@@ -122,6 +149,10 @@ class OrchestrationManager:
 
             result["security_metadata"] = {
                 "is_poc_demo": True,
+                "rehydration_map": rmap,
+                "masked_ai_output": {
+                    "reasoning_trace": masked_ai_output.get("reasoning_trace", ""),
+                },
             }
             result["phase_timings"] = {
                 "workflow_ms": int((t_workflow_end - t_workflow_start) * 1000),

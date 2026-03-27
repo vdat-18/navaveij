@@ -137,6 +137,9 @@ export interface RecommendationResponse {
   resolved_package: ResolvedPackage;
   confidence_score: number;
   confidence_tier: string;
+  signal_coverage?: number;
+  data_completeness?: number;
+  rule_agreement?: number;
   review_required: boolean;
   recommendation_source: string;
   recommendation_hash: string | null;

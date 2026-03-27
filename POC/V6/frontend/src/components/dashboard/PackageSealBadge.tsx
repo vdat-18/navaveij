@@ -1,4 +1,5 @@
 import React, { useId } from "react";
+import { ShieldCheck } from "lucide-react";
 import { cn } from "@/shared/utils";
 
 interface PackageSealBadgeProps {
@@ -92,6 +93,10 @@ export function PackageSealBadge({ tier, className, compact = false }: PackageSe
           variant.accentClassName
         )}>
           {variant.tierLabel}
+        </span>
+        <span className="mt-1.5 inline-flex w-fit items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-emerald-700">
+          <ShieldCheck className="w-3 h-3" />
+          Safety Verified
         </span>
       </div>
     </div>

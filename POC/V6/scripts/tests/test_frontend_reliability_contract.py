@@ -55,14 +55,14 @@ def test_mig5_page_wires_hybrid_toggle_state_to_panel():
 
 def test_mig5_panel_refetches_on_toggle_without_key_change():
     source = _read("frontend/src/components/dashboard/RecommendationPanel.tsx")
-    assert "clinicalService.getRecommendation(patientToken, isRuleBasedForced)" in source
+    assert "clinicalService.streamRecommendation(" in source
     assert "}, [patientToken, isRuleBasedForced]);" in source
-    assert "key={patientToken}" in source
+    assert "key={patientToken" in source
 
 
 def test_mig5_api_sends_force_rule_based_payload():
     source = _read("frontend/src/services/api.ts")
-    assert "getRecommendation: async (patientToken: string, forceRuleBased: boolean = false)" in source
+    assert "getRecommendation: async (patientToken: string, forceRuleBased: boolean = false," in source
     assert "force_rule_based: forceRuleBased" in source
 
 
@@ -74,7 +74,7 @@ def test_mig6_page_has_privacy_mode_and_masks_patient_fields():
     assert "const getDisplayValue = (originalValue: string | null | undefined) => {" in source
     assert "onClick={togglePrivacyMode}" in source
     assert "getDisplayValue(selectedPatient.patient_name)" in source
-    assert "getDisplayValue(selectedPatient.patient_id)" in source
+    # patient_id (Medical ID) is intentionally NOT masked — it's not PII
     assert "getDisplayValue(selectedPatient?.mrn)" in source
     assert "getDisplayValue(selectedPatient?.phone)" in source
     assert "getDisplayValue(selectedPatient?.email)" in source

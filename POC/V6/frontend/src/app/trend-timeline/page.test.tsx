@@ -11,6 +11,14 @@ vi.mock("@/shared/privacy-mode", () => ({
   }),
 }));
 
+vi.mock("@/shared/auth-context", () => ({
+  useAuth: () => ({ user: { name: "Dr. Test", role: "admin", fhir_scopes: [] }, logout: vi.fn() }),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+}));
+
 const trendScreenMock = vi.fn();
 
 vi.mock("@/components/dashboard/PatientDirectoryColumn", () => ({

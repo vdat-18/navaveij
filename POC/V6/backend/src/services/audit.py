@@ -64,6 +64,7 @@ class AuditLogger:
         resolved_patient_token = patient_token or ai_output.get("metadata", {}).get("patient_token")
 
         payload = {
+            "schema_version": 2,
             "timestamp": timestamp,
             # Dimension 1 — WHO: identity and role of the healthcare staff
             "who": {
@@ -84,12 +85,15 @@ class AuditLogger:
                 "model_id": model_id,
                 "safety_conflict_events": safety_conflict_events or [],
             },
-            # Dimension 5 — WHY: clinical purpose that triggered the inference (flat, not nested)
+            # Dimension 5 — WHY: clinical purpose that triggered the inference
+            # schema_version 2: action_type/request_id nested under request_context (v1 had them flat)
             "why": {
                 "patient_id": patient_id,
                 "patient_token": resolved_patient_token,
-                "action_type": action_type,
-                "request_id": resolved_request_id,
+                "request_context": {
+                    "action_type": action_type,
+                    "request_id": resolved_request_id,
+                },
             },
             "how": {"model_provider": settings.llm_provider, "model_id": model_id, "action_type": action_type},
             "confidence": ai_output.get("confidence_score"),

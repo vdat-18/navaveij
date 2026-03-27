@@ -112,6 +112,54 @@ async def test_orchestrator_injects_security_metadata_after_final_rehydration():
 
 
 @pytest.mark.asyncio
+async def test_rehydration_handles_overlapping_token_prefixes():
+    """Ensure longer tokens are replaced first, so tok_10 isn't corrupted by tok_1."""
+    context = WorkflowContext(
+        patient_id="id_overlap",
+        raw_context={},
+        masked_context={
+            "get_biomarker_trends": {},
+            "get_clinical_signals": {},
+        },
+        ai_output={
+            "reasoning_trace": "Patient tok_1 and patient tok_10 both need follow-up.",
+            "recommendation_source": "RuleBased",
+            "add_ons": [],
+        },
+        rehydration_map={"tok_1": "Alice", "tok_10": "Bob"},
+    )
+    workflow = SimpleNamespace(execute=AsyncMock(return_value=context))
+    session = Mock()
+
+    with (
+        patch(
+            "src.services.orchestrator.MCPClientFactory.get_client",
+            return_value=_ClientContextManager(session),
+        ),
+        patch(
+            "src.services.orchestrator.ClinicalReasoningWorkflow",
+            return_value=workflow,
+        ),
+    ):
+        manager = OrchestrationManager()
+        manager.safety_validator.validate_and_filter = Mock(
+            return_value={"filtered_add_ons": [], "conflict_events": []}
+        )
+        manager.audit_logger.log_recommendation = Mock(return_value="hash_overlap")
+        result = await manager.generate_recommendation(
+            patient_id="id_overlap",
+            patient_token="tok_hmac_overlap",
+        )
+
+    # tok_10 must be replaced as "Bob", NOT as "Alice0" (broken prefix match)
+    assert result["reasoning_trace"] == "Patient Alice and patient Bob both need follow-up."
+    # Masked version preserves original tokens
+    assert result["security_metadata"]["masked_ai_output"]["reasoning_trace"] == (
+        "Patient tok_1 and patient tok_10 both need follow-up."
+    )
+
+
+@pytest.mark.asyncio
 async def test_orchestrator_applies_safety_filtered_add_ons_and_forwards_conflicts():
     context = _build_context()
     workflow = SimpleNamespace(execute=AsyncMock(return_value=context))

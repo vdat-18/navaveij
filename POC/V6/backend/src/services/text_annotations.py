@@ -20,6 +20,29 @@ BAD_KEYWORDS = [
     "gap",
     "urgent",
     "uncontrolled",
+    # Clinical conditions & trends (fallback for when BAML agent is unavailable)
+    "stage 1 hypertension",
+    "stage 2 hypertension",
+    "stage 1 htn",
+    "stage 2 htn",
+    "active hypertension",
+    "diabetes",
+    "prediabetes",
+    "pre-diabetes",
+    "obese",
+    "obesity",
+    "metabolic syndrome",
+    "worsening",
+    "trend upward",
+    "rising",
+    "increasing",
+    "stage 1",
+    "stage 2",
+    "inadequate",
+    "suboptimal",
+    "missed",
+    "not performed",
+    "never done",
 ]
 
 GOOD_KEYWORDS = [
@@ -146,7 +169,7 @@ def _normalize_lines(lines: list[str] | None) -> list[str]:
     ]
 
 
-def _strip_markdown_bold(text: str) -> str:
+def strip_markdown_bold(text: str) -> str:
     """Remove **...** markers, keeping the inner text."""
     return re.sub(r"\*\*(.+?)\*\*", r"\1", text)
 
@@ -162,7 +185,8 @@ def find_highlight_terms(text: str) -> list[str]:
     Overlapping matches are resolved greedily by phrase length (longer wins).
     """
     clean = _quote_cleanup(text)
-    clean = _strip_markdown_bold(clean)
+    raw_clean = clean  # preserve pre-stripped version for Pass 3
+    clean = strip_markdown_bold(clean)
 
     covered: list[tuple[int, int]] = []  # (start, end) of accepted spans
     found: list[str] = []
@@ -182,6 +206,16 @@ def find_highlight_terms(text: str) -> list[str]:
         if not _overlaps(m.start(), m.end()):
             covered.append((m.start(), m.end()))
             found.append(m.group(0))
+
+    # Pass 3 — markdown bold markers: extract inner text of **...** as highlights
+    for m in re.finditer(r"\*\*(.+?)\*\*", raw_clean):
+        inner = m.group(1).strip()
+        if not inner:
+            continue
+        inner_match = re.search(re.escape(inner), clean, re.IGNORECASE)
+        if inner_match and not _overlaps(inner_match.start(), inner_match.end()):
+            covered.append((inner_match.start(), inner_match.end()))
+            found.append(inner_match.group(0))
 
     # Deduplicate while preserving first-found order
     seen: set[str] = set()
@@ -205,7 +239,7 @@ def annotate_reasoning_lines_fallback(
     normalized_clinical_lines = _normalize_lines(clinical_lines)
     annotations: list[dict[str, Any]] = [
         {
-            "text": line,
+            "text": strip_markdown_bold(line),
             "scope": "clinical_reasoning",
             "sentiment": _normalize_line_sentiment(line),
             "highlight_terms": find_highlight_terms(line),
@@ -220,7 +254,7 @@ def annotate_reasoning_lines_fallback(
     ]
     annotations.extend(
         {
-            "text": line,
+            "text": strip_markdown_bold(line),
             "scope": "policy_reasoning",
             "sentiment": "informational",
             "highlight_terms": find_highlight_terms(line),

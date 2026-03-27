@@ -2,7 +2,7 @@ import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { RecommendationPanel } from "./RecommendationPanel";
+import { RecommendationPanel, clearRecommendationCache } from "./RecommendationPanel";
 import { clinicalService } from "@/services/api";
 import { StageUpdate } from "@/services/api";
 import { RecommendationResponse } from "@/types/recommendation";
@@ -87,6 +87,7 @@ const makeResponse = (overrides?: Partial<RecommendationResponse>): Recommendati
 describe("RecommendationPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearRecommendationCache();
     mockStreamRecommendation(makeResponse());
     Element.prototype.scrollIntoView = vi.fn();
   });
@@ -193,7 +194,7 @@ describe("RecommendationPanel", () => {
       />
     );
 
-    const button = await screen.findByRole("button", { name: "CLOSE CLINICAL GAPS" });
+    const button = await screen.findByRole("button", { name: "Confirm Strategy" });
     await userEvent.click(button);
 
     await waitFor(() => {

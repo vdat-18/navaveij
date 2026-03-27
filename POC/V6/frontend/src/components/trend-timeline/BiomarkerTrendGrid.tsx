@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { CheckCircle2, AlertTriangle, Info } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Info, HelpCircle } from "lucide-react";
 import {
   CartesianGrid,
   Line,
@@ -20,6 +20,15 @@ import { BiomarkerSeries } from "@/types/timeline";
 interface BiomarkerTrendGridProps {
   series: BiomarkerSeries[];
 }
+
+const BIOMARKER_INFO: Record<string, { what: string; interpret: string }> = {
+  "FBS":         { what: "Fasting Blood Sugar — glucose level after 8+ hrs fasting.", interpret: "Normal < 100 mg/dL. 100–125 = pre-diabetes. ≥ 126 = diabetes." },
+  "HbA1c":       { what: "Hemoglobin A1c — average blood sugar over 2–3 months.", interpret: "Normal < 5.7%. 5.7–6.4% = pre-diabetes. ≥ 6.5% = diabetes." },
+  "LDL":         { what: "Low-Density Lipoprotein — 'bad' cholesterol.", interpret: "Optimal < 100 mg/dL. Near-optimal 100–129. Borderline 130–159. High ≥ 160." },
+  "BMI":         { what: "Body Mass Index — weight relative to height.", interpret: "Normal 18.5–22.9 (Asian-adjusted). Overweight 23–24.9. Obese ≥ 25." },
+  "BP Systolic": { what: "Systolic Blood Pressure — pressure when heart beats.", interpret: "Normal < 120 mmHg. Elevated 120–129. Stage 1 HTN 130–139. Stage 2 ≥ 140." },
+  "eGFR":        { what: "Estimated Glomerular Filtration Rate — kidney function.", interpret: "Normal ≥ 90. Mild decline 60–89 (G2). Moderate 30–59 (G3). Severe < 30." },
+};
 
 function getNumericYAxisDomain(item: BiomarkerSeries): [number, number] | undefined {
   const values = item.history
@@ -54,7 +63,23 @@ export function BiomarkerTrendGrid({ series }: BiomarkerTrendGridProps) {
           <div key={`${item.label}-${item.loinc_code}`} className="navavej-card bg-white p-5">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h4 className="text-[11px] font-black text-navavej-gray-dark uppercase tracking-widest">{item.label}</h4>
+                <div className="flex items-center gap-1.5">
+                  <h4 className="text-[11px] font-black text-navavej-gray-dark uppercase tracking-widest">{item.label}</h4>
+                  {BIOMARKER_INFO[item.label] && (
+                    <div className="relative group/help">
+                      <HelpCircle className="w-3.5 h-3.5 text-navavej-gray-med/40 cursor-help hover:text-navavej-teal transition-colors" />
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 invisible group-hover/help:opacity-100 group-hover/help:visible transition-all duration-200 pointer-events-none">
+                        <div className="bg-navavej-gray-dark text-white p-4 rounded-xl shadow-2xl border border-white/10 w-64">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-white/50 mb-2">What it measures</p>
+                          <p className="text-[11px] font-medium leading-relaxed text-white/90 mb-3">{BIOMARKER_INFO[item.label].what}</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-white/50 mb-2">How to interpret</p>
+                          <p className="text-[11px] font-medium leading-relaxed text-white/90">{BIOMARKER_INFO[item.label].interpret}</p>
+                        </div>
+                        <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-navavej-gray-dark absolute top-full left-1/2 -translate-x-1/2" />
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <p className="text-[10px] font-bold text-navavej-gray-med mt-1">LOINC {item.loinc_code}</p>
               </div>
               <span className="text-[9px] font-black text-navavej-teal uppercase">{item.trend_direction}</span>
@@ -101,6 +126,8 @@ export function BiomarkerTrendGrid({ series }: BiomarkerTrendGridProps) {
                         // Actually, let's highlight if value is significantly different. We don't have > or < rules per metric here.
                         // For demonstration, let's say value > reference is abnormal if trend is upward, etc.
                         // Let's just highlight if it's > reference for now as a default "alert" demo.
+                        // TODO V6: move abnormality_direction ("high" | "low" | "range") to BiomarkerSeries BE response
+                        // so the FE does not need per-biomarker hardcodes. HDL is currently the only exception.
                         if (item.label.toLowerCase().includes('hdl')) {
                             isAbnormal = payload.value < item.reference!; // HDL lower is bad
                         } else {

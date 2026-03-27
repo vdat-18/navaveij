@@ -65,13 +65,14 @@ async def test_clinical_workflow_ai_path(mock_session):
         ],
         policy_reasoning="Program matrix matched elevated risk profile.",
         policy_script=SimpleNamespace(
-            recommendation_rationale="A higher tier improves screening coverage.",
-            addon_highlights=["AON001"],
+            program_justification="A higher tier improves screening coverage.",
+            priority_add_ons=[SimpleNamespace(label="Add-on One", priority=SimpleNamespace(value="Yellow"))],
         ),
     )
     narrative = SimpleNamespace(
-        health_summary="There is elevated metabolic risk.",
-        next_steps="Book the advanced package this month.",
+        summary_headline="There is elevated metabolic risk.",
+        top_findings=["Signal 1 indicates elevated risk"],
+        next_actions=["Book the advanced package this month."],
     )
 
     with (
@@ -99,7 +100,7 @@ async def test_clinical_workflow_ai_path(mock_session):
     assert result.ai_output["rule_preliminary_tier"] == "Standard"
     assert result.ai_output["add_ons"][0]["item_id"] == "AON001"
     assert result.ai_output["add_ons"][0]["product_code"] == "PROD_AON001"
-    assert result.ai_output["communication_script"]["recommendation_rationale"] == (
+    assert result.ai_output["communication_script"]["program_justification"] == (
         "A higher tier improves screening coverage."
     )
     assert mock_session.call_tool.call_count == 4

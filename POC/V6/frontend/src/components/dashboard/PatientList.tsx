@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { User, ChevronRight, Activity, Search } from "lucide-react";
 import { patientService } from "@/services/api";
+import { usePatient } from "@/shared/patient-context";
 import { cn } from "@/shared/utils";
 
 interface Patient {
@@ -18,6 +19,7 @@ interface PatientListProps {
 }
 
 export function PatientList({ onSelectPatient, selectedId, privacyMode = false }: PatientListProps) {
+    const { selectedPatient, setSelectedPatient } = usePatient();
     const [patients, setPatients] = useState<Patient[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -28,6 +30,10 @@ export function PatientList({ onSelectPatient, selectedId, privacyMode = false }
             try {
                 const data = await patientService.getAll();
                 setPatients(data);
+                // Clear stale selection if patient no longer exists in registry
+                if (selectedPatient && !data.some(p => p.patient_id === selectedPatient.patient_id)) {
+                    setSelectedPatient(null);
+                }
             } catch (err) {
                 console.error("Failed to fetch patients:", err);
                 setError(err instanceof Error ? err.message : "Failed to load patients");

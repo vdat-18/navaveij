@@ -9,6 +9,10 @@ vi.mock("@/services/api", () => ({
   },
 }));
 
+vi.mock("@/shared/patient-context", () => ({
+  usePatient: () => ({ selectedPatient: null, setSelectedPatient: vi.fn() }),
+}));
+
 const mockPatientService = vi.mocked(patientService);
 
 describe("PatientList", () => {

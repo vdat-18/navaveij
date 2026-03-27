@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { X, Tag, CreditCard, Users, Clock, Sparkles, Stethoscope } from "lucide-react";
+import { X, Tag, CreditCard, Users, Clock, Sparkles, Stethoscope, Package } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PromotionSummary, PromotionApplied, ResolvedPackage, RecommendationAddOn } from "@/types/recommendation";
 
@@ -206,6 +206,53 @@ export function PromotionDrawer({ isOpen, onClose, promoSummary, resolvedPackage
                                 <div className="border-t border-emerald-200 pt-1.5 flex justify-between">
                                     <span className="text-xs font-black text-emerald-800 uppercase tracking-wider">Total Savings</span>
                                     <span className="text-lg font-black text-emerald-700">฿{totalSavings.toLocaleString()}</span>
+                                </div>
+                            </div>
+
+                            {/* Final Settlement */}
+                            <div className="border-t border-navavej-border pt-3 mt-3 space-y-2">
+                                <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-navavej-gray-dark">Final Settlement</h3>
+
+                                {/* Base package */}
+                                <div className="flex justify-between items-center text-[11px]">
+                                    <div className="flex items-center gap-2">
+                                        <Package className="w-3.5 h-3.5 text-navavej-teal" />
+                                        <span className="font-medium text-navavej-gray-med">
+                                            {resolvedPackage?.name || resolvedPackage?.package_name || "Base Package"}
+                                        </span>
+                                    </div>
+                                    <span className="font-mono font-bold text-navavej-gray-dark">฿{(resolvedPackage?.price_thb ?? 0).toLocaleString()}</span>
+                                </div>
+
+                                {/* Selected add-ons */}
+                                {addOns.map(addon => (
+                                    <div key={addon.item_code} className="flex justify-between items-center text-[11px]">
+                                        <span className="font-medium text-navavej-gray-med truncate mr-2">{addon.label}</span>
+                                        <span className="font-mono font-bold text-navavej-gray-dark shrink-0">฿{(addon.promo_price_thb ?? addon.price_thb ?? 0).toLocaleString()}</span>
+                                    </div>
+                                ))}
+
+                                {/* Discounts */}
+                                {(promoSummary?.active_promotions ?? []).filter(p => p.savings_thb > 0).map(promo => (
+                                    <div key={promo.promo_id} className="flex justify-between items-center text-[11px]">
+                                        <span className="font-medium text-amber-700">{promo.label_short || promo.label}</span>
+                                        <span className="font-mono font-bold text-amber-600">-฿{promo.savings_thb.toLocaleString()}</span>
+                                    </div>
+                                ))}
+
+                                {/* Divider + Final */}
+                                <div className="border-t border-navavej-border pt-2 flex justify-between items-baseline">
+                                    <div>
+                                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-navavej-gray-dark block">Total</span>
+                                        <span className="text-[8px] font-bold uppercase tracking-wider text-navavej-gray-med">Inclusive of VAT 7%</span>
+                                    </div>
+                                    <span className="text-2xl font-black text-navavej-gray-dark tracking-tight">
+                                        ฿{(() => {
+                                            const base = resolvedPackage?.price_thb ?? 0;
+                                            const addOnTotal = addOns.reduce((s, a) => s + (a.promo_price_thb ?? a.price_thb ?? 0), 0);
+                                            return Math.max(0, base + addOnTotal - totalSavings).toLocaleString();
+                                        })()}
+                                    </span>
                                 </div>
                             </div>
 

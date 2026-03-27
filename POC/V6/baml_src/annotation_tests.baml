@@ -28,9 +28,9 @@ test AnnotateLines_RiskHeavy {
   // Must return exactly 5 annotations (one per input line)
   @@assert( {{ this|length == 5 }} )
   // Sentinel risk lines: HTN, high LDL, and overdue colonoscopy must all be Risk
-  @@assert( {{ this[0].sentiment == "risk" }} )
-  @@assert( {{ this[1].sentiment == "risk" }} )
-  @@assert( {{ this[2].sentiment == "risk" }} )
+  @@assert( {{ this[0].sentiment == "Risk" }} )
+  @@assert( {{ this[1].sentiment == "Risk" }} )
+  @@assert( {{ this[2].sentiment == "Risk" }} )
   // Every annotation must have non-empty text
   @@assert( {{ this[0].text|length > 0 }} )
   @@assert( {{ this[1].text|length > 0 }} )
@@ -64,13 +64,13 @@ test AnnotateLines_Reassuring {
   // Must return exactly 4 annotations
   @@assert( {{ this|length == 4 }} )
   // No line should be classified as Risk — this is an entirely healthy patient
-  @@assert( {{ this[0].sentiment != "risk" }} )
-  @@assert( {{ this[1].sentiment != "risk" }} )
-  @@assert( {{ this[2].sentiment != "risk" }} )
-  @@assert( {{ this[3].sentiment != "risk" }} )
+  @@assert( {{ this[0].sentiment != "Risk" }} )
+  @@assert( {{ this[1].sentiment != "Risk" }} )
+  @@assert( {{ this[2].sentiment != "Risk" }} )
+  @@assert( {{ this[3].sentiment != "Risk" }} )
   // Sentinel reassuring lines: "normal limits" and "normal kidney function" should be Reassuring
-  @@assert( {{ this[0].sentiment == "reassuring" }} )
-  @@assert( {{ this[3].sentiment == "reassuring" }} )
+  @@assert( {{ this[0].sentiment == "Reassuring" }} )
+  @@assert( {{ this[3].sentiment == "Reassuring" }} )
   // Every annotation must have non-empty text
   @@assert( {{ this[0].text|length > 0 }} )
   @@assert( {{ this[1].text|length > 0 }} )
@@ -105,11 +105,11 @@ test AnnotateLines_Mixed {
   // Must return exactly 6 annotations
   @@assert( {{ this|length == 6 }} )
   // Prediabetes line must be Risk
-  @@assert( {{ this[0].sentiment == "risk" }} )
+  @@assert( {{ this[0].sentiment == "Risk" }} )
   // Mammogram overdue should be Risk
-  @@assert( {{ this[1].sentiment == "risk" }} )
+  @@assert( {{ this[1].sentiment == "Risk" }} )
   // Normal BP line must NOT be Risk
-  @@assert( {{ this[2].sentiment != "risk" }} )
+  @@assert( {{ this[2].sentiment != "Risk" }} )
   // Every annotation must have at least 1 highlight term
   @@assert( {{ this[0].highlight_terms|length > 0 }} )
   @@assert( {{ this[1].highlight_terms|length > 0 }} )

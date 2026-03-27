@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { TimelinePayload } from "@/types/timeline";
-import { CheckCircle2, AlertTriangle, XCircle, Info } from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle, Info, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/shared/utils";
 
 interface ClinicalEventTimelineProps {
@@ -105,6 +105,16 @@ export function ClinicalEventTimeline({ timeline, startYear }: ClinicalEventTime
 
   }, [timeline, startYear]);
 
+  const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
+  const toggleDate = (date: string) => {
+    setCollapsedDates(prev => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  };
+
   const getSeverityIcon = (severity?: string) => {
     switch (severity) {
       case "normal": return <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />;
@@ -148,7 +158,14 @@ export function ClinicalEventTimeline({ timeline, startYear }: ClinicalEventTime
             <div className="absolute left-0 top-1 w-2 h-2 rounded-full bg-navavej-teal ring-4 ring-white z-10" />
             
             <div className="mb-4">
-                <div className="flex items-center gap-3 mb-2 sticky top-0 bg-white z-20 py-1">
+                <div
+                    onClick={() => toggleDate(group.date)}
+                    className="flex items-center gap-3 mb-2 sticky top-0 bg-white z-20 py-1 cursor-pointer select-none hover:bg-navavej-gray-light/30 -mx-1 px-1 rounded-lg transition-colors"
+                >
+                    {collapsedDates.has(group.date)
+                        ? <ChevronRight className="w-4 h-4 text-navavej-gray-med shrink-0" />
+                        : <ChevronDown className="w-4 h-4 text-navavej-teal shrink-0" />
+                    }
                     <h5 className="text-lg font-black text-navavej-gray-dark tracking-tighter">
                         {(() => {
                             try {
@@ -180,7 +197,8 @@ export function ClinicalEventTimeline({ timeline, startYear }: ClinicalEventTime
                     </div>
                 </div>
 
-                {/* Event Cards for this date */}
+                {/* Event Cards for this date (collapsible) */}
+                {!collapsedDates.has(group.date) && (
                 <div className="space-y-2">
                 {group.events.map((row, idx) => {
                     const isAbnormal = row.severity === 'abnormal';
@@ -230,6 +248,7 @@ export function ClinicalEventTimeline({ timeline, startYear }: ClinicalEventTime
                     );
                 })}
                 </div>
+                )}
             </div>
           </div>
         ))}

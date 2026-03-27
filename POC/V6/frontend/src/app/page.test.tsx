@@ -12,7 +12,7 @@ vi.mock("@/shared/privacy-mode", () => ({
 }));
 
 vi.mock("@/shared/auth-context", () => ({
-  useAuth: () => ({ user: { name: "Dr. Test", role: "physician", fhir_scopes: [] }, logout: vi.fn() }),
+  useAuth: () => ({ user: { name: "Dr. Test", role: "consultant", fhir_scopes: [] }, logout: vi.fn() }),
 }));
 
 vi.mock("framer-motion", () => ({

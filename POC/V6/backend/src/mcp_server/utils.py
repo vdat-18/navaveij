@@ -548,26 +548,24 @@ def build_timeline_from_signal_store(record: dict, patient_token: str) -> dict:
     lab_counter = 1
     for lab in biomarker_trends.get("labs", []):
         history = lab.get("history", [])
-        if not history:
-            continue
-        latest = history[-1]
-        date = latest.get("date", computed_at[:10])
-        dates.append(date)
-        significant_lab_events.append(
-            {
-                "event_id": f"lab-{lab_counter:03d}",
-                "date": date,
-                "loinc_code": lab.get("loinc_code", ""),
-                "label": lab.get("label", ""),
-                "value": latest.get("value", lab.get("current_value")),
-                "unit": lab.get("unit", ""),
-                "interpretation": lab.get("interpretation", ""),
-                "interpretation_label": lab.get("category", ""),
-                "threshold_crossed": "",
-                "normal_range": "",
-            }
-        )
-        lab_counter += 1
+        for entry in history:
+            date = entry.get("date", computed_at[:10])
+            dates.append(date)
+            significant_lab_events.append(
+                {
+                    "event_id": f"lab-{lab_counter:03d}",
+                    "date": date,
+                    "loinc_code": lab.get("loinc_code", ""),
+                    "label": lab.get("label", ""),
+                    "value": entry.get("value"),
+                    "unit": lab.get("unit", ""),
+                    "interpretation": lab.get("interpretation", ""),
+                    "interpretation_label": lab.get("category", ""),
+                    "threshold_crossed": "",
+                    "normal_range": "",
+                }
+            )
+            lab_counter += 1
     screening_procedure_history = []
     for i, gap in enumerate(clinical_signals.get("screening_gaps", []), start=1):
         performed = gap.get("last_performed_date")

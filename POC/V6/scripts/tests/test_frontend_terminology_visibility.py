@@ -19,6 +19,6 @@ def test_mapping_component_renders_target_terminology_columns():
     assert "Target System" in source
     assert "Target Label" in source
     assert "Map Type" in source
-    assert "mapping.target_system" in source
-    assert "mapping.target_code" in source
-    assert "mapping.mapping_type" in source
+    assert "m.target_system" in source
+    assert "m.target_code" in source
+    assert "m.mapping_type" in source

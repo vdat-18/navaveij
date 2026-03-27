@@ -28,7 +28,7 @@ def test_annotate_reasoning_lines_fallback_classifies_sentiment_and_includes_pol
             "text": "Colonoscopy overdue > 8 years (screening gap).",
             "scope": "clinical_reasoning",
             "sentiment": "risk",
-            "highlight_terms": [],
+            "highlight_terms": ["Colonoscopy"],
         },
         {
             "text": "package selection aligns with screening goals.",

@@ -47,6 +47,9 @@ class RecommendResponse(BaseModel):
     resolved_package: dict[str, Any]
     confidence_score: float
     confidence_tier: str
+    signal_coverage: float = 0.0
+    data_completeness: float = 0.0
+    rule_agreement: float = 0.0
     review_required: bool
     recommendation_source: str
     recommendation_hash: str | None = None
@@ -703,6 +706,9 @@ def _normalize_stage2(
         "resolved_package": resolved_package,
         "confidence_score": confidence_score,
         "confidence_tier": confidence_tier,
+        "signal_coverage": signal_coverage,
+        "data_completeness": data_completeness,
+        "rule_agreement": rule_agreement,
         "review_required": review_required,
         "recommendation_source": recommendation_source,
         "recommendation_hash": ai_output.get("recommendation_hash"),
@@ -1017,7 +1023,7 @@ async def admin_monitoring_snapshot(_auth: AuthContext = Depends(require_monitor
 @router.get("/admin/audit-logs/search", response_model=AuditLogsResponse)
 async def admin_audit_logs_search(
     user_id: str | None = Query(None),
-    patient_token_prefix: str | None = Query(None),
+    patient_id: str | None = Query(None),
     action_type: str | None = Query(None),
     resource_type: str | None = Query(None),
     start_date: str | None = Query(None),
@@ -1026,7 +1032,7 @@ async def admin_audit_logs_search(
 ):
     return await audit_logs(
         user_id=user_id,
-        patient_token_prefix=patient_token_prefix,
+        patient_id=patient_id,
         action_type=action_type,
         resource_type=resource_type,
         start_date=start_date,

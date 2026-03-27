@@ -74,6 +74,7 @@ export default function DashboardPage() {
   const [screeningGaps, setScreeningGaps] = useState<ScreeningGapRow[]>([]);
   const [vaccinationGaps, setVaccinationGaps] = useState<ScreeningGapRow[]>([]);
   const [screeningPanelOpen, setScreeningPanelOpen] = useState(false);
+  const [securityMetadata, setSecurityMetadata] = useState<RecommendationResponse["security_metadata"] | null>(null);
 
   // Task 4: Drawer state for Trend & Timeline (physician/nurse flow only)
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -117,6 +118,7 @@ export default function DashboardPage() {
   const handleSelectPatient = (patient: Patient) => {
     setSelectedPatient(patient);
     setAnalysisTimestamp(null);
+    setSecurityMetadata(null);
     setDrawerOpen(false);
   };
 
@@ -124,6 +126,7 @@ export default function DashboardPage() {
   const handleBackToSearch = () => {
     setSelectedPatient(null);
     setAnalysisTimestamp(null);
+    setSecurityMetadata(null);
     setScreeningGaps([]);
     setVaccinationGaps([]);
     setScreeningPanelOpen(false);
@@ -322,6 +325,7 @@ export default function DashboardPage() {
               privacyMode={privacyMode}
               onRecommendationLoad={(data: RecommendationResponse | null) => {
                 setAnalysisTimestamp((data?.metadata?.generated_at as string | undefined) || null);
+                setSecurityMetadata(data?.security_metadata || null);
               }}
               isRuleBasedForced={isRuleBasedForced}
               hideCharts={true}
@@ -573,6 +577,7 @@ export default function DashboardPage() {
               privacyMode={privacyMode}
               onRecommendationLoad={(data: RecommendationResponse | null) => {
                 setAnalysisTimestamp((data?.metadata?.generated_at as string | undefined) || null);
+                setSecurityMetadata(data?.security_metadata || null);
               }}
               isRuleBasedForced={isRuleBasedForced}
             />

@@ -23,6 +23,11 @@ import {
     Loader2,
     Sparkles,
     BarChart3,
+    Info,
+    Fingerprint,
+    Binary,
+    AlertCircle,
+    Tag,
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -33,6 +38,18 @@ import { LabResultsGrid } from "./LabResultsGrid";
 import { CriticalSignal, PatientHighAlert, RecommendationAddOn, RecommendationResponse } from "@/types/recommendation";
 import { renderHighlightedText, severityToStyles } from "@/shared/recommendationTextFormatting";
 import { PromotionDrawer } from "./PromotionDrawer";
+
+// ── Client-side recommendation cache (5-min TTL) ──
+const CACHE_TTL_MS = 5 * 60 * 1000;
+interface CacheEntry { data: RecommendationResponse; timestamp: number }
+const recommendationCache = new Map<string, CacheEntry>();
+function recCacheKey(token: string, ruleBased: boolean): string {
+    return `${token}:${ruleBased}`;
+}
+/** Clear the client-side recommendation cache (useful for tests). */
+export function clearRecommendationCache(): void {
+    recommendationCache.clear();
+}
 
 interface RecommendationPanelProps {
     patientId: string | null;
@@ -129,35 +146,6 @@ const ClinicalRiskGauge = ({ value }: { value: string }) => {
     );
 };
 
-const TrendToast = ({ onDismiss }: { onDismiss: () => void }) => {
-    return (
-        <motion.div
-            initial={{ y: 50, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 50, opacity: 0 }}
-            className="fixed bottom-10 right-10 z-[100] bg-white border-2 border-navavej-teal/30 p-6 rounded-[24px] shadow-2xl flex items-center gap-6"
-        >
-            <div className="w-12 h-12 bg-navavej-teal/10 rounded-2xl flex items-center justify-center animate-bounce shadow-inner">
-                <BarChart3 className="w-6 h-6 text-navavej-teal" />
-            </div>
-            <div>
-                <h4 className="text-sm font-black uppercase text-navavej-gray-dark tracking-wide flex items-center gap-2">
-                    Analysis Synced <Sparkles className="w-3 h-3 text-amber-400" />
-                </h4>
-                <p className="text-[10px] font-bold text-navavej-gray-med uppercase tracking-[0.1em] mt-0.5">Historical trends are now available</p>
-                <div className="flex items-center gap-3 mt-4">
-                    <Link
-                        href="/trend-timeline"
-                        className="px-4 py-2 bg-navavej-teal text-white text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-navavej-teal/90 transition-all shadow-lg hover:scale-105 active:scale-95"
-                    >
-                        View Timeline
-                    </Link>
-                    <button onClick={onDismiss} className="text-[9px] font-black uppercase text-navavej-gray-med hover:text-navavej-gray-dark px-2 transition-colors">Dismiss</button>
-                </div>
-            </div>
-        </motion.div>
-    );
-};
 
 const PackageSeal = ({ tier }: { tier: string }) => {
     const isDiamond = tier.toLowerCase() === "premium";
@@ -404,7 +392,6 @@ export function RecommendationPanel({
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [rejectReason, setRejectReason] = useState("patient_refusal");
     const [isPackageRevealed, setIsPackageRevealed] = useState(true);
-    const [showTrendToast, setShowTrendToast] = useState(false);
     const [isAddOnsExpanded, setIsAddOnsExpanded] = useState(true);
     const [revealedAddOns, setRevealedAddOns] = useState<Record<number, boolean>>({});
     const [riskToast, setRiskToast] = useState<{ message: string; key: number } | null>(null);
@@ -414,9 +401,7 @@ export function RecommendationPanel({
     const riskToastTriggerRef = useRef<HTMLButtonElement>(null);
     const riskToastPanelRef = useRef<HTMLDivElement>(null);
 
-    const scrollToHUD = () => {
-        hudRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    };
+
 
     useEffect(() => {
         if (!riskToast) return;
@@ -457,6 +442,20 @@ export function RecommendationPanel({
             return;
         }
         const fetchRecommendation = async () => {
+            // ── Client-side cache check ──
+            const cacheKey = recCacheKey(patientToken, isRuleBasedForced);
+            const cached = recommendationCache.get(cacheKey);
+            if (cached && (Date.now() - cached.timestamp) < CACHE_TTL_MS) {
+                setData(cached.data);
+                onRecommendationLoad?.(cached.data);
+                setDecisionOutcome(null);
+                setNotes("");
+                setSubmissionError(null);
+                setShowRejectModal(false);
+                setRejectReason("patient_refusal");
+                return;
+            }
+
             setLoading(true);
             setCurrentStage(null);
             setError(null);
@@ -466,7 +465,6 @@ export function RecommendationPanel({
             setShowRejectModal(false);
             setRejectReason("patient_refusal");
             setIsPackageRevealed(false);
-            setShowTrendToast(false);
             setRevealedAddOns({});
             try {
                 const result = await clinicalService.streamRecommendation(
@@ -477,7 +475,7 @@ export function RecommendationPanel({
                 setData(result);
                 onRecommendationLoad?.(result);
                 if (result) {
-                    setShowTrendToast(true);
+                    recommendationCache.set(cacheKey, { data: result, timestamp: Date.now() });
                 }
             } catch (err) {
                 console.error("Failed to fetch recommendation:", err);
@@ -651,6 +649,9 @@ export function RecommendationPanel({
 
     if (!data) return null;
     const criticalAlerts = normalizeCriticalAlerts(data.patient_high_alert);
+    // Privacy-aware reasoning trace: use masked version when privacy mode is on
+    const reasoningTrace = ((privacyMode ? data.security_metadata?.masked_ai_output?.reasoning_trace : data.reasoning_trace) || data.reasoning_trace || "").toString();
+    const reasoningTraceLines = reasoningTrace?.split('\n') ?? [];
     // reasoning_trace_annotated is always present from the backend; no string-parsing fallback needed.
     const structuredReasoningLines = data.reasoning_trace_annotated ?? [];
     const clinicalReasoningLines = structuredReasoningLines.filter((line) => line.scope === "clinical_reasoning");
@@ -714,7 +715,7 @@ export function RecommendationPanel({
     return (
         <AnimatePresence mode="wait">
             <motion.div
-                key={patientToken}
+                key={patientToken ? `panel-${patientToken}` : "panel-empty"}
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="space-y-6"
@@ -786,80 +787,64 @@ export function RecommendationPanel({
                             </div>
                         </div>
 
-                        {/* 2. Plan Identity Card */}
+                        {/* 2 & 3. Consolidated Strategic Tier & Plan Details - 3 Columns */}
                         <div className={cn(
-                            "md:col-span-2 p-5 text-white flex flex-col items-center justify-center relative overflow-hidden transition-all duration-1000",
+                            "md:col-span-3 p-6 text-white relative overflow-hidden transition-all duration-1000 flex flex-col items-center justify-center",
                             (data.ai_recommended_tier || "Premium").toLowerCase() === "premium" ? "bg-gradient-to-br from-cyan-600 to-blue-900" :
                                 (data.ai_recommended_tier || "Premium").toLowerCase() === "advanced" ? "bg-gradient-to-br from-[#4A5568] to-[#2D3748]" : "bg-gradient-to-br from-amber-600 to-amber-900"
                         )}>
-                            <div className="relative z-10 flex flex-col items-center gap-3 text-center">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                            <div className="absolute bottom-0 left-0 w-24 h-24 bg-cyan-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+
+                            {/* Tier Branding */}
+                            <div className="flex flex-col items-center relative z-10 mb-4">
                                 <PackageSeal tier={data.ai_recommended_tier || "Premium"} />
-                                <div>
-                                    <h4 className={cn("text-base font-black leading-tight tracking-tight mt-1", privacyMode ? "text-navavej-red/70 font-mono" : "text-white drop-shadow-md")}>
+                                <div className="mt-3 text-center">
+                                    <h3 className="text-xl font-black tracking-tighter leading-none mb-1 drop-shadow-2xl uppercase">
+                                        {data.ai_recommended_tier || "Premium"}
+                                    </h3>
+                                    <div className="flex items-center gap-1.5 justify-center opacity-70">
+                                        <div className="w-1 h-1 bg-white rounded-full animate-pulse" />
+                                        <span className="text-[7px] font-black uppercase tracking-[0.3em]">Strategic Trace</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Separator */}
+                            <div className="w-8 h-[1px] bg-white/20 mb-4 shrink-0" />
+
+                            {/* Plan Details */}
+                            <div className="space-y-4 relative z-10 text-center w-full">
+                                <div className="space-y-1">
+                                    <span className="text-[8px] font-medium text-white/50 uppercase tracking-[0.25em] block leading-none">Recommended Plan</span>
+                                    <span className={cn("text-[15px] font-semibold leading-tight tracking-normal block", privacyMode ? "text-red-400 font-mono" : "text-white")}>
                                         {privacyMode ? maskedPackageName : (data.resolved_package?.name || data.resolved_package?.package_name || "Unknown Plan")}
-                                    </h4>
-                                    {!privacyMode && data.add_ons.length > 0 && (
-                                        <p className="text-[9px] font-bold text-white/80 uppercase tracking-widest mt-1">
-                                            + {selectedAddOns.size}/{data.add_ons.length} select add-ons
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 3. Pricing Card */}
-                        <div className="md:col-span-2 bg-[#F8FAFC] p-5 flex flex-col justify-center gap-2 border-r border-navavej-border/40 relative">
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-navavej-gray-med">Total Investment</span>
-                            <div className="flex flex-col gap-0.5 mt-1">
-                                {!privacyMode && hasFullDiscount && (
-                                    <span className="text-[13px] font-bold text-navavej-gray-med/70 line-through tracking-tight">
-                                        ฿{fullOriginalPrice.toLocaleString()}
                                     </span>
-                                )}
-                                <span className={cn("text-4xl font-black tracking-tighter leading-none -ml-0.5", privacyMode ? "text-navavej-red/70 font-mono" : "text-navavej-gray-dark")}>
-                                    {privacyMode ? maskedPriceValue : (fullCurrentPrice > 0 ? `฿${fullCurrentPrice.toLocaleString()}` : "Price TBD")}
-                                </span>
-                            </div>
-                            
-                            {!privacyMode && (selectedTotalSavings > 0 || urgencyMessages.length > 0 || promoSummary) && (
-                                <div className="flex flex-wrap items-center gap-2 mt-3">
-                                    {selectedTotalSavings > 0 && (
-                                        <span className="px-2.5 py-1 bg-emerald-100 border border-emerald-200 rounded-md text-[9px] font-black text-emerald-700 uppercase tracking-widest shadow-sm">
-                                            Save ฿{selectedTotalSavings.toLocaleString()}
-                                        </span>
-                                    )}
-                                    {promoSummary && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowDealsDrawer(true)}
-                                            className="px-2.5 py-1 bg-amber-100 border border-amber-300 rounded-md flex items-center gap-1 hover:bg-amber-200 transition-colors shadow-sm active:scale-95 cursor-pointer"
-                                        >
-                                            <span className="text-[9px] font-black uppercase text-amber-700 tracking-widest">฿ Deals</span>
-                                        </button>
-                                    )}
-                                    {urgencyMessages.length > 0 && (
-                                        <span className="px-2.5 py-1 bg-pink-100 border border-pink-200 rounded-md text-[8px] font-black text-pink-600 uppercase tracking-widest animate-pulse shadow-sm block w-full mt-1">
-                                            {urgencyMessages[0]}
-                                        </span>
-                                    )}
                                 </div>
-                            )}
+
+                                <div className="flex justify-center">
+                                    <div className="px-3 py-1.5 bg-white/10 backdrop-blur-md border border-white/20 rounded-full flex items-center gap-2 shadow-xl hover:bg-white/15 transition-all">
+                                        <ShieldCheck className="w-3.5 h-3.5 text-navavej-teal-light" />
+                                        <span className="text-[8px] font-bold uppercase text-white/90 tracking-[0.1em]">Safety Verified</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        {/* 4. Strategic Add-ons HUD - Single Column Vertical List */}
-                        <div className="md:col-span-5 bg-white p-4 flex flex-col relative border-l border-navavej-border/40">
+                        {/* 4. Medical Screening Add-ons HUD - V4 Simple Layout */}
+                        <div className="md:col-span-6 bg-white p-4 flex flex-col relative border-l border-navavej-border/40">
                             <div className="flex justify-between items-center mb-3 shrink-0">
                                 <div className="flex items-center gap-2">
                                     <Sparkles className="w-3.5 h-3.5 text-navavej-teal" />
-                                    <h4 className="text-[9px] font-bold text-navavej-teal uppercase tracking-widest">Medical Screening Add-ons</h4>
+                                    <h4 className="text-[10px] font-bold text-navavej-gray-dark uppercase tracking-widest">Medical Screening Add-ons</h4>
                                 </div>
                                 <div className="px-3 py-1 bg-navavej-teal/10 rounded-full text-[9px] font-bold text-navavej-teal uppercase tracking-widest">
                                     {data.add_ons?.length || 0} Recommended
                                 </div>
                             </div>
-                            
+
                             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar max-h-[220px]">
-                                <div className="divide-y divide-navavej-border/20">
+                                <div className="space-y-3">
                                     {data.add_ons && data.add_ons.length > 0 ? (
                                         [...data.add_ons]
                                             .sort((a, b) => {
@@ -872,63 +857,56 @@ export function RecommendationPanel({
                                                 const prio = (item.priority_level || item.priority || "").toLowerCase();
                                                 const isRed = prio === 'red' || prio === 'critical' || prio === 'high';
                                                 const isGreen = prio === 'green' || prio === 'low';
-                                                const isSelected = selectedAddOns.has(item.item_code);
-                                                
+
                                                 return (
-                                                    <div 
-                                                        key={idx} 
+                                                    <div
+                                                        key={idx}
                                                         className={cn(
-                                                            "group relative py-1.5 px-3 transition-colors duration-200 cursor-help flex items-center gap-3",
-                                                            "border-l-[3px]",
-                                                            isSelected ? (isRed ? "border-navavej-red hover:bg-navavej-red/[0.02]" : isGreen ? "border-emerald-500 hover:bg-emerald-50/20" : "border-yellow-500 hover:bg-amber-50/20") : "border-navavej-border/40 opacity-50 hover:opacity-100 bg-transparent"
+                                                            "group relative p-3 rounded-2xl border-2 transition-all duration-300 hover:shadow-xl hover:scale-[1.01] cursor-help",
+                                                            isRed ? "bg-navavej-red/[0.03] border-navavej-red/10 hover:border-navavej-red/30" :
+                                                            isGreen ? "bg-emerald-50/20 border-emerald-100 hover:border-emerald-300" :
+                                                            "bg-amber-50/20 border-amber-100 hover:border-amber-300"
                                                         )}
                                                     >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isSelected}
-                                                            onChange={() => {
-                                                                setSelectedAddOns(prev => {
-                                                                    const next = new Set(prev);
-                                                                    if (next.has(item.item_code)) next.delete(item.item_code);
-                                                                    else next.add(item.item_code);
-                                                                    return next;
-                                                                });
-                                                            }}
-                                                            className="w-[14px] h-[14px] rounded-[3px] border-2 border-navavej-border text-navavej-teal focus:ring-navavej-teal/30 shrink-0 cursor-pointer accent-[var(--color-navavej-teal)]"
-                                                        />
-                                                        <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                                            <div className="flex items-center gap-2">
+                                                        <div className="flex justify-between items-center gap-4">
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className={cn(
+                                                                        "w-1.5 h-1.5 rounded-full shadow-sm shrink-0",
+                                                                        isRed ? "bg-navavej-red animate-pulse" :
+                                                                        isGreen ? "bg-emerald-500" : "bg-amber-500"
+                                                                    )} />
+                                                                    <h5 className="text-[13px] font-semibold text-navavej-gray-dark tracking-normal leading-snug truncate group-hover:whitespace-normal">
+                                                                        {item.label}
+                                                                    </h5>
+                                                                </div>
+
+                                                                {/* Reveal-on-hover rationale */}
+                                                                <div className="max-h-0 opacity-0 overflow-hidden group-hover:max-h-48 group-hover:opacity-100 group-hover:mt-3 transition-all duration-500 ease-in-out">
+                                                                    <div className="p-3 bg-navavej-gray-light/40 rounded-xl border border-navavej-border/30 shadow-inner">
+                                                                        <div className="flex items-center gap-1.5 mb-1.5 border-b border-navavej-border/30 pb-1.5">
+                                                                            <Fingerprint className="w-3 h-3 text-navavej-teal/60" />
+                                                                            <span className="text-[8px] font-bold text-navavej-teal/70 uppercase tracking-widest">Clinical Rationale</span>
+                                                                        </div>
+                                                                        <p className="text-[11px] font-medium text-navavej-gray-med/90 leading-relaxed pl-1 text-left">
+                                                                            {item.rationale}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="shrink-0 flex items-center pr-2">
                                                                 <div className={cn(
-                                                                    "w-[5px] h-[5px] rounded-full shrink-0",
-                                                                    isRed ? "bg-navavej-red" : isGreen ? "bg-emerald-500" : "bg-yellow-500"
-                                                                )} />
-                                                                <h5 className="text-[11px] font-bold text-navavej-gray-dark tracking-tight truncate">
-                                                                    {item.label}
-                                                                </h5>
+                                                                    "px-3 py-1 rounded-full text-[8px] font-bold uppercase tracking-widest flex items-center gap-1.5 border shadow-sm",
+                                                                    isRed ? "bg-navavej-red/10 text-navavej-red border-navavej-red/20 shadow-navavej-red/5" :
+                                                                    isGreen ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                                                                    "bg-amber-50 text-amber-700 border-amber-200"
+                                                                )}>
+                                                                    {isRed ? <AlertTriangle className="w-2.5 h-2.5" /> : isGreen ? <CheckCircle className="w-2.5 h-2.5" /> : <Info className="w-2.5 h-2.5" />}
+                                                                    <span>
+                                                                        {isRed ? "High Priority" : isGreen ? "Routine" : "Moderate Risk"}
+                                                                    </span>
+                                                                </div>
                                                             </div>
-                                                            <div className="max-h-0 opacity-0 overflow-hidden group-hover:max-h-[30px] group-hover:opacity-100 group-hover:mt-0.5 transition-all duration-300 ease-in-out">
-                                                                <p className="text-[10px] font-medium text-navavej-gray-med italic line-clamp-1 ml-3.5">
-                                                                    {item.rationale}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="text-right shrink-0 flex flex-col items-end justify-center">
-                                                            {item.promotions_applied && item.promotions_applied.length > 0 && item.original_price_thb && (
-                                                                <span className="text-[9px] font-bold text-navavej-gray-med/50 line-through leading-none mb-0.5">
-                                                                    ฿{item.original_price_thb.toLocaleString()}
-                                                                </span>
-                                                            )}
-                                                            <span className={cn(
-                                                                "text-[12px] font-black tracking-tight leading-none",
-                                                                isRed ? "text-navavej-red" : isGreen ? "text-emerald-700" : "text-amber-700"
-                                                            )}>
-                                                                {item.price_thb ? `฿${(item.promo_price_thb ?? item.price_thb).toLocaleString()}` : '—'}
-                                                            </span>
-                                                            {item.promotions_applied && item.promotions_applied.length > 0 && (
-                                                                <span className="text-[7px] font-bold uppercase tracking-wider text-amber-600 mt-0.5 leading-none">
-                                                                    {item.promotions_applied[0].label_short}
-                                                                </span>
-                                                            )}
                                                         </div>
                                                     </div>
                                                 );
@@ -943,9 +921,6 @@ export function RecommendationPanel({
                         </div>
                     </div>
 
-                <AnimatePresence>
-                    {showTrendToast && <TrendToast onDismiss={() => setShowTrendToast(false)} />}
-                </AnimatePresence>
 
                 {/* Evolution & Trends - Only shown if not hidden */}
                 {!hideCharts && (
@@ -965,7 +940,7 @@ export function RecommendationPanel({
                 {/* Detailed Logic & Alerts Reorganized */}
                 <div className="space-y-10">
                     {/* 1. Clinical AI Reasoning - Full Width for Maximum Impact */}
-                    <div className="navavej-card p-12 border-none bg-white shadow-xl shadow-navavej-teal/[0.03] relative overflow-hidden group">
+                    <div className="navavej-card p-12 border-none bg-white shadow-xl shadow-navavej-teal/[0.03] relative group">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-navavej-teal/[0.02] rounded-full translate-x-16 -translate-y-16 group-hover:scale-110 transition-transform duration-700" />
 
                         <div className="flex items-center justify-between mb-10 relative z-10">
@@ -974,8 +949,80 @@ export function RecommendationPanel({
                                     <BrainCircuit className="w-8 h-8 text-navavej-teal" />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-black text-navavej-gray-dark tracking-tighter leading-none uppercase italic">Clinical Logic & Rationale</h3>
-                                    <p className="text-[11px] font-black text-navavej-teal uppercase tracking-[0.2em] mt-2 opacity-80">Physician Evidence Stream</p>
+                                    <div className="flex items-center gap-3">
+                                        <h3 className="text-2xl font-black text-navavej-gray-dark tracking-tighter leading-none uppercase italic">Clinical Logic & Rationale</h3>
+                                        {data.confidence_tier === "High" && (
+                                            <div className="px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center gap-1.5">
+                                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                                <span className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter">AI Verified</span>
+                                            </div>
+                                        )}
+                                        {data.confidence_tier === "Medium" && (
+                                            <div className="px-2 py-1 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center gap-1.5">
+                                                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                                                <span className="text-[9px] font-black text-amber-600 uppercase tracking-tighter">Discretion Advised</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-3 mt-2">
+                                        <p className="text-[11px] font-black text-navavej-teal uppercase tracking-[0.2em] opacity-80 border-r border-navavej-teal/20 pr-3">Physician Evidence Stream</p>
+                                        <div className="flex items-center gap-2 group/confidence relative">
+                                            <Binary className="w-4 h-4 text-navavej-gray-med group-hover/confidence:text-navavej-teal transition-colors" />
+                                            <span className="text-[11px] font-black uppercase tracking-[0.1em] text-navavej-gray-med flex items-center gap-2 cursor-help">
+                                                Confidence Indicator:
+                                                <span className="text-lg font-black text-navavej-teal tracking-tighter bg-navavej-teal/5 px-2 py-0.5 rounded-lg border border-navavej-teal/10 shadow-sm group-hover/confidence:bg-navavej-teal/10 transition-all">
+                                                    {(data.confidence_score * 100).toFixed(1)}%
+                                                </span>
+                                            </span>
+
+                                            {/* Transparency Metric Tooltip */}
+                                            <div className="absolute bottom-full left-0 mb-3 z-50 opacity-0 invisible group-hover/confidence:opacity-100 group-hover/confidence:visible transition-all duration-300 -translate-y-2 group-hover/confidence:translate-y-0">
+                                                <div className="bg-navavej-gray-dark text-white p-5 rounded-2xl shadow-2xl border border-white/10 w-72 backdrop-blur-xl">
+                                                    <div className="space-y-4">
+                                                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] text-white/40 border-b border-white/5 pb-3 mb-1">
+                                                            <span>Transparency Metric</span>
+                                                            <span>Weight</span>
+                                                            <span className="text-right">Score</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-[11px] group/item">
+                                                            <div className="flex flex-col">
+                                                                <span className="font-black text-white group-hover/item:text-navavej-teal transition-colors">Signal Coverage</span>
+                                                                <span className="text-[8px] text-white/40 uppercase tracking-widest mt-0.5">Input clinical data quality</span>
+                                                            </div>
+                                                            <span className="text-white/40 font-bold">40%</span>
+                                                            <span className="font-black text-navavej-teal text-base leading-none">
+                                                                {Math.round((data.signal_coverage || 0) * 100)}%
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-[11px] group/item">
+                                                            <div className="flex flex-col">
+                                                                <span className="font-black text-white group-hover/item:text-navavej-teal transition-colors">Data Completeness</span>
+                                                                <span className="text-[8px] text-white/40 uppercase tracking-widest mt-0.5">Decision integrity / Accuracy</span>
+                                                            </div>
+                                                            <span className="text-white/40 font-bold">40%</span>
+                                                            <span className="font-black text-navavej-teal text-base leading-none">
+                                                                {Math.round((data.data_completeness || 0) * 100)}%
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-[11px] group/item">
+                                                            <div className="flex flex-col">
+                                                                <span className="font-black text-white group-hover/item:text-navavej-teal transition-colors">Rule Agreement</span>
+                                                                <span className="text-[8px] text-white/40 uppercase tracking-widest mt-0.5">Standard Protocol Alignment</span>
+                                                            </div>
+                                                            <span className="text-white/40 font-bold">20%</span>
+                                                            <span className="font-black text-navavej-teal text-base leading-none">
+                                                                {Math.round((data.rule_agreement || 0) * 100)}%
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="mt-5 pt-4 border-t border-white/10 text-[9px] font-bold italic text-white/40 leading-relaxed uppercase tracking-widest text-center">
+                                                        Determined by XAI Pipeline Integrity
+                                                    </div>
+                                                </div>
+                                                <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-navavej-gray-dark absolute top-full left-10" />
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div className="px-4 py-1.5 bg-navavej-teal/10 rounded-full text-[10px] font-black text-navavej-teal uppercase tracking-[0.2em] shadow-sm">Trace Active</div>
@@ -983,14 +1030,28 @@ export function RecommendationPanel({
 
                         <div className="relative z-10 bg-white rounded-[24px] p-6 border border-navavej-border/50 shadow-sm">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {clinicalReasoningLines.length > 0 ? (
+                                {privacyMode && reasoningTraceLines.length > 0 ? (
+                                    /* Privacy mode: render masked plain-text lines (tokens instead of real names) */
+                                    reasoningTraceLines.filter(l => l.trim()).map((line, i) => (
+                                        <div key={`priv-${i}`} className="flex items-start gap-3 p-3 rounded-2xl border bg-navavej-gray-light/40 border-navavej-border/20">
+                                            <div className="mt-2.5 shrink-0">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-navavej-gray-med/60" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-[13px] font-mono font-bold leading-relaxed text-left text-navavej-gray-dark">
+                                                    {line}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : clinicalReasoningLines.length > 0 ? (
                                     clinicalReasoningLines.map((line, idx: number) => {
                                         const sentiment = line.sentiment;
                                         return (
                                             <div key={idx} className={cn(
                                                 "flex items-start gap-3 p-3 rounded-2xl transition-all border",
-                                                sentiment === 'risk' ? "bg-navavej-red/[0.03] border-navavej-red/10" : 
-                                                sentiment === 'reassuring' ? "bg-navavej-teal/[0.03] border-navavej-teal/10" : 
+                                                sentiment === 'risk' ? "bg-navavej-red/[0.03] border-navavej-red/10" :
+                                                sentiment === 'reassuring' ? "bg-navavej-teal/[0.03] border-navavej-teal/10" :
                                                 "bg-navavej-gray-light/40 border-navavej-border/20"
                                             )}>
                                                 <div className="mt-1 shrink-0 flex flex-col items-center">
@@ -1008,7 +1069,6 @@ export function RecommendationPanel({
                                                         sentiment === 'risk' ? "text-navavej-red/90" :
                                                         sentiment === 'reassuring' ? "text-navavej-teal/90" :
                                                         "text-navavej-gray-dark",
-                                                        privacyMode && "font-mono"
                                                     )}>
                                                         {renderHighlightedText(line.text, line.sentiment, line.highlight_terms)}
                                                     </p>
@@ -1024,7 +1084,7 @@ export function RecommendationPanel({
                             </div>
                         </div>
 
-                        {policyReasoningLines.length > 0 && (
+                        {(policyReasoningLines.length > 0 || (privacyMode && reasoningTraceLines.length > 0)) && (
                             <div className="relative z-10 mt-6 bg-navavej-teal/[0.04] rounded-[24px] p-8 border border-navavej-teal/20">
                                 <div className="flex items-center gap-2 mb-5">
                                     <Activity className={cn("w-4 h-4", privacyMode ? "text-navavej-red" : "text-navavej-teal")} />
@@ -1044,7 +1104,9 @@ export function RecommendationPanel({
                                                 privacyMode ? "font-mono text-navavej-red/80" : "text-navavej-gray-dark"
                                             )}
                                         >
-                                            {renderHighlightedText(line.text, line.sentiment, line.highlight_terms)}
+                                            {privacyMode
+                                                ? line.text
+                                                : renderHighlightedText(line.text, line.sentiment, line.highlight_terms)}
                                         </p>
                                     ))}
                                 </div>
@@ -1109,60 +1171,24 @@ export function RecommendationPanel({
                                 </div>
                             </div>
 
-                            {/* Physician Notes & Action */}
-                            <div className="lg:flex-1 bg-navavej-gray-light rounded-[24px] p-8 border border-navavej-border flex flex-col shadow-inner">
-                                <div className="flex items-center gap-2 mb-4 text-navavej-gray-med">
-                                    <Activity className="w-3.5 h-3.5" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest">Execution Notes</span>
+                            {/* Analysis Synced — View Clinical Timeline CTA */}
+                            <div className="lg:flex-1 bg-white rounded-[24px] p-8 border border-navavej-teal/20 flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden group hover:border-navavej-teal/40 transition-colors">
+                                <div className="absolute inset-0 bg-gradient-to-br from-navavej-teal/[0.03] to-transparent opacity-50" />
+                                <div className="w-16 h-16 bg-navavej-teal/10 rounded-2xl flex items-center justify-center shadow-inner mb-6 relative z-10 border border-navavej-teal/30 group-hover:scale-110 transition-transform">
+                                    <BarChart3 className="w-8 h-8 text-navavej-teal" />
                                 </div>
-                                <textarea
-                                    value={notes}
-                                    onChange={(e) => setNotes(e.target.value)}
-                                    disabled={!!decisionOutcome || isSubmitting}
-                                    placeholder="Add clinical observation..."
-                                    className="w-full h-24 bg-white border-2 border-navavej-border rounded-xl p-4 text-[11px] font-medium outline-none transition-all resize-none shadow-sm focus:border-navavej-teal/50"
-                                />
-                                {submissionError && (
-                                    <p className="text-xs text-red-500 font-bold mt-2">{submissionError}</p>
-                                )}
-                                {/* Post-decision locked state */}
-                                {decisionOutcome ? (
-                                    <button
-                                        disabled
-                                        className={cn(
-                                            "mt-4 w-full py-4 flex items-center justify-center gap-3 rounded-xl font-black text-xs uppercase tracking-widest text-white shadow-lg cursor-not-allowed",
-                                            decisionOutcome === "approved" ? "bg-green-600" : "bg-navavej-red"
-                                        )}
+                                <div className="relative z-10">
+                                    <h4 className="text-xl font-black uppercase text-navavej-gray-dark tracking-wide flex items-center justify-center gap-2 mb-2 leading-none">
+                                        Analysis Synced <Sparkles className="w-5 h-5 text-amber-500" />
+                                    </h4>
+                                    <p className="text-[10px] font-bold text-navavej-teal uppercase tracking-[0.2em] mb-8">Historical trends are now available</p>
+                                    <Link
+                                        href="/trend-timeline"
+                                        className="inline-flex items-center gap-3 px-8 py-4 bg-navavej-gray-dark text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-black transition-all shadow-xl hover:shadow-black/20 hover:-translate-y-0.5"
                                     >
-                                        {decisionOutcome === "approved"
-                                            ? <><CheckCircle2 className="w-5 h-5" /><span>Approved</span></>
-                                            : <><XCircle className="w-5 h-5" /><span>Rejected</span></>
-                                        }
-                                    </button>
-                                ) : (
-                                    <div className="mt-4 flex gap-3">
-                                        <button
-                                            onClick={() => setShowRejectModal(true)}
-                                            disabled={isSubmitting}
-                                            className="flex-shrink-0 px-5 py-4 border-2 border-navavej-red text-navavej-red bg-white hover:bg-red-50 rounded-xl font-black text-xs uppercase tracking-widest transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Reject
-                                        </button>
-                                        <button
-                                            onClick={handleApprove}
-                                            disabled={isSubmitting}
-                                            className={cn(
-                                                "navavej-button-primary flex-1 py-4 flex items-center justify-center gap-3 group shadow-lg",
-                                                isSubmitting && "opacity-70 cursor-wait"
-                                            )}
-                                        >
-                                            <span className="text-xs uppercase tracking-widest font-black">
-                                                {isSubmitting ? "..." : "CLOSE CLINICAL GAPS"}
-                                            </span>
-                                            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                                        </button>
-                                    </div>
-                                )}
+                                        View Clinical Timeline <ArrowRight className="w-4 h-4" />
+                                    </Link>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1248,48 +1274,253 @@ export function RecommendationPanel({
                                 </div>
                             </div>
 
-                            <div>
-                                <h4 className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3 border-b border-navavej-border pb-1 w-fit">Strategy Summary</h4>
-                                <div 
-                                    onClick={scrollToHUD}
-                                    className="bg-navavej-gray-dark rounded-[24px] p-6 text-white relative overflow-hidden group shadow-xl cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
-                                >                                    <div className="absolute top-0 right-0 w-64 h-64 bg-navavej-teal/5 rounded-full blur-[60px] -translate-y-1/2 translate-x-1/2" />
-                                    <div className="relative z-10 space-y-4">
-                                        <div className="flex items-center justify-between gap-4">
-                                            <div className="flex-1">
-                                                <h3 className="text-xl font-bold tracking-tight leading-none italic mb-2">
-                                                    Recommended <span className="text-navavej-teal">Intelligence Plan</span>
-                                                </h3>
-                                                <p className="text-white/60 text-[11px] font-medium leading-relaxed line-clamp-2">
-                                                    {(data.resolved_package?.name || data.ai_recommended_tier)} base + {data.add_ons.length} additions
-                                                </p>
-                                            </div>
-                                            <div className="shrink-0 text-right">
-                                                <span className="text-[8px] font-bold uppercase tracking-widest text-white/40 block mb-1">Estimate</span>
-                                                {hasFullDiscount && (
-                                                    <p className="text-sm font-bold tracking-tight text-white/40 line-through mb-0.5">
-                                                        ฿{fullOriginalPrice.toLocaleString()}
-                                                    </p>
-                                                )}
-                                                <p className="text-2xl font-black tracking-tighter text-white">
-                                                    ฿{fullCurrentPrice.toLocaleString()}
-                                                </p>
-                                                {selectedTotalSavings > 0 && (
-                                                    <p className="text-[10px] font-black text-emerald-400 mt-1">
-                                                        Total Savings: ฿{selectedTotalSavings.toLocaleString()}
-                                                    </p>
-                                                )}
-                                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Strategy Execution — Finalize & Approve */}
+                <div className="navavej-card p-12 bg-white border-2 border-navavej-border shadow-2xl relative overflow-hidden mt-10">
+                    <div className="absolute right-0 bottom-0 w-[500px] h-[500px] bg-navavej-teal/5 rounded-full blur-[100px] translate-x-1/3 translate-y-1/3 pointer-events-none" />
+
+                    <div className="flex items-center gap-5 mb-10 relative z-10">
+                        <div className="w-14 h-14 bg-navavej-teal/10 rounded-2xl flex items-center justify-center border border-navavej-teal/20 shadow-inner">
+                            <ShieldCheck className="w-7 h-7 text-navavej-teal" />
+                        </div>
+                        <div>
+                            <h3 className="text-2xl font-black text-navavej-gray-dark tracking-tighter leading-none uppercase italic">Strategy Execution</h3>
+                            <p className="text-[11px] font-black text-navavej-teal uppercase tracking-[0.2em] mt-2 opacity-80">Finalize & Approve</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 relative z-10">
+                        {/* Left Column: Billing Resolution (7/12) */}
+                        <div className="xl:col-span-7 space-y-6">
+                            <div className="bg-navavej-gray-dark rounded-[32px] p-8 text-white relative overflow-hidden group shadow-2xl border-4 border-navavej-teal/20 min-h-full flex flex-col justify-between">
+                                <div className="absolute top-0 right-0 w-80 h-80 bg-navavej-teal/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
+
+                                <div className="relative z-10 space-y-6">
+                                    <div className="border-b border-white/10 pb-4 flex items-center justify-between">
+                                        <h3 className="text-xl font-black tracking-tighter leading-none italic">
+                                            Billing <span className="text-navavej-teal">Resolution</span>
+                                        </h3>
+                                        <div className="px-2 py-1 rounded-md bg-navavej-teal/10 border border-navavej-teal/20 text-[8px] font-black text-navavej-teal uppercase tracking-widest">
+                                            {data.ai_recommended_tier}
                                         </div>
-                                        <button className="w-full py-3 bg-navavej-teal hover:bg-navavej-teal/90 text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-navavej-teal/20 transition-all">
-                                            Confirm Strategic Selection
+                                    </div>
+
+                                    <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {/* Base Plan */}
+                                        <div className="flex items-center justify-between py-3 border-b border-white/5">
+                                            <div className="flex items-center gap-3">
+                                                <Package className="w-4 h-4 text-navavej-teal/60 shrink-0" />
+                                                <div>
+                                                    <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest block">Base Plan</span>
+                                                    <span className={cn("text-sm font-bold", privacyMode ? "text-red-400 font-mono" : "text-white")}>
+                                                        {privacyMode ? maskedPackageName : (data.resolved_package?.name || data.resolved_package?.package_name || data.ai_recommended_tier)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <span className={cn("text-sm font-black tabular-nums", privacyMode ? "text-red-400 font-mono" : "text-white")}>
+                                                {privacyMode ? maskedPriceValue : `฿${(data.resolved_package?.price_thb ?? 0).toLocaleString()}`}
+                                            </span>
+                                        </div>
+
+                                        {/* Add-on Items with Checkboxes */}
+                                        {data.add_ons && data.add_ons.length > 0 && (
+                                            [...data.add_ons]
+                                                .sort((a, b) => {
+                                                    const pMap: Record<string, number> = { 'red': 0, 'critical': 0, 'high': 0, 'orange': 1, 'yellow': 2, 'medium': 2, 'green': 3, 'low': 3 };
+                                                    const prioA = (a.priority_level || a.priority || "").toLowerCase();
+                                                    const prioB = (b.priority_level || b.priority || "").toLowerCase();
+                                                    return (pMap[prioA] ?? 99) - (pMap[prioB] ?? 99);
+                                                })
+                                                .map((item, idx) => {
+                                                    const isSelected = selectedAddOns.has(item.item_code);
+                                                    const price = item.promo_price_thb ?? item.price_thb;
+                                                    return (
+                                                        <div key={`billing-addon-${idx}`} className={cn(
+                                                            "flex items-center justify-between py-2.5 border-b border-white/5 transition-opacity",
+                                                            !isSelected && "opacity-40"
+                                                        )}>
+                                                            <div className="flex items-center gap-3">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isSelected}
+                                                                    onChange={() => {
+                                                                        setSelectedAddOns(prev => {
+                                                                            const next = new Set(prev);
+                                                                            if (next.has(item.item_code)) next.delete(item.item_code);
+                                                                            else next.add(item.item_code);
+                                                                            return next;
+                                                                        });
+                                                                    }}
+                                                                    className="w-[14px] h-[14px] rounded-[3px] border-2 border-white/30 bg-transparent accent-[var(--color-navavej-teal)] shrink-0 cursor-pointer"
+                                                                />
+                                                                <div>
+                                                                    <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest block">Add-on Item</span>
+                                                                    <span className={cn("text-[13px] font-semibold", isSelected ? "text-white" : "text-white/50 line-through")}>
+                                                                        {item.label}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <span className={cn("text-sm font-black tabular-nums", isSelected ? "text-white" : "text-white/30")}>
+                                                                {price ? `฿${price.toLocaleString()}` : "—"}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })
+                                        )}
+
+                                        {/* Applied Discounts */}
+                                        {promoSummary && promoSummary.active_promotions.length > 0 && (
+                                            promoSummary.active_promotions.map((promo, idx) => (
+                                                <div key={`promo-${idx}`} className="flex items-center justify-between py-2 border-b border-white/5">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+                                                            <span className="text-[10px] font-black text-amber-400">%</span>
+                                                        </div>
+                                                        <span className="text-[12px] font-bold text-amber-400">{promo.label}</span>
+                                                    </div>
+                                                    <span className="text-sm font-black text-amber-400 tabular-nums">
+                                                        −฿{promo.savings_thb.toLocaleString()}
+                                                    </span>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Footer: Privileges + Final Settlement */}
+                                <div className="relative z-10 mt-6 pt-6 border-t border-white/10">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowDealsDrawer(true)}
+                                            className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white"
+                                        >
+                                            <Tag className="w-3.5 h-3.5" />
+                                            Privileges
                                         </button>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-white/40">
+                                            <span>Final Settlement</span>
+                                        </div>
+                                        {hasFullDiscount && (
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-sm font-bold text-white/40 line-through tabular-nums">
+                                                    ฿{fullOriginalPrice.toLocaleString()}
+                                                </span>
+                                                {selectedTotalSavings > 0 && (
+                                                    <span className="text-sm font-black text-emerald-400 tabular-nums">
+                                                        Saved ฿{selectedTotalSavings.toLocaleString()}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                        <div className="flex items-baseline gap-2">
+                                            <span className={cn("text-5xl font-black tracking-tighter tabular-nums", privacyMode ? "text-red-400 font-mono text-3xl" : "text-white")}>
+                                                {privacyMode ? maskedPriceValue : `฿${fullCurrentPrice.toLocaleString()}`}
+                                            </span>
+                                        </div>
+                                        <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest">Inclusive of VAT 7%</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Right Column: Final Review (5/12) */}
+                        <div className="xl:col-span-5 space-y-6">
+                            <div className="navavej-card p-8 bg-white border border-navavej-border shadow-sm h-full flex flex-col">
+                                {/* Header */}
+                                <div className="flex items-center justify-between mb-8">
+                                    <div>
+                                        <h3 className="text-lg font-black text-navavej-gray-dark uppercase tracking-tight">Final Review</h3>
+                                        <p className="text-[9px] font-bold text-navavej-gray-med uppercase tracking-widest mt-1">Verify Before Submission</p>
+                                    </div>
+                                    <div className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-full flex items-center gap-2">
+                                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                                        <span className="text-[8px] font-black text-emerald-700 uppercase tracking-widest">Medical Resolved</span>
+                                    </div>
+                                </div>
+
+                                {/* Validation Checklist */}
+                                <div className="space-y-3 mb-8">
+                                    <h4 className="text-[9px] font-black uppercase tracking-widest text-navavej-gray-med">Final Validation Checklist</h4>
+                                    <div className="flex items-center gap-3 p-3 bg-navavej-teal/5 rounded-xl border border-navavej-teal/10 hover:scale-[1.01] transition-transform">
+                                        <CheckCircle2 className="w-5 h-5 text-navavej-teal shrink-0" />
+                                        <div>
+                                            <span className="text-xs font-black text-navavej-gray-dark">Medical Justification</span>
+                                            <p className="text-[8px] text-navavej-gray-med font-bold uppercase tracking-widest mt-0.5">Add-ons align with diagnosis</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 p-3 bg-navavej-teal/5 rounded-xl border border-navavej-teal/10 hover:scale-[1.01] transition-transform">
+                                        <CheckCircle2 className="w-5 h-5 text-navavej-teal shrink-0" />
+                                        <div>
+                                            <span className="text-xs font-black text-navavej-gray-dark">Financial Compliance</span>
+                                            <p className="text-[8px] text-navavej-gray-med font-bold uppercase tracking-widest mt-0.5">Privileges correctly selected</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Clinical Justification & Decision */}
+                                <div className="flex-1 flex flex-col">
+                                    <div className="bg-navavej-gray-dark rounded-2xl p-6 flex-1 flex flex-col">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-white/60">Clinical Justification</span>
+                                            <span className="text-[8px] font-bold uppercase tracking-widest text-white/30">Internal Only</span>
+                                        </div>
+                                        <textarea
+                                            value={notes}
+                                            onChange={(e) => setNotes(e.target.value)}
+                                            disabled={!!decisionOutcome || isSubmitting}
+                                            placeholder="Add context for this billing resolution..."
+                                            className="w-full flex-1 min-h-[80px] bg-white/5 border border-white/10 rounded-xl p-4 text-[11px] font-medium text-white placeholder-white/30 outline-none transition-all resize-none focus:border-navavej-teal/50"
+                                        />
+                                        {submissionError && (
+                                            <p className="text-xs text-red-400 font-bold mt-2">{submissionError}</p>
+                                        )}
+
+                                        {/* Decision Buttons */}
+                                        {decisionOutcome ? (
+                                            <div className="mt-4 flex items-center justify-center gap-2 py-3">
+                                                {decisionOutcome === "approved" ? (
+                                                    <><CheckCircle2 className="w-5 h-5 text-navavej-teal" /><span className="text-sm font-black text-navavej-teal uppercase tracking-widest">Strategy Approved</span></>
+                                                ) : (
+                                                    <><XCircle className="w-5 h-5 text-navavej-red" /><span className="text-sm font-black text-navavej-red uppercase tracking-widest">Rejected</span></>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="mt-4 flex gap-3">
+                                                <button
+                                                    onClick={() => setShowRejectModal(true)}
+                                                    disabled={isSubmitting}
+                                                    className="flex items-center gap-2 px-4 py-3 border border-navavej-red/40 text-navavej-red bg-navavej-red/10 hover:bg-navavej-red/20 rounded-xl font-black text-[10px] uppercase tracking-widest transition-colors disabled:opacity-50"
+                                                >
+                                                    <XCircle className="w-4 h-4" />
+                                                    Reject
+                                                </button>
+                                                <button
+                                                    onClick={handleApprove}
+                                                    disabled={isSubmitting}
+                                                    className={cn(
+                                                        "flex-1 py-3 bg-navavej-teal hover:bg-navavej-teal/90 text-white rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg transition-all",
+                                                        isSubmitting && "opacity-70 cursor-wait"
+                                                    )}
+                                                >
+                                                    <ShieldCheck className="w-4 h-4" />
+                                                    <span>{isSubmitting ? "..." : "Confirm Strategy"}</span>
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
             </motion.div>
 
             {/* Promotion Drawer */}

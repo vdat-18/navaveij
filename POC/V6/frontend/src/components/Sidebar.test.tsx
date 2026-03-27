@@ -8,6 +8,10 @@ vi.mock("next/navigation", () => ({
   usePathname: () => mockPathname(),
 }));
 
+vi.mock("@/shared/auth-context", () => ({
+  useAuth: () => ({ user: { name: "Dr. Test", role: "admin", fhir_scopes: [] }, logout: vi.fn() }),
+}));
+
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: React.ReactNode }) => (
     <a href={href} {...props}>

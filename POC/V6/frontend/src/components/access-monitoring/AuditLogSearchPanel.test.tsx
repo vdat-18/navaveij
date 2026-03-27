@@ -4,6 +4,10 @@ import userEvent from "@testing-library/user-event";
 import { AuditLogSearchPanel } from "./AuditLogSearchPanel";
 import { AuditLogEntry } from "@/types/access-monitoring";
 
+vi.mock("@/shared/privacy-mode", () => ({
+  usePrivacyMode: () => ({ privacyMode: false, togglePrivacyMode: vi.fn() }),
+}));
+
 const entry: AuditLogEntry = {
   entry_id: "e1",
   prev_entry_hash: "prev",

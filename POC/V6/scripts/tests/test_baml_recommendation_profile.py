@@ -237,10 +237,10 @@ async def test_recommendation_pipeline_profile(
         f"Agent 2a returned unexpected tier: {policy_result.ai_recommended_tier}"
     assert policy_result.policy_script is not None, \
         "Agent 2a returned no policy_script"
-    assert narrative.health_summary, \
-        "Agent 2b returned empty health_summary"
-    assert narrative.next_steps, \
-        "Agent 2b returned empty next_steps"
+    assert narrative.summary_headline, \
+        "Agent 2b returned empty summary_headline"
+    assert narrative.next_actions, \
+        "Agent 2b returned empty next_actions"
 
     assert a1_ms <= timeout_budget_ms, \
         f"Agent 1 took {a1_ms}ms — exceeded budget of {timeout_budget_ms}ms"
