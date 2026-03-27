@@ -329,31 +329,11 @@ export default function DashboardPage() {
               }}
               isRuleBasedForced={isRuleBasedForced}
               hideCharts={true}
+              onViewTimeline={() => setDrawerOpen(true)}
             />
 
 
-            {/* Task 4: "View Charts & Timeline" button → opens ClinicalDrawer */}
-            <div className="mt-6">
-              <button
-                type="button"
-                onClick={() => setDrawerOpen(true)}
-                className="flex items-center gap-3 px-6 py-3 navavej-card bg-white border border-navavej-border rounded-xl hover:border-navavej-teal/50 hover:shadow-md transition-all group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-navavej-teal/10 flex items-center justify-center group-hover:bg-navavej-teal transition-colors">
-                  <TrendingUp className="w-4 h-4 text-navavej-teal group-hover:text-white transition-colors" />
-                </div>
-                <div className="text-left">
-                  <p className="text-xs font-black text-navavej-gray-dark uppercase tracking-wider group-hover:text-navavej-teal transition-colors">
-                    View Charts &amp; Timeline
-                  </p>
-                  <p className="text-[10px] text-navavej-gray-med font-medium">
-                    Biomarker trends, clinical events &amp; screening gaps
-                  </p>
-                </div>
-              </button>
-            </div>
-
-            {/* Task 4: Slide-up drawer */}
+            {/* Clinical timeline slide-up drawer */}
             <ClinicalDrawer
               patient={selectedPatient}
               privacyMode={privacyMode}

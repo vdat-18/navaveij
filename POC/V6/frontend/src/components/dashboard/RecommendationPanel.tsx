@@ -58,6 +58,7 @@ interface RecommendationPanelProps {
     onRecommendationLoad?: (data: RecommendationResponse | null) => void;
     isRuleBasedForced: boolean;
     hideCharts?: boolean;
+    onViewTimeline?: () => void;
 }
 
 interface NormalizedAlert {
@@ -379,7 +380,8 @@ export function RecommendationPanel({
     privacyMode,
     onRecommendationLoad,
     isRuleBasedForced,
-    hideCharts = false
+    hideCharts = false,
+    onViewTimeline
 }: RecommendationPanelProps) {
     const [data, setData] = useState<RecommendationResponse | null>(null);
     const [loading, setLoading] = useState(false);
@@ -1182,12 +1184,21 @@ export function RecommendationPanel({
                                         Analysis Synced <Sparkles className="w-5 h-5 text-amber-500" />
                                     </h4>
                                     <p className="text-[10px] font-bold text-navavej-teal uppercase tracking-[0.2em] mb-8">Historical trends are now available</p>
-                                    <Link
-                                        href="/trend-timeline"
-                                        className="inline-flex items-center gap-3 px-8 py-4 bg-navavej-gray-dark text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-black transition-all shadow-xl hover:shadow-black/20 hover:-translate-y-0.5"
-                                    >
-                                        View Clinical Timeline <ArrowRight className="w-4 h-4" />
-                                    </Link>
+                                    {onViewTimeline ? (
+                                        <button
+                                            onClick={onViewTimeline}
+                                            className="inline-flex items-center gap-3 px-8 py-4 bg-navavej-gray-dark text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-black transition-all shadow-xl hover:shadow-black/20 hover:-translate-y-0.5"
+                                        >
+                                            View Clinical Timeline <ArrowRight className="w-4 h-4" />
+                                        </button>
+                                    ) : (
+                                        <Link
+                                            href="/trend-timeline"
+                                            className="inline-flex items-center gap-3 px-8 py-4 bg-navavej-gray-dark text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-black transition-all shadow-xl hover:shadow-black/20 hover:-translate-y-0.5"
+                                        >
+                                            View Clinical Timeline <ArrowRight className="w-4 h-4" />
+                                        </Link>
+                                    )}
                                 </div>
                             </div>
                         </div>

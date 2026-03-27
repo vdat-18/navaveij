@@ -35,6 +35,29 @@ Fixed BAML `annotation_tests.baml` assertions to use capitalized enum variant na
 | `backend/src/services/text_annotations.py` | R2e: +15 lines (clinical compound phrases added to BAD_KEYWORDS) |
 | `baml_src/annotation_tests.baml` | R2e: fixed all sentiment assertions from lowercase aliases to capitalized enum variants |
 
+### R2f — Type-aware status badges in Clinical Event Timeline
+Replaced the flat STABLE/ALERT/OPTIMAL/CHECK badge system in `ClinicalEventTimeline.tsx` with type-specific logic via `getEventBadge(row)`. Added `changeType?: string` to `TimelineRow`, populated from `medication.change_type`. Added `MED_CHANGE_MAP` covering 14 change type strings → meaningful labels (STARTED, ESCALATED, TAPERED, STOPPED, CONTINUED, MODIFIED). Diagnoses show ACTIVE/RESOLVED/NOTED; screenings show ALERT/CLEAR/PENDING; labs show ALERT/WATCH/OPTIMAL. Each label has a contextually appropriate Tailwind color class.
+
+### R2g — Biomarker tooltip unclipped in ClinicalDrawer
+Changed `BiomarkerTrendGrid.tsx` tooltip positioning from `bottom-full left-1/2 -translate-x-1/2 mb-2` (above icon, centered) to `top-full left-0 mt-2` (below icon, left-aligned). Updated the decorative arrow from downward (`border-t-`) to upward (`border-b-`), placed before the tooltip box. Tooltip is now fully visible in the ClinicalDrawer's `overflow-y-auto` scroll container.
+
+### R2h — AuditLogSearchPanel HTTPS warning text
+Expanded "Requires HTTPS" → "Hash verification requires a secure (HTTPS) connection" in `AuditLogSearchPanel.tsx`. This was both more informative for clinicians and fixed a pre-existing test failure (test expected the full string, component had the abbreviated version).
+
+## Files modified
+
+| File | Lines changed |
+|------|---------------|
+| `frontend/src/components/dashboard/RecommendationPanel.tsx` | R2a: removed `overflow-hidden` (1 line); R2b: +18 lines (cache infra + check + store + export) |
+| `frontend/src/components/dashboard/RecommendationPanel.test.tsx` | +2 lines (import + beforeEach clear for cache) |
+| `frontend/src/components/trend-timeline/BiomarkerTrendGrid.tsx` | R2c: +30 lines (BIOMARKER_INFO map + HelpCircle tooltip); R2g: tooltip position + arrow direction |
+| `frontend/src/components/trend-timeline/ClinicalEventTimeline.tsx` | R2d: +15 lines (collapsible dates); R2f: +50 lines (MED_CHANGE_MAP, getEventBadge, changeType field) |
+| `frontend/src/components/access-monitoring/AuditLogSearchPanel.tsx` | R2h: 1 line (HTTPS warning text) |
+| `backend/src/services/workflows/clinical.py` | R2e: normalized `item.sentiment` to lowercase at line 318 (1 line) |
+| `backend/src/services/text_annotations.py` | R2e: +15 lines (clinical compound phrases added to BAD_KEYWORDS) |
+| `baml_src/annotation_tests.baml` | R2e: fixed all sentiment assertions from lowercase aliases to capitalized enum variants |
+
 ## Deviations from plan
 - **Test cache fix needed:** The module-level cache `Map` persisted across vitest test cases, causing 10 of 15 RecommendationPanel tests to fail (stale cached data from prior test). Fixed by exporting `clearRecommendationCache()` and calling it in `beforeEach`. This was not anticipated in the plan.
 - **BAML sentiment casing bug (R2e):** Discovered post-R2d during user review — risk lines rendered grey instead of red. Root cause was a casing mismatch between BAML enum variants (capitalized) and frontend string comparisons (lowercase). Not part of the original R2 scope; added as R2e.
+- **Pre-existing test failure (R2h):** `AuditLogSearchPanel` test was failing (1/49) due to text mismatch between test expectation and abbreviated component string — discovered during test run for R2f/R2g. Fixed as part of this session.

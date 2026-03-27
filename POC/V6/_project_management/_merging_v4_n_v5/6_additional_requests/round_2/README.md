@@ -34,6 +34,25 @@ Clinical reasoning lines from the BAML `AnnotateReasoningLines` agent all render
 
 Fix: normalize `item.sentiment` to lowercase in `clinical.py:318`. Also expanded BAD_KEYWORDS in `text_annotations.py` with clinical compound phrases, and fixed BAML test assertions to use capitalized enum variants.
 
+### R2f — Type-aware status badges in Clinical Event Timeline
+**File:** `frontend/src/components/trend-timeline/ClinicalEventTimeline.tsx`
+
+The "STABLE" fallback badge was displayed for all events with `severity === "info"` — including every medication event. Replaced with type-specific semantics:
+- **Labs:** ALERT / WATCH / OPTIMAL / —
+- **Diagnoses:** ACTIVE / RESOLVED / NOTED
+- **Screenings:** ALERT / CLEAR / PENDING
+- **Medications:** STARTED / ESCALATED / TAPERED / STOPPED / CONTINUED / MODIFIED (mapped from `change_type`)
+
+### R2g — Biomarker tooltip position fix (ClinicalDrawer clipping)
+**File:** `frontend/src/components/trend-timeline/BiomarkerTrendGrid.tsx`
+
+The "?" tooltip was positioned `bottom-full` (above the icon), causing it to be clipped by the ClinicalDrawer's `overflow-y-auto` scroll container. Changed to `top-full left-0` (drops below the icon). Arrow direction updated to point upward.
+
+### R2h — Fix AuditLogSearchPanel HTTPS warning text
+**File:** `frontend/src/components/access-monitoring/AuditLogSearchPanel.tsx`
+
+The `no-https` verify result rendered "Requires HTTPS" — abbreviation that didn't match the test expectation or provide enough context. Expanded to the full message: "Hash verification requires a secure (HTTPS) connection".
+
 ## Acceptance Criteria
 - [x] Transparency Metric tooltip fully visible above the Clinical Logic card (not clipped)
 - [x] Returning to a patient within 5 min loads recommendation instantly from client cache
@@ -41,6 +60,8 @@ Fix: normalize `item.sentiment` to lowercase in `clinical.py:318`. Also expanded
 - [x] Each date group in clinical timeline toggles collapsed/expanded on click
 - [x] Risk sentiment lines render red (not grey) when BAML agent is active
 - [x] BAML annotation tests pass (3/3) with capitalized enum variants
+- [x] Medication events in timeline show clinically meaningful badges (STARTED/STOPPED/etc.), not "STABLE"
+- [x] Biomarker "?" tooltip drops below icon and is fully visible in ClinicalDrawer
 - [x] `npm run build` exits 0
 - [x] Backend pytest passes
-- [x] Frontend vitest passes
+- [x] Frontend vitest passes (49/49)

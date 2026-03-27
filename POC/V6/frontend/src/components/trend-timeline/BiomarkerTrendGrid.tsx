@@ -68,14 +68,14 @@ export function BiomarkerTrendGrid({ series }: BiomarkerTrendGridProps) {
                   {BIOMARKER_INFO[item.label] && (
                     <div className="relative group/help">
                       <HelpCircle className="w-3.5 h-3.5 text-navavej-gray-med/40 cursor-help hover:text-navavej-teal transition-colors" />
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 invisible group-hover/help:opacity-100 group-hover/help:visible transition-all duration-200 pointer-events-none">
+                      <div className="absolute top-full left-0 mt-2 z-50 opacity-0 invisible group-hover/help:opacity-100 group-hover/help:visible transition-all duration-200 pointer-events-none">
+                        <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[6px] border-b-navavej-gray-dark ml-2" />
                         <div className="bg-navavej-gray-dark text-white p-4 rounded-xl shadow-2xl border border-white/10 w-64">
                           <p className="text-[10px] font-black uppercase tracking-widest text-white/50 mb-2">What it measures</p>
                           <p className="text-[11px] font-medium leading-relaxed text-white/90 mb-3">{BIOMARKER_INFO[item.label].what}</p>
                           <p className="text-[10px] font-black uppercase tracking-widest text-white/50 mb-2">How to interpret</p>
                           <p className="text-[11px] font-medium leading-relaxed text-white/90">{BIOMARKER_INFO[item.label].interpret}</p>
                         </div>
-                        <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-navavej-gray-dark absolute top-full left-1/2 -translate-x-1/2" />
                       </div>
                     </div>
                   )}

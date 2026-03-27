@@ -83,3 +83,27 @@
 **Additional improvements:**
 - Expanded `BAD_KEYWORDS` in `text_annotations.py` with clinical compound phrases ("stage 1 hypertension", "stage 2 hypertension", "prediabetes", "obesity", etc.) — used specific compounds instead of bare "hypertension" to avoid false positives on "no hypertension"
 - Fixed `annotation_tests.baml` assertions from lowercase aliases (`"risk"`) to capitalized enum variants (`"Risk"`) to match actual BAML output
+
+## R2f — Type-Aware Status Badges in Clinical Event Timeline
+
+**Problem:** `ClinicalEventTimeline.tsx` used a flat 4-value severity scale (normal/borderline/abnormal/info) mapped to ALERT/OPTIMAL/CHECK/STABLE badges for all event types. All medication events were hardcoded to `severity: "info"` → always showed "STABLE" regardless of clinical significance. "STABLE" for a discontinued medication is meaningless noise.
+
+**Root cause:** No concept of event-type-specific status semantics. Labs, diagnoses, screenings, and medications all share the same badge logic despite having fundamentally different status vocabularies.
+
+**Fix:** Added `changeType?: string` to `TimelineRow`, populated from `medication.change_type`. Added `MED_CHANGE_MAP` for 14 known change types. Added `getEventBadge(row)` function that returns type-aware `{ label, colorClass }`:
+- Medications: keyed off `change_type` (started→STARTED/teal, discontinued→STOPPED/red, increased→ESCALATED/amber, etc.)
+- Diagnoses: ACTIVE (abnormal), RESOLVED (normal), NOTED (info)
+- Screenings: ALERT (abnormal), CLEAR (normal), PENDING (info)
+- Labs: ALERT (abnormal), WATCH (borderline), OPTIMAL (normal), — (info)
+
+## R2g — Biomarker Tooltip Clipping in ClinicalDrawer
+
+**Problem:** The biomarker "?" tooltip was positioned `bottom-full left-1/2 -translate-x-1/2` (centered above the icon). The ClinicalDrawer wraps content in `overflow-y-auto`, which clips anything extending above the scroll area. The left edge was also cut off at small icon positions.
+
+**Fix:** Changed to `top-full left-0 mt-2` (drops below the icon, left-aligned). Arrow changed from downward-pointing (`border-t-`) to upward-pointing (`border-b-`), placed before the dark box div.
+
+## R2h — AuditLogSearchPanel HTTPS Warning Text
+
+**Problem:** `verifyResult === "no-https"` rendered "Requires HTTPS" — an abbreviated string that didn't match the vitest test expectation ("Hash verification requires a secure (HTTPS) connection") and was insufficiently descriptive for end users.
+
+**Fix:** Expanded to the full informative message. This also resolved the previously-failing `AuditLogSearchPanel` test (1 of 49 tests).

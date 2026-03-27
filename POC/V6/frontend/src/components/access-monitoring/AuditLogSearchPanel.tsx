@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { AuditLogEntry, AuditLogFilters } from "@/types/access-monitoring";
 import { usePrivacyMode } from "@/shared/privacy-mode";
+import { patientService } from "@/services/api";
+import { Patient } from "@/types/patient";
 
 const ACTION_OPTIONS = ["", "View", "Export", "Generate", "Decision", "AdminUpdate"];
 
@@ -29,6 +31,7 @@ export function AuditLogSearchPanel({
   const [searchError, setSearchError] = useState<string | null>(null);
   const [revealWho, setRevealWho] = useState(false);
   const [revealPatient, setRevealPatient] = useState(false);
+  const [patientDetails, setPatientDetails] = useState<Patient | null>(null);
 
   // Initialize reveal states based on privacy mode when a new entry is selected
   const handleEntrySelect = (entry: AuditLogEntry) => {
@@ -37,6 +40,10 @@ export function AuditLogSearchPanel({
     setVerifyError(null);
     setRevealWho(!privacyMode);
     setRevealPatient(!privacyMode);
+    setPatientDetails(null);
+    if (entry.what.patient_id) {
+      patientService.getDetails(entry.what.patient_id).then(setPatientDetails).catch(() => {});
+    }
   };
 
   const verifyHash = async (entry: AuditLogEntry) => {
@@ -138,7 +145,7 @@ export function AuditLogSearchPanel({
       <div className="max-h-[320px] overflow-y-auto border border-navavej-border rounded-xl">
         <table className="w-full text-left">
           <thead className="sticky top-0 z-10">
-            <tr className="bg-navavej-gray-light/50">
+            <tr className="bg-navavej-gray-light">
               <th className="px-3 py-2 text-[10px] font-black uppercase tracking-widest">When</th>
               <th className="px-3 py-2 text-[10px] font-black uppercase tracking-widest">Who</th>
               <th className="px-3 py-2 text-[10px] font-black uppercase tracking-widest">What</th>
@@ -174,77 +181,163 @@ export function AuditLogSearchPanel({
       </div>
 
       {selectedEntry && (
-        <div className="rounded-xl border border-navavej-border p-4 bg-white space-y-2 min-w-0 overflow-hidden">
-          <p className="text-[10px] font-black uppercase tracking-widest text-navavej-gray-med">Who / When / Where / What / Why</p>
-          <div className="flex items-center gap-2">
-            <p className="text-xs font-bold break-words">
-              {revealWho ? `${selectedEntry.who.user_display_name} (${selectedEntry.who.user_role})` : "Who: *******"}
-            </p>
-            <button 
-              className="text-gray-400 hover:text-gray-600 focus:outline-none" 
-              title={revealWho ? "Hide Who" : "Reveal Who"}
-              onClick={() => setRevealWho(!revealWho)}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                {revealWho ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
-                ) : (
-                  <>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </>
-                )}
-              </svg>
-            </button>
+        <div className="rounded-xl border border-navavej-border bg-white min-w-0 overflow-hidden divide-y divide-navavej-border">
+          {/* WHO + WHEN row */}
+          <div className="grid grid-cols-2 divide-x divide-navavej-border">
+            {/* WHO */}
+            <div className="p-4 space-y-1">
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-navavej-gray-med">Who</p>
+                <button
+                  className="text-gray-400 hover:text-gray-600 focus:outline-none"
+                  title={revealWho ? "Hide" : "Reveal"}
+                  onClick={() => setRevealWho(!revealWho)}
+                >
+                  <EyeIcon revealed={revealWho} />
+                </button>
+              </div>
+              {revealWho ? (
+                <>
+                  <p className="text-xs font-bold">{selectedEntry.who.user_display_name}</p>
+                  <p className="text-[11px] text-navavej-gray-med">
+                    {selectedEntry.who.user_role}{selectedEntry.who.department ? ` · ${selectedEntry.who.department}` : ""}
+                  </p>
+                  <p className="text-[11px] font-mono text-navavej-gray-med">{selectedEntry.who.user_id}</p>
+                </>
+              ) : (
+                <p className="text-xs font-bold text-navavej-gray-med">*******</p>
+              )}
+            </div>
+            {/* WHEN */}
+            <div className="p-4 space-y-1">
+              <p className="text-[10px] font-black uppercase tracking-widest text-navavej-gray-med">When</p>
+              <p className="text-xs font-bold">
+                {new Date(selectedEntry.when.local_timestamp_ict || selectedEntry.when.iso_timestamp_utc).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+              </p>
+              <p className="text-[11px] text-navavej-gray-med">
+                {new Date(selectedEntry.when.local_timestamp_ict || selectedEntry.when.iso_timestamp_utc).toLocaleTimeString()}
+              </p>
+            </div>
           </div>
-          <p className="text-xs font-bold break-words">{selectedEntry.when.iso_timestamp_utc}</p>
-          <p className="text-xs font-bold break-words">{selectedEntry.where.service_id}</p>
-          <p className="text-xs font-bold break-words">{selectedEntry.what.action_type} • {selectedEntry.what.resource_type}</p>
-          <div className="flex items-center gap-2">
-            <p className="text-xs font-bold break-words">
-              {selectedEntry.what.patient_id ? (revealPatient ? `Patient: ${selectedEntry.what.patient_id}` : "Patient: *******") : "Patient: —"}
-            </p>
-            {selectedEntry.what.patient_id && (
-              <button 
-                className="text-gray-400 hover:text-gray-600 focus:outline-none" 
-                title={revealPatient ? "Hide Patient Info" : "Reveal Patient Info"}
-                onClick={() => setRevealPatient(!revealPatient)}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                  {revealPatient ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
-                  ) : (
-                    <>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </>
-                  )}
-                </svg>
-              </button>
+
+          {/* WHAT + WHERE row */}
+          <div className="grid grid-cols-2 divide-x divide-navavej-border">
+            {/* WHAT */}
+            <div className="p-4 space-y-1">
+              <p className="text-[10px] font-black uppercase tracking-widest text-navavej-gray-med">What</p>
+              <p className="text-xs font-bold">{selectedEntry.what.action_type}</p>
+              <p className="text-[11px] text-navavej-gray-med">{selectedEntry.what.resource_type}</p>
+              {(selectedEntry.what.model_id || selectedEntry.what.latency_ms != null) && (
+                <p className="text-[11px] text-navavej-gray-med">
+                  {[
+                    selectedEntry.what.model_id,
+                    selectedEntry.what.latency_ms != null ? `${selectedEntry.what.latency_ms}ms` : null,
+                    selectedEntry.what.safety_validator_result === "pass" ? "Safety \u2713" : null,
+                  ].filter(Boolean).join(" · ")}
+                </p>
+              )}
+            </div>
+            {/* WHERE */}
+            <div className="p-4 space-y-1">
+              <p className="text-[10px] font-black uppercase tracking-widest text-navavej-gray-med">Where</p>
+              <p className="text-xs font-bold">{selectedEntry.where.service_id}</p>
+              <p className="text-[11px] font-mono text-navavej-gray-med">{selectedEntry.where.request_id}</p>
+            </div>
+          </div>
+
+          {/* PATIENT row */}
+          <div className="p-4 space-y-1">
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-black uppercase tracking-widest text-navavej-gray-med">Patient</p>
+              {selectedEntry.what.patient_id && (
+                <button
+                  className="text-gray-400 hover:text-gray-600 focus:outline-none"
+                  title={revealPatient ? "Hide" : "Reveal"}
+                  onClick={() => setRevealPatient(!revealPatient)}
+                >
+                  <EyeIcon revealed={revealPatient} />
+                </button>
+              )}
+            </div>
+            {!selectedEntry.what.patient_id ? (
+              <p className="text-xs text-navavej-gray-med">—</p>
+            ) : revealPatient ? (
+              <>
+                {patientDetails ? (
+                  <>
+                    <p className="text-xs font-bold">{patientDetails.patient_name}</p>
+                    <p className="text-[11px] text-navavej-gray-med">
+                      {[
+                        patientDetails.patient_id,
+                        patientDetails.gender,
+                        patientDetails.age != null ? `${patientDetails.age}y` : null,
+                        patientDetails.mrn,
+                      ].filter(Boolean).join(" · ")}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs font-bold">{selectedEntry.what.patient_id}</p>
+                )}
+              </>
+            ) : (
+              <p className="text-xs font-bold text-navavej-gray-med">*******</p>
             )}
           </div>
-          <p className="text-xs font-bold break-all whitespace-pre-wrap">
-            {typeof selectedEntry.why.request_context === "string"
-              ? selectedEntry.why.request_context
-              : JSON.stringify(selectedEntry.why.request_context)}
-          </p>
-          <p className="text-xs font-mono break-all">{selectedEntry.sha256_hash}</p>
-          <p className="text-xs font-mono break-all">{selectedEntry.prev_entry_hash}</p>
-          <button
-            type="button"
-            onClick={() => verifyHash(selectedEntry)}
-            className="px-3 py-1 rounded-lg border border-navavej-border text-[10px] font-black uppercase"
-          >
-            Verify Hash
-          </button>
-          {verifyResult === "pass" && <p className="text-xs font-black text-green-600">Hash verification passed</p>}
-          {verifyResult === "no-https" && (
-            <p className="text-xs font-black text-red-600">Hash verification requires a secure (HTTPS) connection</p>
-          )}
-          {verifyResult === "fail" && <p className="text-xs font-black text-red-600">{verifyError || "Hash verification failed"}</p>}
+
+          {/* WHY row */}
+          <div className="p-4 space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-widest text-navavej-gray-med">Why</p>
+            <p className="text-xs font-bold break-words">
+              {typeof selectedEntry.why.request_context === "string"
+                ? selectedEntry.why.request_context
+                : JSON.stringify(selectedEntry.why.request_context)}
+            </p>
+          </div>
+
+          {/* CHAIN INTEGRITY row */}
+          <div className="p-4 space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-navavej-gray-med">Chain Integrity</p>
+            <div className="space-y-1">
+              <p className="text-[11px] text-navavej-gray-med">
+                <span className="font-bold">Hash:</span>{" "}
+                <span className="font-mono break-all">{selectedEntry.sha256_hash}</span>
+              </p>
+              <p className="text-[11px] text-navavej-gray-med">
+                <span className="font-bold">Prev:</span>{" "}
+                <span className="font-mono break-all">{selectedEntry.prev_entry_hash}</span>
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => verifyHash(selectedEntry)}
+                className="px-3 py-1 rounded-lg border border-navavej-border text-[10px] font-black uppercase"
+              >
+                Verify Hash
+              </button>
+              {verifyResult === "pass" && <p className="text-xs font-black text-green-600">Passed</p>}
+              {verifyResult === "no-https" && <p className="text-xs font-black text-red-600">Hash verification requires a secure (HTTPS) connection</p>}
+              {verifyResult === "fail" && <p className="text-xs font-black text-red-600">{verifyError || "Failed"}</p>}
+            </div>
+          </div>
         </div>
       )}
     </div>
+  );
+}
+
+function EyeIcon({ revealed }: { revealed: boolean }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+      {revealed ? (
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+      ) : (
+        <>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </>
+      )}
+    </svg>
   );
 }
 

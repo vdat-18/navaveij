@@ -229,8 +229,8 @@ def _normalize_runtime_audit_entries() -> list[dict[str, Any]]:
         why = entry.get("why", {})
         timestamp = entry.get("timestamp", "")
         request_context = why.get("request_context", {}) if isinstance(why.get("request_context"), dict) else {}
-        patient_id = request_context.get("patient_id")
-        patient_token = token_by_patient_id.get(patient_id)
+        patient_id = why.get("patient_id") or request_context.get("patient_id")
+        patient_token = why.get("patient_token") or token_by_patient_id.get(patient_id)
         if not patient_token:
             patient_token = request_context.get("patient_token")
         patient_token_masked = None

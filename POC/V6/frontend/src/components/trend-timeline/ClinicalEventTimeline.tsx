@@ -17,6 +17,47 @@ interface TimelineRow {
   detail: string;
   terminology: string;
   severity?: "normal" | "borderline" | "abnormal" | "info";
+  changeType?: string;
+}
+
+const MED_CHANGE_MAP: Record<string, { label: string; colorClass: string }> = {
+  started:          { label: "STARTED",   colorClass: "text-navavej-teal" },
+  initiated:        { label: "STARTED",   colorClass: "text-navavej-teal" },
+  increased:        { label: "ESCALATED", colorClass: "text-amber-600" },
+  escalated:        { label: "ESCALATED", colorClass: "text-amber-600" },
+  "dose increased": { label: "ESCALATED", colorClass: "text-amber-600" },
+  decreased:        { label: "TAPERED",   colorClass: "text-blue-600" },
+  tapered:          { label: "TAPERED",   colorClass: "text-blue-600" },
+  "dose decreased": { label: "TAPERED",   colorClass: "text-blue-600" },
+  discontinued:     { label: "STOPPED",   colorClass: "text-navavej-red" },
+  stopped:          { label: "STOPPED",   colorClass: "text-navavej-red" },
+  ended:            { label: "STOPPED",   colorClass: "text-navavej-red" },
+  continued:        { label: "CONTINUED", colorClass: "text-navavej-gray-med" },
+  maintained:       { label: "CONTINUED", colorClass: "text-navavej-gray-med" },
+  changed:          { label: "MODIFIED",  colorClass: "text-amber-600" },
+  modified:         { label: "MODIFIED",  colorClass: "text-amber-600" },
+};
+
+function getEventBadge(row: TimelineRow): { label: string; colorClass: string } {
+  if (row.type === "Medication") {
+    const key = (row.changeType ?? "").toLowerCase();
+    return MED_CHANGE_MAP[key] ?? { label: "CHANGED", colorClass: "text-navavej-gray-med" };
+  }
+  if (row.type === "Diagnosis") {
+    if (row.severity === "abnormal") return { label: "ACTIVE",   colorClass: "text-navavej-red" };
+    if (row.severity === "normal")   return { label: "RESOLVED", colorClass: "text-emerald-700" };
+    return { label: "NOTED", colorClass: "text-navavej-gray-med" };
+  }
+  if (row.type === "Screening") {
+    if (row.severity === "abnormal") return { label: "ALERT",   colorClass: "text-navavej-red" };
+    if (row.severity === "normal")   return { label: "CLEAR",   colorClass: "text-emerald-700" };
+    return { label: "PENDING", colorClass: "text-navavej-gray-med" };
+  }
+  // Lab (default)
+  if (row.severity === "abnormal")   return { label: "ALERT",   colorClass: "text-navavej-red" };
+  if (row.severity === "borderline") return { label: "WATCH",   colorClass: "text-amber-700" };
+  if (row.severity === "normal")     return { label: "OPTIMAL", colorClass: "text-emerald-700" };
+  return { label: "—", colorClass: "text-navavej-gray-med" };
 }
 
 export function ClinicalEventTimeline({ timeline, startYear }: ClinicalEventTimelineProps) {
@@ -87,6 +128,7 @@ export function ClinicalEventTimeline({ timeline, startYear }: ClinicalEventTime
         detail: item.change_type,
         terminology: "N/A",
         severity: "info",
+        changeType: item.change_type,
       });
     }
 
@@ -227,12 +269,14 @@ export function ClinicalEventTimeline({ timeline, startYear }: ClinicalEventTime
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
                                 {getSeverityIcon(row.severity)}
-                                <span className={cn(
-                                    "text-[7px] font-black uppercase tracking-tighter",
-                                    isAbnormal ? "text-navavej-red" : isNormal ? "text-emerald-700" : isBorderline ? "text-amber-700" : "text-navavej-gray-med"
-                                )}>
-                                    {isAbnormal ? "ALERT" : isNormal ? "OPTIMAL" : isBorderline ? "CHECK" : "STABLE"}
-                                </span>
+                                {(() => {
+                                    const { label: badgeLabel, colorClass: badgeColor } = getEventBadge(row);
+                                    return (
+                                        <span className={cn("text-[7px] font-black uppercase tracking-tighter", badgeColor)}>
+                                            {badgeLabel}
+                                        </span>
+                                    );
+                                })()}
                             </div>
                         </div>
 
