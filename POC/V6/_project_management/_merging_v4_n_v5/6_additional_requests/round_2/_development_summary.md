@@ -44,6 +44,11 @@ Changed `BiomarkerTrendGrid.tsx` tooltip positioning from `bottom-full left-1/2 
 ### R2h — AuditLogSearchPanel HTTPS warning text
 Expanded "Requires HTTPS" → "Hash verification requires a secure (HTTPS) connection" in `AuditLogSearchPanel.tsx`. This was both more informative for clinicians and fixed a pre-existing test failure (test expected the full string, component had the abbreviated version).
 
+### R2i — Fixed lab severity FHIR code mismatch (all labs showing "—")
+Replaced full-word `interpretation` string comparisons in `ClinicalEventTimeline.tsx` (lines 88-91) with FHIR short-code-aware mapping. Added `const interp = item.interpretation?.toUpperCase()` and mapped: `"N"` → normal → OPTIMAL, `"H"/"HH"/"L"/"LL"` → abnormal → ALERT, `"A"` → borderline → WATCH. Kept backwards-compat branches for full English words and `threshold_crossed` checks (currently always `""` from backend) for forward compatibility.
+
+Severity is entirely rules-based — the FHIR codes come from the signal store synthesis pipeline with no LLM involvement.
+
 ## Files modified
 
 | File | Lines changed |
@@ -53,6 +58,7 @@ Expanded "Requires HTTPS" → "Hash verification requires a secure (HTTPS) conne
 | `frontend/src/components/trend-timeline/BiomarkerTrendGrid.tsx` | R2c: +30 lines (BIOMARKER_INFO map + HelpCircle tooltip); R2g: tooltip position + arrow direction |
 | `frontend/src/components/trend-timeline/ClinicalEventTimeline.tsx` | R2d: +15 lines (collapsible dates); R2f: +50 lines (MED_CHANGE_MAP, getEventBadge, changeType field) |
 | `frontend/src/components/access-monitoring/AuditLogSearchPanel.tsx` | R2h: 1 line (HTTPS warning text) |
+| `frontend/src/components/trend-timeline/ClinicalEventTimeline.tsx` | R2i: replaced 3-line severity check with FHIR short-code mapping (3 lines changed) |
 | `backend/src/services/workflows/clinical.py` | R2e: normalized `item.sentiment` to lowercase at line 318 (1 line) |
 | `backend/src/services/text_annotations.py` | R2e: +15 lines (clinical compound phrases added to BAD_KEYWORDS) |
 | `baml_src/annotation_tests.baml` | R2e: fixed all sentiment assertions from lowercase aliases to capitalized enum variants |
@@ -61,3 +67,4 @@ Expanded "Requires HTTPS" → "Hash verification requires a secure (HTTPS) conne
 - **Test cache fix needed:** The module-level cache `Map` persisted across vitest test cases, causing 10 of 15 RecommendationPanel tests to fail (stale cached data from prior test). Fixed by exporting `clearRecommendationCache()` and calling it in `beforeEach`. This was not anticipated in the plan.
 - **BAML sentiment casing bug (R2e):** Discovered post-R2d during user review — risk lines rendered grey instead of red. Root cause was a casing mismatch between BAML enum variants (capitalized) and frontend string comparisons (lowercase). Not part of the original R2 scope; added as R2e.
 - **Pre-existing test failure (R2h):** `AuditLogSearchPanel` test was failing (1/49) due to text mismatch between test expectation and abbreviated component string — discovered during test run for R2f/R2g. Fixed as part of this session.
+- **FHIR code mismatch (R2i):** The "—" fallback introduced in R2f exposed a pre-existing mismatch — the backend always sent FHIR short codes but the frontend expected full English words. All 37 lab events in the signal store were affected.

@@ -38,8 +38,8 @@ export function AuditLogSearchPanel({
     setSelectedEntry(entry);
     setVerifyResult("idle");
     setVerifyError(null);
-    setRevealWho(!privacyMode);
-    setRevealPatient(!privacyMode);
+    setRevealWho(false);
+    setRevealPatient(false);
     setPatientDetails(null);
     if (entry.what.patient_id) {
       patientService.getDetails(entry.what.patient_id).then(setPatientDetails).catch(() => {});

@@ -819,8 +819,8 @@ export function RecommendationPanel({
                             <div className="space-y-4 relative z-10 text-center w-full">
                                 <div className="space-y-1">
                                     <span className="text-[8px] font-medium text-white/50 uppercase tracking-[0.25em] block leading-none">Recommended Plan</span>
-                                    <span className={cn("text-[15px] font-semibold leading-tight tracking-normal block", privacyMode ? "text-red-400 font-mono" : "text-white")}>
-                                        {privacyMode ? maskedPackageName : (data.resolved_package?.name || data.resolved_package?.package_name || "Unknown Plan")}
+                                    <span className="text-[15px] font-semibold leading-tight tracking-normal block text-white">
+                                        {data.resolved_package?.name || data.resolved_package?.package_name || "Unknown Plan"}
                                     </span>
                                 </div>
 
@@ -1032,21 +1032,7 @@ export function RecommendationPanel({
 
                         <div className="relative z-10 bg-white rounded-[24px] p-6 border border-navavej-border/50 shadow-sm">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {privacyMode && reasoningTraceLines.length > 0 ? (
-                                    /* Privacy mode: render masked plain-text lines (tokens instead of real names) */
-                                    reasoningTraceLines.filter(l => l.trim()).map((line, i) => (
-                                        <div key={`priv-${i}`} className="flex items-start gap-3 p-3 rounded-2xl border bg-navavej-gray-light/40 border-navavej-border/20">
-                                            <div className="mt-2.5 shrink-0">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-navavej-gray-med/60" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="text-[13px] font-mono font-bold leading-relaxed text-left text-navavej-gray-dark">
-                                                    {line}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    ))
-                                ) : clinicalReasoningLines.length > 0 ? (
+                                {clinicalReasoningLines.length > 0 ? (
                                     clinicalReasoningLines.map((line, idx: number) => {
                                         const sentiment = line.sentiment;
                                         return (
@@ -1086,14 +1072,11 @@ export function RecommendationPanel({
                             </div>
                         </div>
 
-                        {(policyReasoningLines.length > 0 || (privacyMode && reasoningTraceLines.length > 0)) && (
+                        {policyReasoningLines.length > 0 && (
                             <div className="relative z-10 mt-6 bg-navavej-teal/[0.04] rounded-[24px] p-8 border border-navavej-teal/20">
                                 <div className="flex items-center gap-2 mb-5">
-                                    <Activity className={cn("w-4 h-4", privacyMode ? "text-navavej-red" : "text-navavej-teal")} />
-                                    <h4 className={cn(
-                                        "text-xs font-black uppercase tracking-[0.2em]",
-                                        privacyMode ? "text-navavej-red/80" : "text-navavej-teal"
-                                    )}>
+                                    <Activity className="w-4 h-4 text-navavej-teal" />
+                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-navavej-teal">
                                         Policy Reasoning
                                     </h4>
                                 </div>
@@ -1101,14 +1084,9 @@ export function RecommendationPanel({
                                     {policyReasoningLines.map((line, idx: number) => (
                                         <p
                                             key={idx}
-                                            className={cn(
-                                                "text-sm font-medium leading-relaxed text-left",
-                                                privacyMode ? "font-mono text-navavej-red/80" : "text-navavej-gray-dark"
-                                            )}
+                                            className="text-sm font-medium leading-relaxed text-left text-navavej-gray-dark"
                                         >
-                                            {privacyMode
-                                                ? line.text
-                                                : renderHighlightedText(line.text, line.sentiment, line.highlight_terms)}
+                                            {renderHighlightedText(line.text, line.sentiment, line.highlight_terms)}
                                         </p>
                                     ))}
                                 </div>
@@ -1326,8 +1304,8 @@ export function RecommendationPanel({
                                                 <Package className="w-4 h-4 text-navavej-teal/60 shrink-0" />
                                                 <div>
                                                     <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest block">Base Plan</span>
-                                                    <span className={cn("text-sm font-bold", privacyMode ? "text-red-400 font-mono" : "text-white")}>
-                                                        {privacyMode ? maskedPackageName : (data.resolved_package?.name || data.resolved_package?.package_name || data.ai_recommended_tier)}
+                                                    <span className="text-sm font-bold text-white">
+                                                        {data.resolved_package?.name || data.resolved_package?.package_name || data.ai_recommended_tier}
                                                     </span>
                                                 </div>
                                             </div>

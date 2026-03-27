@@ -87,3 +87,18 @@ client<llm> ActiveModel {
     strategy [NavaveijClient, GPT4o, Claude35Sonnet, LocalLlama, OpenRouterClient]
   }
 }
+
+// AnnotationModel — Dedicated client for AnnotateReasoningLines (Agent 2c).
+// Uses the same NavaveijClient proxy so it can be independently pointed at a smaller/faster
+// model (e.g. gemini-1.5-flash-8b, gpt-4o-mini, claude-haiku) by setting a separate env var,
+// without affecting the frontier model used by Agents 1, 2a, and 2b.
+// For POC: shares the same endpoint as NavaveijClient; swap LLM_ANNOTATION_MODEL in .env.
+client<llm> AnnotationModel {
+  provider openai-generic
+  options {
+    base_url env.LLM_BASE_URL
+    api_key env.LLM_API_KEY
+    model env.LLM_ANNOTATION_MODEL
+    timeout_ms env.LLM_TIMEOUT_MS
+  }
+}

@@ -86,9 +86,10 @@ export function ClinicalEventTimeline({ timeline, startYear }: ClinicalEventTime
 
     for (const item of timeline.significant_lab_events) {
       let severity: TimelineRow["severity"] = "info";
-      if (item.threshold_crossed === "normal" || item.interpretation === "Normal") severity = "normal";
-      else if (item.interpretation === "Borderline") severity = "borderline";
-      else if (item.threshold_crossed === "above_high" || item.threshold_crossed === "below_low" || item.interpretation === "High" || item.interpretation === "Low") severity = "abnormal";
+      const interp = item.interpretation?.toUpperCase() ?? "";
+      if (interp === "N" || item.interpretation === "Normal" || item.threshold_crossed === "normal") severity = "normal";
+      else if (interp === "H" || interp === "HH" || interp === "L" || interp === "LL" || item.interpretation === "High" || item.interpretation === "Low" || item.threshold_crossed === "above_high" || item.threshold_crossed === "below_low") severity = "abnormal";
+      else if (interp === "A" || item.interpretation === "Borderline") severity = "borderline";
 
       timelineRows.push({
         date: item.date,

@@ -102,6 +102,28 @@
 
 **Fix:** Changed to `top-full left-0 mt-2` (drops below the icon, left-aligned). Arrow changed from downward-pointing (`border-t-`) to upward-pointing (`border-b-`), placed before the dark box div.
 
+## R2i — Lab Severity FHIR Code Mismatch
+
+**Symptom:** All lab events in the Clinical Event Timeline showed "—" after R2f introduced type-aware badges (where "—" is the explicit `info` fallback for labs). Even clearly normal labs like "89 mg/dL (N)" rendered with no badge.
+
+**Who determines severity? Rules only — no AI.** Full pipeline:
+1. Signal store (pre-computed synthesis) stores `interpretation` using FHIR short codes per `baml_src/synthesis/signal_store_types.baml`: `"N"` | `"H"` | `"L"` | `"HH"` | `"LL"` | `"A"`
+2. Backend timeline builder (`mcp_server/utils.py:564`) copies `interpretation` verbatim and hardcodes `threshold_crossed: ""`
+3. Frontend severity mapping checks full English words: `item.interpretation === "Normal"`, `=== "High"`, `=== "Low"`, `=== "Borderline"` — none match FHIR codes
+4. `threshold_crossed === "normal"` / `"above_high"` / `"below_low"` — also always false since backend always sends `""`
+
+**Result:** Every lab → `severity = "info"` → badge "—".
+
+**FHIR code → severity mapping:**
+| Code | Meaning | Severity |
+|------|---------|----------|
+| `"N"` | Normal | normal → OPTIMAL |
+| `"H"` / `"HH"` | High / Critical High | abnormal → ALERT |
+| `"L"` / `"LL"` | Low / Critical Low | abnormal → ALERT |
+| `"A"` | Abnormal (non-numeric) | borderline → WATCH |
+
+**Fix:** Replaced full-word comparisons with FHIR-code-aware mapping using `interp = item.interpretation?.toUpperCase()`, with backwards-compat fallback for full-word forms.
+
 ## R2h — AuditLogSearchPanel HTTPS Warning Text
 
 **Problem:** `verifyResult === "no-https"` rendered "Requires HTTPS" — an abbreviated string that didn't match the vitest test expectation ("Hash verification requires a secure (HTTPS) connection") and was insufficiently descriptive for end users.

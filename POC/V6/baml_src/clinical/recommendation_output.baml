@@ -79,7 +79,7 @@ function AnalyzeClinicalRisks(
 function AnnotateReasoningLines(
   clinical_lines: string[]
 ) -> ReasoningLineAnnotation[] {
-  client ActiveModel
+  client AnnotationModel
   prompt #"
     Role: Clinical Annotation Specialist.
     Classify each clinical reasoning line and identify only meaningful highlights.

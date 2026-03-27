@@ -32,11 +32,12 @@ def _risk_profile_cache_key(masked_context: dict) -> str:
 class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
     """Implements the clinical reasoning loop.
 
-    Phase 1: Fetch all MCP data in parallel (get_hard_constraints, get_clinical_signals,
-             get_biomarker_trends, get_program_ruleset) — no ordering dependency between them.
-    Phase 2: Run rule evaluation + Agent 1 (AnalyzeClinicalRisks).
-    Phase 3: Run Agent 2a (MatchPolicy) + Agent 2b (WriteNarrative) in parallel.
-    Phase 4: Merge results, apply fallback paths, finalize context.
+    Phase 1: Fetch all 4 MCP data sources in parallel — no ordering dependency.
+    Phase 2: PII masking (fast, sync).
+    Phase 3: RuleEvaluator (thread) ║ Agent 1 AnalyzeClinicalRisks (LLM) — run concurrently.
+             Rule tier is awaited just before Agent 2 fan-out (always done by then).
+    Phase 4: Agent 2a MatchPolicy ║ Agent 2b WriteNarrative — parallel.
+    Phase 5: Merge results, apply fallback paths, finalize context.
     """
 
     def __init__(self, session: ClientSession):
@@ -85,12 +86,15 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         return context
 
     async def _generate_recommendation(self, context: WorkflowContext, force_rule_based: bool = False, on_stage: Any = None) -> None:
-        """Rule evaluation + Agent 1 + parallel Agent 2a/2b with granular fallback."""
+        """Rule evaluation ║ Agent 1, then Agent 2a ║ Agent 2b, with granular fallback.
+
+        Opt 2: RuleEvaluator runs in a thread concurrently with Agent 1 — both only need
+               Stage 1 data. Rule tier is awaited just before the Agent 2 fan-out (always done).
+        """
         logger.debug(f"Phase 2: Generating recommendation (force_rule_based={force_rule_based})")
 
         clinical_signals = context.raw_context.get("get_clinical_signals", {})
         signals_fired = clinical_signals.get("signals_fired", [])
-        rule_result = RuleEvaluator(signals_fired).evaluate()
 
         demographics = context.raw_context.get("get_patient_context", {})
         gender = demographics.get("gender", "other")
@@ -98,14 +102,9 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         ruleset = context.raw_context.get("get_program_ruleset", {})
         package_resolution_map = ruleset.get("package_resolution_map", {})
 
-        resolved_package = resolve_package(
-            rule_result["rule_tier"],
-            gender,
-            age,
-            package_resolution_map,
-        )
-
         if force_rule_based:
+            rule_result = RuleEvaluator(signals_fired).evaluate()
+            resolved_package = resolve_package(rule_result["rule_tier"], gender, age, package_resolution_map)
             context.ai_output = self._build_rule_based_output(
                 rule_result=rule_result,
                 clinical_signals=clinical_signals,
@@ -114,8 +113,13 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             )
             return
 
-        # ── Agent 1: AnalyzeClinicalRisks ────────────────────────────────────
-        # Failure here → full rule-based fallback (no partial AI to preserve)
+        # ── Opt 2: Start rule evaluation in a thread, runs concurrently with Agent 1 ──
+        # RuleEvaluator is CPU-bound/sync; asyncio.to_thread() keeps the event loop free.
+        # Agent 1 takes seconds (LLM), so rule eval (ms) finishes well before it completes.
+        rule_task = asyncio.create_task(asyncio.to_thread(lambda: RuleEvaluator(signals_fired).evaluate()))
+
+        # ── Agent 1: AnalyzeClinicalRisks ────────────────────────────────────────────
+        # Failure here → full rule-based fallback (no partial AI output to preserve).
         try:
             if on_stage: await on_stage(3, "Matching profile and composing recommendation")
             _ai_start = time.monotonic()
@@ -132,8 +136,11 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             else:
                 logger.debug("risk_profile cache hit — skipping AnalyzeClinicalRisks LLM call")
         except Exception as exc:
+            rule_task.cancel()
             logger.exception(f"Agent 1 (AnalyzeClinicalRisks) failed. Falling back to rule-based: {exc}")
             context.metadata["ai_chain_ms"] = 0
+            rule_result = RuleEvaluator(signals_fired).evaluate()
+            resolved_package = resolve_package(rule_result["rule_tier"], gender, age, package_resolution_map)
             context.ai_output = self._build_rule_based_output(
                 rule_result=rule_result,
                 clinical_signals=clinical_signals,
@@ -142,7 +149,11 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             )
             return
 
-        # ── Agent 2a + 2b in parallel: MatchPolicy + WriteNarrative ──────────
+        # Collect rule result — always done by now (ms vs. Agent 1's seconds)
+        rule_result = await rule_task
+        resolved_package = resolve_package(rule_result["rule_tier"], gender, age, package_resolution_map)
+
+        # ── Agent 2a + 2b in parallel: MatchPolicy + WriteNarrative ──────────────────
         # return_exceptions=True so a single failure doesn't cancel the other call.
         policy_result, narrative = await asyncio.gather(
             b.MatchPolicy(

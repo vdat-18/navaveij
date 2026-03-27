@@ -53,6 +53,13 @@ The "?" tooltip was positioned `bottom-full` (above the icon), causing it to be 
 
 The `no-https` verify result rendered "Requires HTTPS" — abbreviation that didn't match the test expectation or provide enough context. Expanded to the full message: "Hash verification requires a secure (HTTPS) connection".
 
+### R2i — Fix lab severity mapping (FHIR short codes vs full-word mismatch)
+**File:** `frontend/src/components/trend-timeline/ClinicalEventTimeline.tsx`
+
+All lab events showed "—" because the frontend compared `item.interpretation` against full words ("Normal", "High", "Low") but the backend sends FHIR standard short codes ("N", "H", "L", "HH", "LL", "A"). Also `threshold_crossed` is hardcoded `""` in the backend timeline builder, making those comparisons dead code. Fixed by adding FHIR-code-aware mapping with backwards-compat fallback for full-word forms.
+
+Severity is **100% rules-based** — no AI/LLM involved anywhere in this pipeline.
+
 ## Acceptance Criteria
 - [x] Transparency Metric tooltip fully visible above the Clinical Logic card (not clipped)
 - [x] Returning to a patient within 5 min loads recommendation instantly from client cache
@@ -62,6 +69,7 @@ The `no-https` verify result rendered "Requires HTTPS" — abbreviation that did
 - [x] BAML annotation tests pass (3/3) with capitalized enum variants
 - [x] Medication events in timeline show clinically meaningful badges (STARTED/STOPPED/etc.), not "STABLE"
 - [x] Biomarker "?" tooltip drops below icon and is fully visible in ClinicalDrawer
+- [x] Lab events show correct badges: OPTIMAL for N, ALERT for H/HH/L/LL, WATCH for A
 - [x] `npm run build` exits 0
 - [x] Backend pytest passes
 - [x] Frontend vitest passes (49/49)
