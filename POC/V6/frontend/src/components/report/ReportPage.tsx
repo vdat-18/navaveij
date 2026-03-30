@@ -226,9 +226,20 @@ export function ReportPage({ data }: { data: ReportExportData }) {
                             ) : null}
                         </div>
                     )}
-                    {rec.tier_deviation_justification && (
-                        <p className="mt-2 text-xs text-[#666] italic">{rec.tier_deviation_justification}</p>
+                    {script.program_justification && (
+                        <p className="mt-3 text-sm text-[#444] leading-relaxed">{script.program_justification}</p>
                     )}
+                    <div className="mt-4 flex items-center gap-4">
+                        <QRCodeSVG value={getPackageUrl(rec.ai_recommended_tier)} size={80} />
+                        <a
+                            href={getPackageUrl(rec.ai_recommended_tier)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-bold text-[#00ABC7] hover:underline"
+                        >
+                            View package details at navavej.com ↗
+                        </a>
+                    </div>
                 </div>
 
                 {/* ── Critical Alerts ── */}
@@ -257,7 +268,8 @@ export function ReportPage({ data }: { data: ReportExportData }) {
                                     <th className="text-left py-2 pr-4 font-bold text-[#666] uppercase tracking-wider">Category</th>
                                     <th className="text-left py-2 pr-4 font-bold text-[#666] uppercase tracking-wider">Priority</th>
                                     <th className="text-right py-2 pr-4 font-bold text-[#666] uppercase tracking-wider">Price (THB)</th>
-                                    <th className="text-left py-2 font-bold text-[#666] uppercase tracking-wider">Rationale</th>
+                                    <th className="text-left py-2 pr-4 font-bold text-[#666] uppercase tracking-wider">Rationale</th>
+                                    <th className="text-center py-2 font-bold text-[#666] uppercase tracking-wider">Info</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -269,6 +281,7 @@ export function ReportPage({ data }: { data: ReportExportData }) {
                                         priorityKey === "Orange" ? "Medium" :
                                         priorityKey === "Yellow" ? "Caution" : "Low"
                                     ];
+                                    const serviceUrl = getServiceUrl(item.item_code ?? item.item_id ?? item.label);
                                     return (
                                         <tr key={i} className="border-b border-[#F0F0F0]">
                                             <td className="py-2 pr-4 font-semibold">{item.label}</td>
@@ -281,58 +294,18 @@ export function ReportPage({ data }: { data: ReportExportData }) {
                                             <td className="py-2 pr-4 text-right font-mono">
                                                 {item.price_thb != null ? `฿${Number(item.price_thb).toLocaleString("en-US")}` : "—"}
                                             </td>
-                                            <td className="py-2 text-[#666]">{item.rationale}</td>
+                                            <td className="py-2 pr-4 text-[#666]">{item.rationale}</td>
+                                            <td className="py-2 text-center">
+                                                <a href={serviceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex flex-col items-center gap-1 group">
+                                                    <QRCodeSVG value={serviceUrl} size={48} />
+                                                    <span className="text-[9px] font-bold text-[#00ABC7] group-hover:underline">navavej.com ↗</span>
+                                                </a>
+                                            </td>
                                         </tr>
                                     );
                                 })}
                             </tbody>
                         </table>
-                    </div>
-                )}
-
-                {/* ── Communication Script ── */}
-                {(script.summary_headline || script.top_findings?.length || script.next_actions?.length) && (
-                    <div className="report-section">
-                        <SectionHeading>Clinical Communication Guide</SectionHeading>
-
-                        {script.summary_headline && (
-                            <p className="font-bold text-base mb-4 text-[#333]">{script.summary_headline}</p>
-                        )}
-
-                        {script.top_findings && script.top_findings.length > 0 && (
-                            <div className="mb-4">
-                                <p className="text-xs font-black uppercase tracking-widest text-[#666] mb-2">Key Findings</p>
-                                <ul className="space-y-1">
-                                    {script.top_findings.map((f, i) => (
-                                        <li key={i} className="flex items-start gap-2 text-sm">
-                                            <span className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-[#00ABC7]" />
-                                            {f.text}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
-
-                        {script.program_justification && (
-                            <div className="mb-4">
-                                <p className="text-xs font-black uppercase tracking-widest text-[#666] mb-2">Program Justification</p>
-                                <p className="text-sm text-[#333]">{script.program_justification}</p>
-                            </div>
-                        )}
-
-                        {script.next_actions && script.next_actions.length > 0 && (
-                            <div>
-                                <p className="text-xs font-black uppercase tracking-widest text-[#666] mb-2">Next Actions</p>
-                                <ul className="space-y-1">
-                                    {script.next_actions.map((a, i) => (
-                                        <li key={i} className="flex items-start gap-2 text-sm">
-                                            <span className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-[#00ABC7]" />
-                                            {a.text}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
                     </div>
                 )}
 
@@ -376,6 +349,45 @@ export function ReportPage({ data }: { data: ReportExportData }) {
                         ) : (
                             <div className="border-l-2 border-[#00ABC7]/25 pl-5 bg-[#F8FCFD] rounded-r-xl py-5 pr-5">
                                 {renderReasoningTrace(rec.reasoning_trace)}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ── Clinical Summary ── */}
+                {(script.summary_headline || script.top_findings?.length || script.next_actions?.length) && (
+                    <div className="report-section">
+                        <SectionHeading>Clinical Summary</SectionHeading>
+
+                        {script.summary_headline && (
+                            <p className="font-bold text-base mb-4 text-[#333]">{script.summary_headline}</p>
+                        )}
+
+                        {script.top_findings && script.top_findings.length > 0 && (
+                            <div className="mb-4">
+                                <p className="text-xs font-black uppercase tracking-widest text-[#666] mb-2">Key Findings</p>
+                                <ul className="space-y-1">
+                                    {script.top_findings.map((f, i) => (
+                                        <li key={i} className="flex items-start gap-2 text-sm">
+                                            <span className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-[#00ABC7]" />
+                                            {f.text}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        {script.next_actions && script.next_actions.length > 0 && (
+                            <div>
+                                <p className="text-xs font-black uppercase tracking-widest text-[#666] mb-2">Next Actions</p>
+                                <ul className="space-y-1">
+                                    {script.next_actions.map((a, i) => (
+                                        <li key={i} className="flex items-start gap-2 text-sm">
+                                            <span className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-[#00ABC7]" />
+                                            {a.text}
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
                         )}
                     </div>

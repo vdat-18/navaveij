@@ -30,6 +30,7 @@ const makeRecommendation = (overrides?: Partial<RecommendationResponse>): Recomm
     top_findings: [{ text: "Stage 1 Hypertension confirmed.", highlight_terms: [] }],
     program_justification: "Premium tier covers cardiovascular screening.",
     next_actions: [{ text: "Schedule follow-up in 3 months.", highlight_terms: [] }],
+    highlight_terms: [],
   },
   rule_preliminary_tier: "Premium",
   resolved_package: {
@@ -158,5 +159,24 @@ describe("ReportPage", () => {
     expect(
       screen.getByText(/professional clinical judgment/i)
     ).toBeInTheDocument();
+  });
+
+  it("renders program justification in Recommended Package section", () => {
+    render(<ReportPage data={makeReportData()} />);
+    expect(screen.getByText("Premium tier covers cardiovascular screening.")).toBeInTheDocument();
+  });
+
+  it("renders QR code link for the recommended package", () => {
+    render(<ReportPage data={makeReportData()} />);
+    const links = screen.getAllByRole("link", { name: /navavej\.com/i });
+    const packageLink = links.find(l => l.getAttribute("href")?.includes("navavej.com/health-checkup/premium"));
+    expect(packageLink).toBeInTheDocument();
+  });
+
+  it("renders QR code link for each add-on", () => {
+    render(<ReportPage data={makeReportData()} />);
+    const links = screen.getAllByRole("link", { name: /navavej\.com/i });
+    const addonLink = links.find(l => l.getAttribute("href")?.includes("navavej.com/services/ecg-01"));
+    expect(addonLink).toBeInTheDocument();
   });
 });
