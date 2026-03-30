@@ -51,7 +51,11 @@ async def _run_child_validation(client_name: str) -> dict[str, object]:
     os.environ["AI_ACTIVE_CLIENT"] = client_name
 
     from baml_client.async_client import b  # Imported after env hydration and client selection.
+    from src.services.active_client import resolve_active_client
+    from src.services.prompt_selector import get_prompt_selector
 
+    resolved_client = resolve_active_client(client_name)
+    selector = get_prompt_selector(client_name)
     started_at = time.monotonic()
     await b.AnalyzeClinicalRisks(
         system_prompt=_DUMMY_SYSTEM_PROMPT,
@@ -63,6 +67,9 @@ async def _run_child_validation(client_name: str) -> dict[str, object]:
     return {
         "client": client_name,
         "ok": True,
+        "provider": resolved_client.provider,
+        "model_id": resolved_client.model_id,
+        "template_version": selector.version,
         "latency_ms": int((time.monotonic() - started_at) * 1000),
     }
 

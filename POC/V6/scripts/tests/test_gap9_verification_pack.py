@@ -33,6 +33,7 @@ def test_gap9_required_verification_modules_present():
         "scripts/tests/test_frontend_terminology_visibility.py",
         "scripts/tests/test_frontend_reliability_contract.py",
         "scripts/tests/test_end_to_end.py",
+        "scripts/tests/test_validate_clients.py",
     ]
     for path in required:
         assert Path(path).exists()

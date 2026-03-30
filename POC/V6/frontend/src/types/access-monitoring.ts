@@ -78,6 +78,8 @@ export interface AuditLogEntry {
     recommendation_source: string | null;
     function_name?: string | null;
     prompt_template_key?: string | null;
+    input_trace_masked?: unknown;
+    output_trace_masked?: unknown;
   };
   why: {
     request_context: string | Record<string, unknown>;

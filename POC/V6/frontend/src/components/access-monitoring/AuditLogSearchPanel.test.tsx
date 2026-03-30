@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AuditLogSearchPanel } from "./AuditLogSearchPanel";
 import { AuditLogEntry } from "@/types/access-monitoring";
@@ -49,6 +49,13 @@ const llmEntry: AuditLogEntry = {
     recommendation_source: "AI",
     function_name: "AnalyzeClinicalRisks",
     prompt_template_key: "analyze_clinical_risks",
+    input_trace_masked: {
+      system_prompt: "prompt::analyze",
+      clinical_signals: { signals_fired: ["bp_elevated"] },
+    },
+    output_trace_masked: {
+      severity_assessment: "Moderate risk requiring monitoring.",
+    },
   },
 };
 
@@ -93,5 +100,29 @@ describe("AuditLogSearchPanel", () => {
     expect(screen.getByText("gpt-5.4-mini · openai-v1 · 27ms")).toBeInTheDocument();
     expect(screen.getByText("Template key:")).toBeInTheDocument();
     expect(screen.getByText("analyze_clinical_risks")).toBeInTheDocument();
+  });
+
+  it("opens a modal inspector for masked LLM request traces", async () => {
+    render(
+      <AuditLogSearchPanel
+        entries={[llmEntry]}
+        total={1}
+        filters={{}}
+        onFilterChange={vi.fn()}
+        onSearch={vi.fn(async () => undefined)}
+      />
+    );
+
+    await userEvent.click(screen.getByText("u1"));
+    await userEvent.click(screen.getByRole("button", { name: "Inspect LLM Request" }));
+
+    const dialog = screen.getByRole("dialog", { name: "LLM Request Trace Inspector" });
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText("request id")).toBeInTheDocument();
+    expect(within(dialog).getByText("req-1")).toBeInTheDocument();
+    expect(within(dialog).getByText(/masked input trace/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/masked output trace/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/bp_elevated/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Moderate risk requiring monitoring/)).toBeInTheDocument();
   });
 });

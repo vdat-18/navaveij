@@ -5,6 +5,7 @@ import hashlib
 import json
 import time
 from typing import Any
+from unittest.mock import Mock
 
 from loguru import logger
 from mcp import ClientSession
@@ -35,6 +36,65 @@ def _priority_to_severity(priority: str) -> str:
     return _PRIORITY_SEVERITY_MAP.get(priority, "neutral")
 
 
+def _json_safe_value(value: Any) -> Any:
+    """Convert common BAML/Pydantic values into JSON-safe masked trace payloads."""
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, Mock):
+        if hasattr(value, "value") and isinstance(getattr(value, "value"), (str, int, float, bool)):
+            return value.value
+        return str(value)
+    if isinstance(value, dict):
+        return {key: _json_safe_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe_value(item) for item in value]
+    if hasattr(value, "model_dump") and callable(value.model_dump):
+        return _json_safe_value(value.model_dump())
+    if hasattr(value, "value") and isinstance(getattr(value, "value"), (str, int, float, bool)):
+        return value.value
+    if hasattr(value, "__dict__"):
+        public_items = {
+            key: item
+            for key, item in vars(value).items()
+            if not key.startswith("_") and not callable(item)
+        }
+        if public_items:
+            return _json_safe_value(public_items)
+    return str(value)
+
+
+def _risk_profile_trace(risk_profile: Any) -> dict[str, Any]:
+    return {
+        "clinical_summary_bullets": _json_safe_value(getattr(risk_profile, "clinical_summary_bullets", [])),
+        "severity_assessment": _json_safe_value(getattr(risk_profile, "severity_assessment", None)),
+        "supporting_signal_ids": _json_safe_value(getattr(risk_profile, "supporting_signal_ids", [])),
+        "missing_signal_ids": _json_safe_value(getattr(risk_profile, "missing_signal_ids", [])),
+        "suggested_tier": _json_safe_value(getattr(risk_profile, "suggested_tier", None)),
+    }
+
+
+def _llm_output_trace(function_name: str, result: Any) -> Any:
+    if function_name == "AnalyzeClinicalRisks":
+        return _risk_profile_trace(result)
+    if function_name == "MatchPolicy":
+        return {
+            "ai_recommended_tier": _json_safe_value(getattr(result, "ai_recommended_tier", None)),
+            "tier_deviation_justification": _json_safe_value(getattr(result, "tier_deviation_justification", None)),
+            "policy_reasoning": _json_safe_value(getattr(result, "policy_reasoning", None)),
+            "selected_add_ons": _json_safe_value(getattr(result, "selected_add_ons", [])),
+            "policy_script": _json_safe_value(getattr(result, "policy_script", None)),
+        }
+    if function_name == "WriteNarrative":
+        return {
+            "summary_headline": _json_safe_value(getattr(result, "summary_headline", None)),
+            "top_findings": _json_safe_value(getattr(result, "top_findings", [])),
+            "next_actions": _json_safe_value(getattr(result, "next_actions", [])),
+        }
+    if function_name == "AnnotateReasoningLines":
+        return _json_safe_value(result)
+    return _json_safe_value(result)
+
+
 def _risk_profile_cache_key(masked_context: dict) -> str:
     payload = {
         "signals": masked_context.get("get_clinical_signals"),
@@ -52,6 +112,7 @@ async def _timed_llm_call(
     prompt_selector: PromptTemplateSelector,
     function_name: str,
     prompt_template_key: str,
+    input_trace_masked: dict[str, Any],
     call: Any,
 ) -> Any:
     """Await a single LLM call and record accurate per-call timing metadata."""
@@ -65,6 +126,8 @@ async def _timed_llm_call(
             "template_version": prompt_selector.version,
             "prompt_template_key": prompt_template_key,
             "latency_ms": int((time.monotonic() - started_at) * 1000),
+            "input_trace_masked": input_trace_masked,
+            "output_trace_masked": _llm_output_trace(function_name, result),
         }
     )
     return result
@@ -197,14 +260,23 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             _cache_key = _risk_profile_cache_key(context.masked_context)
             _found, risk_profile = cache_service.get(_cache_key)
             if not _found:
+                analyze_system_prompt = selector.get("analyze_clinical_risks")
+                analyze_input_trace = {
+                    "system_prompt": analyze_system_prompt,
+                    "clinical_signals": context.masked_context.get("get_clinical_signals"),
+                    "biomarker_trends": context.masked_context.get("get_biomarker_trends"),
+                    "hard_constraints": context.masked_context.get("get_hard_constraints"),
+                    "program_ruleset": context.masked_context.get("get_program_ruleset"),
+                }
                 risk_profile = await _timed_llm_call(
                     context=context,
                     resolved_client=resolved_client,
                     prompt_selector=selector,
                     function_name="AnalyzeClinicalRisks",
                     prompt_template_key="analyze_clinical_risks",
+                    input_trace_masked=analyze_input_trace,
                     call=llm_client.AnalyzeClinicalRisks(
-                        system_prompt=selector.get("analyze_clinical_risks"),
+                        system_prompt=analyze_system_prompt,
                         clinical_signals=json.dumps(context.masked_context.get("get_clinical_signals"), indent=2),
                         biomarker_trends=json.dumps(context.masked_context.get("get_biomarker_trends"), indent=2),
                         hard_constraints=json.dumps(context.masked_context.get("get_hard_constraints"), indent=2),
@@ -236,6 +308,11 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         # Launched before the Agent 2a/2b gather so it runs in parallel with both.
         # Collected non-blocking after the gather — never extends the critical path.
         _annotate_start = time.monotonic()
+        annotate_system_prompt = selector.get("annotate_reasoning_lines")
+        annotate_input_trace = {
+            "system_prompt": annotate_system_prompt,
+            "clinical_lines": getattr(risk_profile, "clinical_summary_bullets", []) or [],
+        }
         annotation_task = asyncio.create_task(
             _timed_llm_call(
                 context=context,
@@ -243,8 +320,9 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
                 prompt_selector=selector,
                 function_name="AnnotateReasoningLines",
                 prompt_template_key="annotate_reasoning_lines",
+                input_trace_masked=annotate_input_trace,
                 call=llm_client.AnnotateReasoningLines(
-                    system_prompt=selector.get("annotate_reasoning_lines"),
+                    system_prompt=annotate_system_prompt,
                     clinical_lines=getattr(risk_profile, "clinical_summary_bullets", []) or [],
                 ),
             )
@@ -253,6 +331,17 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         # ── Parallel fan-out: MatchPolicy + WriteNarrative ───────────────────────────
         # Agent 2c (AnnotateReasoningLines) is NOT in this gather — it runs concurrently above.
         # return_exceptions=True so a single failure doesn't cancel the other call.
+        match_policy_system_prompt = selector.get("match_policy")
+        match_policy_input_trace = {
+            "system_prompt": match_policy_system_prompt,
+            "risk_profile": _risk_profile_trace(risk_profile),
+            "program_ruleset": context.masked_context.get("get_program_ruleset"),
+        }
+        write_narrative_system_prompt = selector.get("write_narrative")
+        write_narrative_input_trace = {
+            "system_prompt": write_narrative_system_prompt,
+            "risk_profile": _risk_profile_trace(risk_profile),
+        }
         policy_result, narrative = await asyncio.gather(
             _timed_llm_call(
                 context=context,
@@ -260,8 +349,9 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
                 prompt_selector=selector,
                 function_name="MatchPolicy",
                 prompt_template_key="match_policy",
+                input_trace_masked=match_policy_input_trace,
                 call=llm_client.MatchPolicy(
-                    system_prompt=selector.get("match_policy"),
+                    system_prompt=match_policy_system_prompt,
                     risk_profile=risk_profile,
                     program_ruleset=json.dumps(context.masked_context.get("get_program_ruleset"), indent=2),
                 ),
@@ -272,8 +362,9 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
                 prompt_selector=selector,
                 function_name="WriteNarrative",
                 prompt_template_key="write_narrative",
+                input_trace_masked=write_narrative_input_trace,
                 call=llm_client.WriteNarrative(
-                    system_prompt=selector.get("write_narrative"),
+                    system_prompt=write_narrative_system_prompt,
                     risk_profile=risk_profile,
                 ),
             ),

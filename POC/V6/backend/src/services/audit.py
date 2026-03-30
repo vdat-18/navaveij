@@ -183,6 +183,8 @@ class AuditLogger:
         model_id: str,
         template_version: str,
         prompt_template_key: str,
+        input_trace_masked: dict[str, Any],
+        output_trace_masked: Any,
         patient_id: str,
         parent_request_id: str,
         latency_ms: int,
@@ -214,6 +216,8 @@ class AuditLogger:
                 "template_version": template_version,
                 "prompt_template_key": prompt_template_key,
                 "latency_ms": latency_ms,
+                "input_trace_masked": input_trace_masked,
+                "output_trace_masked": output_trace_masked,
             },
             # Dimension 5 — WHY: clinical context linking back to the parent recommendation
             "why": {

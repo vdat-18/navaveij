@@ -279,6 +279,8 @@ def _normalize_runtime_audit_entries() -> list[dict[str, Any]]:
                 # LLMRequest-specific fields (None for non-LLM entries)
                 "function_name": what.get("function_name"),
                 "prompt_template_key": what.get("prompt_template_key"),
+                "input_trace_masked": what.get("input_trace_masked"),
+                "output_trace_masked": what.get("output_trace_masked"),
             },
             "why": {
                 "request_context": request_context or "Runtime clinical action",

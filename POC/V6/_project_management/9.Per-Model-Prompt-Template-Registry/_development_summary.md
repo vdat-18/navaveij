@@ -1,116 +1,134 @@
 # Development Summary — Per-Model Prompt Template Registry
 
-**Workstream:** 9
-**Date:** 2026-03-30
-**State:** ✅ All parts complete
+**Workstream:** 9  
+**Date:** 2026-03-30  
+**State:** ✅ Implemented and locally verified
 
 ---
 
 ## Summary
 
-Implemented as a single coordinated pass across five problem areas that were originally scoped as one (per-model prompt registry) but expanded on 2026-03-30 to include client rename, admin UI split, LLM-level audit logging, and a client validation script.
+The workstream ended as four coupled repairs plus one config cleanup:
+
+1. validated active-client resolution
+2. workflow dispatch and audit integrity
+3. API metadata/cache/admin consistency
+4. isolated client validation and final verification
+5. trace-level `LLMRequest` audit expansion and UI inspection
+6. provider-native env normalization for Gemini/OpenAI/Anthropic/OpenRouter/LocalHosted
+
+The resulting system now derives prompt selection, runtime metadata, cache keys, audit fields, and admin display from the same resolved client identity.
 
 ---
 
-## Work Completed
+## Scope Outcomes
 
-### Part 1 — BAML Client Rename
+### Scope 1 — Active Client Resolution
 
-Renamed all five named BAML clients to match their actual deployed model identities:
+- added `backend/src/services/active_client.py` as the single validated registry for:
+  - `client_name`
+  - `provider`
+  - `model_id`
+  - `prompt_registry_key`
+- refactored `prompt_selector.py` to consume the resolver instead of local fallback maps
+- changed invalid `AI_ACTIVE_CLIENT` handling from silent fallback to explicit failure
 
-| Old | New | Model |
-|---|---|---|
-| `NavaveijClient` | `GeminiClient` | `gemini-3-flash-preview` (env `GEMINI_MODEL`) |
-| `GPT4o` | `OpenAIClient` | `gpt-5.4-mini` |
-| `Claude35Sonnet` | `AnthropicClient` | `claude-haiku-4-5` |
-| `LocalLlama` | `LocalHostedClient` | `llama-3.3-70b-instruct` |
-| `OpenRouterClient` | `OpenRouterClient` | `openai/gpt-oss-120b` (hardcoded) |
+### Scope 2 — Workflow Dispatch and Audit Integrity
 
-- `NavaveijWithFallback` deleted (legacy, no callers).
-- `ActiveModel` fallback chain updated: `GeminiClient → OpenAIClient → AnthropicClient → LocalHostedClient → OpenRouterClient`.
-- `AnnotationModel` redefined with the **same** fallback chain as `ActiveModel` (no separate `LLM_ANNOTATION_MODEL` env var).
-- All non-clinical BAML files (`test.baml`, `synthesis/hybrid_generator.baml`, `synthesis/enrichment.baml`, `clinical/safety_critic.baml`) updated from old names.
-- `shared/settings.py`: `ai_active_client` default changed to `"GeminiClient"`, comment updated to list new valid values; added `openai_api_key`, `anthropic_api_key`, `openrouter_api_key` fields.
-- `.env.example` rewritten around provider-native env names; removed `LLM_ANNOTATION_MODEL` and the legacy Gemini `LLM_*` keys.
-- `backend/src/api/routes/contracts.py` `get_system_config()` updated to list new client names and mark the active client dynamically; `template_version` now sourced live from `prompt_selector.version`.
+- updated `backend/src/services/workflows/clinical.py` to dispatch by resolved client identity
+- preserved the Gemini default-client path and used explicit `b.with_options(client=...)` for non-Gemini clients
+- recorded accurate per-call audit metadata and independent latencies
+- updated `backend/src/services/orchestrator.py` and `backend/src/services/audit.py` to emit resolved model identity into recommendation and `LLMRequest` rows
+- expanded `LLMRequest` rows to retain masked input/output traces per function call
 
-### Part 2 — Per-Model Prompt Template Registry
+### Scope 3 — API Metadata, Cache, and Admin Consistency
 
-- Created `baml_src/prompts/` directory with five YAML files (identical content for POC; tunable per model in production):
-  - `gemini.yaml` (version: `gemini-v1`)
-  - `openai.yaml` (version: `openai-v1`)
-  - `anthropic.yaml` (version: `anthropic-v1`)
-  - `openrouter.yaml` (version: `openrouter-v1`)
-  - `local.yaml` (version: `local-v1`)
-- Created `backend/src/services/prompt_selector.py` — `PromptTemplateSelector` singleton that loads the YAML file matching `AI_ACTIVE_CLIENT` at startup; falls back to `gemini.yaml` for unknown client names.
-- Updated all four BAML function signatures in `baml_src/clinical/recommendation_output.baml` to accept `system_prompt: string` as first parameter; static prompt body replaced with `{{ system_prompt }}`.
-- Regenerated `baml_client/` via `baml-cli generate` (14 files written, no errors).
-- Updated `backend/src/services/workflows/clinical.py`:
-  - Imports `prompt_selector`.
-  - Passes `system_prompt=prompt_selector.get("<key>")` to each BAML call.
-  - Records per-call timing into `context.llm_call_records`.
-- Added `llm_call_records: list[dict[str, Any]]` field to `WorkflowContext` in `backend/src/services/workflows/base.py`.
+- removed hardcoded `"v1.0"` and shared-model assumptions from recommendation metadata normalization
+- partitioned recommendation cache keys by resolved `active_client`, `model_id`, and `template_version`
+- rebuilt `/api/system-config` from the validated resolver path
+- aligned access-monitoring contracts and UI with resolved runtime metadata
 
-### Part 3 — System Config Tab Split (Frontend)
+### Scope 4 — Validation Harness and Final Verification
 
-- Created `frontend/src/components/access-monitoring/MCPConfigsTab.tsx` — renders MCP Tool Inventory and Auth Configuration.
-- Created `frontend/src/components/access-monitoring/AIConfigsTab.tsx` — renders Active AI Model badge (with live `template_version`) and BAML Client Registry table; includes updated `AI_ACTIVE_CLIENT` valid-values hint.
-- Updated `frontend/src/components/access-monitoring/AccessMonitoringScreen.tsx`:
-  - `TabKey` type changed from `"role" | "mapping" | "master" | "sysconfig"` to `"role" | "mapping" | "master" | "mcp_config" | "ai_config"`.
-  - "System Config" tab replaced with two tabs: **MCP Configs** and **AI Configs**.
-- Deleted `frontend/src/components/access-monitoring/SystemConfigTab.tsx`.
+- rewrote `scripts/validate_clients.py` as an isolated subprocess-per-client harness
+- ensured `.env` is hydrated before BAML imports in child validation runs
+- produced structured pass/fail results per client and a human-readable summary table
+- refreshed the workstream docs from fresh command output instead of the old placeholder status
+- added `scripts/tests/test_validate_clients.py` as harness regression coverage
 
-### Part 4 — LLM Request Audit Logging
+### Trace-Level `LLMRequest` Audit Expansion
 
-Backend:
-- `backend/src/services/audit.py` — added `log_llm_request()` method with full 5-dimension structure (WHO, WHEN, WHERE, WHAT, WHY). Each entry carries `event: "LLM_REQUEST"`, `function_name`, `model_id`, `template_version`, `prompt_template_key`, `latency_ms`, and links back to the parent recommendation via `parent_request_id`. Hash-chained identically to all other audit entries.
-- `backend/src/services/orchestrator.py` — after `workflow.execute()`, loops `context.llm_call_records` and calls `log_llm_request()` for each record. Also injects `template_version` into `context.ai_output["metadata"]`.
-- `backend/src/api/routes/contracts.py` — `_normalize_runtime_audit_entries()` now detects `what.event == "LLM_REQUEST"` and normalizes `action_type` to `"LLMRequest"`, surfaces `function_name` and `prompt_template_key` in the normalized `what` dict, and uses the actual `template_version` from the raw entry rather than a static `"v1.0"`.
+- extended workflow trace capture so each LLM call records:
+  - masked input trace
+  - masked output trace
+  - prompt/template/runtime identity metadata
+- preserved those fields through `/api/audit-logs` normalization
+- added a modal inspector in `AuditLogSearchPanel.tsx` so admins can review masked request/response traces for `LLMRequest` rows
 
-Frontend:
-- `frontend/src/types/access-monitoring.ts` — added `function_name?: string | null` and `prompt_template_key?: string | null` to `AuditLogEntry.what`.
-- `frontend/src/components/access-monitoring/AuditLogSearchPanel.tsx`:
-  - Added `"LLMRequest"` to `ACTION_OPTIONS` filter dropdown.
-  - WHAT detail panel conditionally shows LLM-specific fields (`function_name`, `model_id`, `template_version`, `latency_ms`, `prompt_template_key`) when `action_type === "LLMRequest"`; standard recommendation fields shown for all other entry types.
+### Provider-Native Env Normalization
 
-### Part 5 — Client Validation Script
-
-- Created `scripts/validate_clients.py` — per-client connectivity smoke-test.
-  - Iterates all 5 named clients: `GeminiClient`, `OpenAIClient`, `AnthropicClient`, `OpenRouterClient`, `LocalHostedClient`.
-  - For each: temporarily sets `AI_ACTIVE_CLIENT`, makes a minimal `AnalyzeClinicalRisks` call with dummy data, and reports `✓ OK (Xms)` or `✗ FAIL — <error>`.
-  - Exits 0 if all pass, 1 if any fail (CI-friendly).
-  - Usage: `uv run python scripts/validate_clients.py`
+- moved Gemini from the legacy OpenAI-compatible env contract to the native `google-ai` provider
+- normalized config files and settings around:
+  - `GOOGLE_API_KEY`, `GEMINI_MODEL`
+  - `OPENAI_API_KEY`, `OPENAI_MODEL`
+  - `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`
+  - `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `OPENROUTER_BASE_URL`
+  - `LOCALHOSTED_BASE_URL`, `LOCALHOSTED_API_KEY`, `LOCALHOSTED_MODEL`
+- removed the old Gemini `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`, and `LLM_ANNOTATION_MODEL` contract from active use
 
 ---
 
-## Files Changed
+## Main Files Changed
 
-| File | Change |
-|---|---|
-| `baml_src/clients.baml` | Renamed 5 clients, updated models, updated chains, removed NavaveijWithFallback |
-| `baml_src/clinical/recommendation_output.baml` | Added `system_prompt` param to 4 functions |
-| `baml_src/clinical/safety_critic.baml` | Updated client reference |
-| `baml_src/test.baml` | Updated client references |
-| `baml_src/synthesis/hybrid_generator.baml` | Updated client references |
-| `baml_src/synthesis/enrichment.baml` | Updated client reference |
-| `baml_src/prompts/gemini.yaml` | New |
-| `baml_src/prompts/openai.yaml` | New |
-| `baml_src/prompts/anthropic.yaml` | New |
-| `baml_src/prompts/openrouter.yaml` | New |
-| `baml_src/prompts/local.yaml` | New |
-| `baml_client/` | Regenerated by `baml-cli generate` |
-| `backend/src/services/prompt_selector.py` | New |
-| `backend/src/services/workflows/base.py` | Added `llm_call_records` field |
-| `backend/src/services/workflows/clinical.py` | Wired prompt_selector; per-call timing into llm_call_records |
-| `backend/src/services/audit.py` | Added `log_llm_request()` |
-| `backend/src/services/orchestrator.py` | Loops llm_call_records → log_llm_request; injects template_version into metadata |
-| `backend/src/api/routes/contracts.py` | Updated `get_system_config()`; LLM_REQUEST normalization in audit endpoint |
-| `shared/settings.py` | Updated `ai_active_client` default and comment; added API key fields |
-| `.env.example` | Updated client names, model strings, and provider-native env keys; removed `LLM_ANNOTATION_MODEL` and legacy Gemini `LLM_*` keys |
-| `frontend/src/types/access-monitoring.ts` | Added `function_name`, `prompt_template_key` to `AuditLogEntry.what` |
-| `frontend/src/components/access-monitoring/MCPConfigsTab.tsx` | New |
-| `frontend/src/components/access-monitoring/AIConfigsTab.tsx` | New |
-| `frontend/src/components/access-monitoring/AccessMonitoringScreen.tsx` | Tab split (mcp_config + ai_config) |
-| `frontend/src/components/access-monitoring/SystemConfigTab.tsx` | Deleted |
-| `frontend/src/components/access-monitoring/AuditLogSearchPanel.tsx` | LLMRequest action type; expanded WHAT detail panel |
-| `scripts/validate_clients.py` | New — per-client smoke-test |
+### Runtime and config
+
+- `baml_src/clients.baml`
+- `shared/settings.py`
+- `backend/src/services/active_client.py`
+- `backend/src/services/prompt_selector.py`
+- `backend/src/services/workflows/clinical.py`
+- `backend/src/services/orchestrator.py`
+- `backend/src/services/audit.py`
+- `backend/src/api/routes/contracts.py`
+- `.env.example`
+- `.env`
+
+### Frontend/admin consistency
+
+- `frontend/src/components/access-monitoring/AIConfigsTab.tsx`
+- `frontend/src/components/access-monitoring/AccessMonitoringScreen.tsx`
+- `frontend/src/components/access-monitoring/AuditLogSearchPanel.tsx`
+- `frontend/src/components/access-monitoring/AuditLogSearchPanel.test.tsx`
+- `frontend/src/types/access-monitoring.ts`
+
+### Verification
+
+- `scripts/validate_clients.py`
+- `scripts/tests/test_validate_clients.py`
+- `scripts/tests/test_active_client_resolution.py`
+- `scripts/tests/test_prompt_selector_paths.py`
+- `backend/tests/test_clinical_workflow.py`
+- `scripts/tests/test_llm_audit_logging.py`
+- `scripts/tests/test_api_contract_routes.py`
+- `scripts/tests/test_access_monitoring_contract.py`
+- `scripts/tests/test_backend_cache_ttl.py`
+- `scripts/tests/test_end_to_end.py`
+- `scripts/tests/test_baml_recommendation_profile.py`
+
+---
+
+## Verification Evidence
+
+- `uv run baml-cli generate` regenerated the BAML client cleanly.
+- the final local regression bundle passed with `75 passed in 2.60s`
+- `uv run python scripts/validate_clients.py` validated all five named clients successfully
+
+Environment note:
+- `LocalHostedClient` remains environment-driven. In the current local setup it may point at a proxy-backed endpoint instead of a literal localhost Ollama process.
+
+---
+
+## Residual Notes
+
+- Historical documents such as `_verification_review.md` and the scope `_discover.md` files intentionally preserve the original defects and review findings.
+- The harness now has dedicated regression coverage in `scripts/tests/test_validate_clients.py`.

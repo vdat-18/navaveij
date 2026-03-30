@@ -135,6 +135,8 @@ class OrchestrationManager:
                     model_id=record["model_id"],
                     template_version=record["template_version"],
                     prompt_template_key=record["prompt_template_key"],
+                    input_trace_masked=record["input_trace_masked"],
+                    output_trace_masked=record["output_trace_masked"],
                     patient_id=patient_id,
                     parent_request_id=audit_context.get("request_id", ""),
                     latency_ms=record["latency_ms"],

@@ -38,6 +38,13 @@ async def test_scope2_orchestrator_forwards_resolved_audit_identity():
                 "template_version": "openai-v1",
                 "prompt_template_key": "analyze_clinical_risks",
                 "latency_ms": 11,
+                "input_trace_masked": {
+                    "system_prompt": "prompt::analyze",
+                    "clinical_signals": {"signals_fired": ["bp_elevated"]},
+                },
+                "output_trace_masked": {
+                    "severity_assessment": "Moderate risk requiring monitoring.",
+                },
             },
             {
                 "function_name": "WriteNarrative",
@@ -46,6 +53,13 @@ async def test_scope2_orchestrator_forwards_resolved_audit_identity():
                 "template_version": "openai-v1",
                 "prompt_template_key": "write_narrative",
                 "latency_ms": 29,
+                "input_trace_masked": {
+                    "system_prompt": "prompt::narrative",
+                    "risk_profile": {"severity_assessment": "Moderate risk requiring monitoring."},
+                },
+                "output_trace_masked": {
+                    "summary_headline": "Elevated BP requires monitoring.",
+                },
             },
         ],
     )
@@ -81,5 +95,12 @@ async def test_scope2_orchestrator_forwards_resolved_audit_identity():
     assert len(llm_calls) == 2
     assert llm_calls[0].kwargs["active_client"] == "OpenAIClient"
     assert llm_calls[0].kwargs["model_id"] == "gpt-5.4-mini"
+    assert llm_calls[0].kwargs["input_trace_masked"] == {
+        "system_prompt": "prompt::analyze",
+        "clinical_signals": {"signals_fired": ["bp_elevated"]},
+    }
+    assert llm_calls[0].kwargs["output_trace_masked"] == {
+        "severity_assessment": "Moderate risk requiring monitoring.",
+    }
     assert llm_calls[1].kwargs["latency_ms"] == 29
     assert result["metadata"]["template_version"] == "openai-v1"

@@ -113,6 +113,13 @@ def test_audit_logs_preserve_llm_request_runtime_identity(monkeypatch):
             "template_version": "openai-v1",
             "prompt_template_key": "analyze_clinical_risks",
             "latency_ms": 17,
+            "input_trace_masked": {
+                "system_prompt": "prompt::analyze",
+                "clinical_signals": {"signals_fired": ["bp_elevated"]},
+            },
+            "output_trace_masked": {
+                "severity_assessment": "Moderate risk requiring monitoring.",
+            },
         },
         "how": {
             "model_provider": "openai",
@@ -140,6 +147,13 @@ def test_audit_logs_preserve_llm_request_runtime_identity(monkeypatch):
     assert entry["what"]["template_version"] == "openai-v1"
     assert entry["what"]["function_name"] == "AnalyzeClinicalRisks"
     assert entry["what"]["prompt_template_key"] == "analyze_clinical_risks"
+    assert entry["what"]["input_trace_masked"] == {
+        "system_prompt": "prompt::analyze",
+        "clinical_signals": {"signals_fired": ["bp_elevated"]},
+    }
+    assert entry["what"]["output_trace_masked"] == {
+        "severity_assessment": "Moderate risk requiring monitoring.",
+    }
 
 
 def test_system_config_contract_exposes_only_resolved_client_registry():
