@@ -6,7 +6,7 @@ import { usePrivacyMode } from "@/shared/privacy-mode";
 import { patientService } from "@/services/api";
 import { Patient } from "@/types/patient";
 
-const ACTION_OPTIONS = ["", "View", "Export", "Generate", "Decision", "AdminUpdate"];
+const ACTION_OPTIONS = ["", "View", "Export", "Generate", "Decision", "AdminUpdate", "LLMRequest"];
 
 interface AuditLogSearchPanelProps {
   entries: AuditLogEntry[];
@@ -226,15 +226,37 @@ export function AuditLogSearchPanel({
             <div className="p-4 space-y-1">
               <p className="text-[10px] font-black uppercase tracking-widest text-navavej-gray-med">What</p>
               <p className="text-xs font-bold">{selectedEntry.what.action_type}</p>
-              <p className="text-[11px] text-navavej-gray-med">{selectedEntry.what.resource_type}</p>
-              {(selectedEntry.what.model_id || selectedEntry.what.latency_ms != null) && (
-                <p className="text-[11px] text-navavej-gray-med">
-                  {[
-                    selectedEntry.what.model_id,
-                    selectedEntry.what.latency_ms != null ? `${selectedEntry.what.latency_ms}ms` : null,
-                    selectedEntry.what.safety_validator_result === "pass" ? "Safety \u2713" : null,
-                  ].filter(Boolean).join(" · ")}
-                </p>
+              {selectedEntry.what.action_type === "LLMRequest" ? (
+                <>
+                  <p className="text-[11px] text-navavej-gray-med font-mono">
+                    {selectedEntry.what.function_name ?? "—"}
+                  </p>
+                  <p className="text-[11px] text-navavej-gray-med">
+                    {[
+                      selectedEntry.what.model_id,
+                      selectedEntry.what.template_version,
+                      selectedEntry.what.latency_ms != null ? `${selectedEntry.what.latency_ms}ms` : null,
+                    ].filter(Boolean).join(" · ")}
+                  </p>
+                  {selectedEntry.what.prompt_template_key && (
+                    <p className="text-[11px] text-navavej-gray-med">
+                      Template key: <span className="font-mono">{selectedEntry.what.prompt_template_key}</span>
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-[11px] text-navavej-gray-med">{selectedEntry.what.resource_type}</p>
+                  {(selectedEntry.what.model_id || selectedEntry.what.latency_ms != null) && (
+                    <p className="text-[11px] text-navavej-gray-med">
+                      {[
+                        selectedEntry.what.model_id,
+                        selectedEntry.what.latency_ms != null ? `${selectedEntry.what.latency_ms}ms` : null,
+                        selectedEntry.what.safety_validator_result === "pass" ? "Safety \u2713" : null,
+                      ].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                </>
               )}
             </div>
             {/* WHERE */}

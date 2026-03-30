@@ -221,6 +221,32 @@ describe("RecommendationPanel", () => {
     });
   });
 
+  it("renders an explicit degraded package state instead of unknown plan and zero price", async () => {
+    mockStreamRecommendation(
+      makeResponse({
+        resolved_package: {},
+        review_required: true,
+        metadata: {
+          degradation_reasons: ["package_resolution_unresolved", "ruleset_artifacts_missing"],
+        },
+      } as Partial<RecommendationResponse>)
+    );
+
+    render(
+      <RecommendationPanel
+        patientId="p-1"
+        patientToken="tok-1"
+        privacyMode={false}
+        isRuleBasedForced={false}
+      />
+    );
+
+    expect(await screen.findAllByText("Package unavailable")).toHaveLength(2);
+    expect(screen.getAllByText("Manual review required").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Unknown Plan")).not.toBeInTheDocument();
+    expect(screen.queryByText("฿0")).not.toBeInTheDocument();
+  });
+
   it("shows '-' for package name and price, and masked alert text when privacy mode is on", async () => {
     mockStreamRecommendation(
       makeResponse({

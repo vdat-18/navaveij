@@ -1,7 +1,7 @@
 // Safety Critic Validation Function
 
 function ValidateRecommendation(context: string, recommendation: string) -> SafetyCheckResponse {
-  client NavaveijWithFallback
+  client GeminiClient
   prompt #"
     You are a Senior Clinical Auditor. Review a generated medical recommendation for safety and consistency.
 

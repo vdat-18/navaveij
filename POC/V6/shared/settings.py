@@ -31,12 +31,15 @@ class LLMSettings(ProjectBaseSettings):
 
     llm_api_key: str | None = "no-key-required"
     llm_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
-    llm_model: str = "gemini-1.5-flash"
+    llm_model: str = "gemini-3-flash-preview"
     llm_provider: str = "openai"
     llm_timeout_ms: int = 15000
+    openai_api_key: str | None = None
+    anthropic_api_key: str | None = None
+    openrouter_api_key: str | None = None
     # Pluggable AI — TOR §4.3: active BAML client name (no code deploy required to switch)
-    # Valid values: GPT4o | Claude35Sonnet | LocalLlama | NavaveijClient
-    ai_active_client: str = "GPT4o"
+    # Valid values: GeminiClient | OpenAIClient | AnthropicClient | OpenRouterClient | LocalHostedClient
+    ai_active_client: str = "GeminiClient"
 
 
 class MCPSettings(ProjectBaseSettings):

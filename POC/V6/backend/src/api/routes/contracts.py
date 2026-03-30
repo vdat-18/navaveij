@@ -45,6 +45,7 @@ class RecommendResponse(BaseModel):
     communication_script: dict[str, Any]
     rule_preliminary_tier: str
     resolved_package: dict[str, Any]
+    resolved_package_status: str
     confidence_score: float
     confidence_tier: str
     signal_coverage: float = 0.0
@@ -239,6 +240,8 @@ def _normalize_runtime_audit_entries() -> list[dict[str, Any]]:
         action_type = request_context.get("action_type") or what.get("event", "Generate")
         if action_type == "PROVISIONING_DECISION":
             action_type = "Decision"
+        if action_type == "LLM_REQUEST":
+            action_type = "LLMRequest"
         record = {
             "entry_id": f"alog-runtime-{index:06d}",
             "prev_entry_hash": entry.get("previous_hash") or previous_hash,
@@ -265,10 +268,13 @@ def _normalize_runtime_audit_entries() -> list[dict[str, Any]]:
                 "patient_token_masked": patient_token_masked,
                 "patient_id": patient_id,
                 "model_id": what.get("model_id") or entry.get("how", {}).get("model_id"),
-                "template_version": "v1.0",
+                "template_version": what.get("template_version", "v1.0"),
                 "latency_ms": what.get("latency_ms"),
                 "safety_validator_result": "pass",
                 "recommendation_source": "AI",
+                # LLMRequest-specific fields (None for non-LLM entries)
+                "function_name": what.get("function_name"),
+                "prompt_template_key": what.get("prompt_template_key"),
             },
             "why": {
                 "request_context": request_context or "Runtime clinical action",
@@ -662,15 +668,23 @@ def _normalize_stage2(
         is_risk_fallback=is_risk_fallback,
     )
 
-    resolved_package = ruleset.get("resolved_package", {}) or {}
+    resolved_package_source = ruleset.get("resolved_package", {}) or {}
     resolved_package = {
-        "tier": resolved_package.get("tier", ai_tier),
-        "package_name": resolved_package.get("package_name", ""),
-        "package_code": resolved_package.get("package_code", ""),
-        "price_thb": resolved_package.get("price_thb"),
-        "age_band": resolved_package.get("age_band", ""),
-        "gender": resolved_package.get("gender", ""),
+        "tier": resolved_package_source.get("tier", ai_tier),
+        "package_name": resolved_package_source.get("package_name", ""),
+        "package_code": resolved_package_source.get("package_code", ""),
+        "price_thb": resolved_package_source.get("price_thb"),
+        "age_band": resolved_package_source.get("age_band", ""),
+        "gender": resolved_package_source.get("gender", ""),
     }
+    degradation_reasons: list[str] = []
+    if not ruleset.get("package_resolution_map") or not ruleset.get("tier_selection_rules"):
+        degradation_reasons.append("ruleset_artifacts_missing")
+    if not resolved_package["package_code"] or not resolved_package["package_name"] or resolved_package["price_thb"] is None:
+        degradation_reasons.append("package_resolution_unresolved")
+    resolved_package_status = "resolved" if not degradation_reasons or degradation_reasons == ["ruleset_artifacts_missing"] and resolved_package["package_code"] else "unresolved"
+    if "package_resolution_unresolved" in degradation_reasons:
+        review_required = True
 
     # --- Promotion overlay (post-AI, never influences clinical logic) ---
     _promo_ctx = promo_context or {}
@@ -704,6 +718,7 @@ def _normalize_stage2(
         "communication_script": _map_communication_script(ai_output.get("communication_script", {})),
         "rule_preliminary_tier": rule_preliminary_tier,
         "resolved_package": resolved_package,
+        "resolved_package_status": resolved_package_status,
         "confidence_score": confidence_score,
         "confidence_tier": confidence_tier,
         "signal_coverage": signal_coverage,
@@ -740,6 +755,7 @@ def _normalize_stage2(
             "signal_store_pipeline_run_id": clinical_signals.get("pipeline_run_id", ""),
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "latency_ms": int(latency_ms or 0),
+            "degradation_reasons": degradation_reasons,
         },
     }
 
@@ -1068,25 +1084,28 @@ async def admin_master_add_ons(_auth: AuthContext = Depends(require_monitoring_a
 
 @router.get("/system-config", response_model=SystemConfigResponse)
 def get_system_config(_auth: AuthContext = Depends(require_monitoring_access)):
+    active = settings.ai_active_client
+    clients = [
+        BamlClientInfo(name="GeminiClient", provider="openai-generic", model=settings.llm_model, status="active" if active == "GeminiClient" else "standby"),
+        BamlClientInfo(name="OpenAIClient", provider="openai", model="gpt-5.4-mini", status="active" if active == "OpenAIClient" else "standby"),
+        BamlClientInfo(name="AnthropicClient", provider="anthropic", model="claude-haiku-4-5", status="active" if active == "AnthropicClient" else "standby"),
+        BamlClientInfo(name="LocalHostedClient", provider="openai-generic", model="llama-3.3-70b-instruct", status="active" if active == "LocalHostedClient" else "standby"),
+        BamlClientInfo(name="OpenRouterClient", provider="openai-generic", model="openai/gpt-oss-120b", status="active" if active == "OpenRouterClient" else "standby"),
+        BamlClientInfo(
+            name="ActiveModel",
+            provider="fallback",
+            model="GeminiClient→OpenAIClient→AnthropicClient→LocalHostedClient→OpenRouterClient",
+            status="fallback-chain",
+        ),
+    ]
+    try:
+        from src.services.prompt_selector import prompt_selector
+        template_version = prompt_selector.version
+    except Exception:
+        template_version = "v1.0"
     return SystemConfigResponse(
-        active_client=settings.ai_active_client,
-        all_clients=[
-            BamlClientInfo(name="NavaveijClient", provider="openai-generic", model=settings.llm_model, status="active"),
-            BamlClientInfo(name="GPT4o", provider="openai", model="gpt-4o", status="standby"),
-            BamlClientInfo(
-                name="Claude35Sonnet", provider="anthropic", model="claude-3-5-sonnet-20241022", status="standby"
-            ),
-            BamlClientInfo(name="LocalLlama", provider="openai-generic", model="llama3.1:70b", status="standby"),
-            BamlClientInfo(
-                name="OpenRouterClient", provider="openai-generic", model="openai/gpt-oss-120b", status="standby"
-            ),
-            BamlClientInfo(
-                name="ActiveModel",
-                provider="fallback",
-                model="NavaveijClient→GPT4o→Claude35Sonnet→LocalLlama→OpenRouterClient",
-                status="fallback-chain",
-            ),
-        ],
+        active_client=active,
+        all_clients=clients,
         mcp_tools=[
             McpToolInfo(
                 name="get_biomarker_trends", type="READ-ONLY", description="Fetch biomarker trend series for a patient"
@@ -1101,5 +1120,5 @@ def get_system_config(_auth: AuthContext = Depends(require_monitoring_access)):
             McpToolInfo(name="get_program_ruleset", type="READ-ONLY", description="Load tier + add-on ruleset"),
         ],
         auth_mode=settings.api_auth_mode,
-        template_version="v3.1-poc",
+        template_version=template_version,
     )

@@ -135,6 +135,7 @@ export interface RecommendationResponse {
   communication_script: CommunicationScript;
   rule_preliminary_tier: string;
   resolved_package: ResolvedPackage;
+  resolved_package_status?: string;
   confidence_score: number;
   confidence_tier: string;
   signal_coverage?: number;

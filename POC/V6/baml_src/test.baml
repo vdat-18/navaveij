@@ -2,7 +2,7 @@
 // Verifies that the credentials in .env produce valid responses
 
 function HealthCheck() -> HealthCheckResult {
-  client NavaveijWithFallback
+  client GeminiClient
   prompt #"
     {{ _.role("system") }}
     You are a health check assistant. Respond with valid JSON only.
@@ -36,7 +36,7 @@ test LLMHealthCheck {
 
 // Simple smoke test for quick validation
 function CredentialSmokeTest() -> string {
-  client NavaveijWithFallback
+  client GeminiClient
   prompt #"
     {{ _.role("system") }}
     You are a test assistant.

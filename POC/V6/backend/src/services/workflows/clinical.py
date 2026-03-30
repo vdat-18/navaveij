@@ -13,6 +13,7 @@ from baml_client.async_client import b
 from src.mcp_server.utils import resolve_package
 from src.services.cache import cache_service
 from src.services.privacy import PIIMasker
+from src.services.prompt_selector import prompt_selector
 from src.services.rules import RuleEvaluator
 from src.services.text_annotations import annotate_reasoning_lines_fallback, find_highlight_terms, strip_markdown_bold
 from src.services.workflows.base import BaseWorkflow, WorkflowContext
@@ -146,13 +147,22 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             _cache_key = _risk_profile_cache_key(context.masked_context)
             _found, risk_profile = cache_service.get(_cache_key)
             if not _found:
+                _agent1_start = time.monotonic()
                 risk_profile = await b.AnalyzeClinicalRisks(
+                    system_prompt=prompt_selector.get("analyze_clinical_risks"),
                     clinical_signals=json.dumps(context.masked_context.get("get_clinical_signals"), indent=2),
                     biomarker_trends=json.dumps(context.masked_context.get("get_biomarker_trends"), indent=2),
                     hard_constraints=json.dumps(context.masked_context.get("get_hard_constraints"), indent=2),
                     program_ruleset=json.dumps(context.masked_context.get("get_program_ruleset"), indent=2),
                 )
                 cache_service.set(_cache_key, risk_profile, settings.cache_signal_store_ttl_seconds)
+                context.llm_call_records.append({
+                    "function_name": "AnalyzeClinicalRisks",
+                    "prompt_template_key": "analyze_clinical_risks",
+                    "model_id": settings.llm_model,
+                    "template_version": prompt_selector.version,
+                    "latency_ms": int((time.monotonic() - _agent1_start) * 1000),
+                })
             else:
                 logger.debug("risk_profile cache hit — skipping AnalyzeClinicalRisks LLM call")
         except Exception as exc:
@@ -176,8 +186,10 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         # ── Opt 1: Start annotation as a concurrent background task ──────────────────
         # Launched before the Agent 2a/2b gather so it runs in parallel with both.
         # Collected non-blocking after the gather — never extends the critical path.
+        _annotate_start = time.monotonic()
         annotation_task = asyncio.create_task(
             b.AnnotateReasoningLines(
+                system_prompt=prompt_selector.get("annotate_reasoning_lines"),
                 clinical_lines=getattr(risk_profile, "clinical_summary_bullets", []) or [],
             )
         )
@@ -185,15 +197,35 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         # ── Parallel fan-out: MatchPolicy + WriteNarrative ───────────────────────────
         # Agent 2c (AnnotateReasoningLines) is NOT in this gather — it runs concurrently above.
         # return_exceptions=True so a single failure doesn't cancel the other call.
+        _agent2_start = time.monotonic()
         policy_result, narrative = await asyncio.gather(
             b.MatchPolicy(
+                system_prompt=prompt_selector.get("match_policy"),
                 risk_profile=risk_profile,
                 program_ruleset=json.dumps(context.masked_context.get("get_program_ruleset"), indent=2),
             ),
-            b.WriteNarrative(risk_profile=risk_profile),
+            b.WriteNarrative(
+                system_prompt=prompt_selector.get("write_narrative"),
+                risk_profile=risk_profile,
+            ),
             return_exceptions=True,
         )
+        _agent2_ms = int((time.monotonic() - _agent2_start) * 1000)
         context.metadata["ai_chain_ms"] = int((time.monotonic() - _ai_start) * 1000)
+        context.llm_call_records.append({
+            "function_name": "MatchPolicy",
+            "prompt_template_key": "match_policy",
+            "model_id": settings.llm_model,
+            "template_version": prompt_selector.version,
+            "latency_ms": _agent2_ms,
+        })
+        context.llm_call_records.append({
+            "function_name": "WriteNarrative",
+            "prompt_template_key": "write_narrative",
+            "model_id": settings.llm_model,
+            "template_version": prompt_selector.version,
+            "latency_ms": _agent2_ms,
+        })
 
         # ── Opt 1: Non-blocking collection of annotation result ──────────────────────
         # If annotation finished during the gather, use the LLM result.
@@ -201,6 +233,13 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         if annotation_task.done() and not annotation_task.cancelled():
             try:
                 reasoning_annotations = annotation_task.result()
+                context.llm_call_records.append({
+                    "function_name": "AnnotateReasoningLines",
+                    "prompt_template_key": "annotate_reasoning_lines",
+                    "model_id": settings.llm_model,
+                    "template_version": prompt_selector.version,
+                    "latency_ms": int((time.monotonic() - _annotate_start) * 1000),
+                })
             except Exception as exc:
                 logger.warning(f"Agent 2c (AnnotateReasoningLines) failed: {exc}")
                 reasoning_annotations = None

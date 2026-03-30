@@ -4,14 +4,24 @@ from pathlib import Path
 
 def _load_ruleset() -> dict:
     ruleset_path = (
-        Path(__file__).resolve().parents[3]
-        / "v3"
+        Path(__file__).resolve().parents[2]
         / "assets"
         / "synthesis"
         / "rulesets"
         / "sample_ruleset_tier_config.json"
     )
     return json.loads(ruleset_path.read_text(encoding="utf-8"))
+
+
+def test_gap_r8_reads_v6_local_ruleset_bundle():
+    ruleset_path = (
+        Path(__file__).resolve().parents[2]
+        / "assets"
+        / "synthesis"
+        / "rulesets"
+        / "sample_ruleset_tier_config.json"
+    )
+    assert ruleset_path.exists()
 
 
 def _signal_pool(ruleset: dict, rule_id: str) -> list[str]:

@@ -424,6 +424,65 @@ def test_recommend_contract_route_preserves_orchestrator_source_and_review_prece
     assert payload["review_required"] is False
 
 
+def test_recommend_contract_route_marks_unresolved_package_as_degraded():
+    contracts.cache_service.clear()
+    token = _first_patient_token()
+    mock_result = {
+        "ai_recommended_tier": "Advanced",
+        "tier_deviation_justification": None,
+        "reasoning_trace": "Package could not be resolved.",
+        "add_ons": [],
+        "supporting_signals": [],
+        "missing_signals": [],
+        "communication_script": {
+            "clinical_conclusion": "Summary.",
+            "health_summary": "Health summary.",
+            "recommendation_explanation": "Explanation.",
+            "add_on_highlights": [],
+            "next_steps": "Next steps.",
+        },
+        "clinical_signals": {
+            "rule_preliminary_tier": "Advanced",
+            "applicable_signals": [],
+            "signals_fired": [],
+            "missing_signals": [],
+            "risk_flags": [],
+            "pipeline_run_id": "pipe_degraded_001",
+        },
+        "recommendation_source": "AI",
+        "review_required": False,
+        "security_metadata": {
+            "rehydration_map": {"tok_degraded": "Jane Doe"},
+            "masked_ai_output": {"reasoning_trace": "masked-degraded"},
+            "is_poc_demo": True,
+        },
+    }
+    contracts.get_clinical_signals = lambda _patient_token, patient_id=None: {
+        "pipeline_run_id": "pipe_degraded_001",
+        "signals_fired": [],
+        "missing_signals": [],
+        "risk_flags": [],
+    }
+    contracts.get_program_ruleset = lambda _patient_token, patient_id=None: {
+        "ruleset_version": "v2026.03.1",
+        "rule_preliminary_tier": "Advanced",
+        "resolved_package": {},
+        "package_resolution_map": {},
+        "tier_selection_rules": [],
+        "add_on_library": [],
+    }
+    contracts.orchestrator.generate_recommendation = AsyncMock(return_value=mock_result)
+
+    response = client.post("/api/recommend", json={"patient_token": token}, headers=_auth_headers(scopes="recommendation:read"))
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["resolved_package_status"] == "unresolved"
+    assert payload["review_required"] is True
+    assert "package_resolution_unresolved" in payload["metadata"]["degradation_reasons"]
+    assert "ruleset_artifacts_missing" in payload["metadata"]["degradation_reasons"]
+
+
 def test_recommend_contract_route_invalid_token():
     response = client.post(
         "/api/recommend",

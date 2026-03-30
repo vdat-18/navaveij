@@ -74,6 +74,8 @@ export interface AuditLogEntry {
     latency_ms: number | null;
     safety_validator_result: string | null;
     recommendation_source: string | null;
+    function_name?: string | null;
+    prompt_template_key?: string | null;
   };
   why: {
     request_context: string | Record<string, unknown>;

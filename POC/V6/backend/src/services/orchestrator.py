@@ -10,6 +10,7 @@ from loguru import logger
 from src.api.routes.patients import resolve_patient_token
 from src.services.mcp_client import MCPClientFactory
 from src.services.audit import AuditLogger
+from src.services.prompt_selector import prompt_selector
 from src.services.safety import SafetyRuleValidator
 from src.services.workflows.clinical import ClinicalReasoningWorkflow
 from shared.settings import settings
@@ -109,9 +110,28 @@ class OrchestrationManager:
                 action_type=audit_context.get("action_type", "GenerateRecommendation"),
                 latency_ms=total_ms_so_far,
             )
+            # Post-process: Log individual LLM calls from the workflow
+            for record in context.llm_call_records:
+                self.audit_logger.log_llm_request(
+                    function_name=record["function_name"],
+                    model_id=record["model_id"],
+                    template_version=record["template_version"],
+                    prompt_template_key=record["prompt_template_key"],
+                    patient_id=patient_id,
+                    parent_request_id=audit_context.get("request_id", ""),
+                    latency_ms=record["latency_ms"],
+                    user_id=audit_context.get("user_id", "usr-system"),
+                    user_role=audit_context.get("user_role", "system"),
+                    client_ip=audit_context.get("client_ip", "unknown"),
+                )
             t_audit_end = time.monotonic()
 
             context.ai_output["recommendation_hash"] = recommendation_hash
+
+            # Inject template_version into recommendation metadata
+            if "metadata" not in context.ai_output:
+                context.ai_output["metadata"] = {}
+            context.ai_output["metadata"]["template_version"] = prompt_selector.version
 
             # Save masked AI output before rehydration
             masked_ai_output = copy.deepcopy(context.ai_output)

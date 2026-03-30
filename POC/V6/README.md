@@ -98,6 +98,7 @@ npm run dev
 - `frontend/`: Next.js frontend application.
 - `scripts/`: Integration tests, helper scripts, and pipeline profile tests.
 - `assets/`: Clinical Signal Store (JSON database).
+- `assets/synthesis/rulesets/`: V6-local ruleset bundle. Production must include tier config, package resolution, add-on catalog, and promotions files.
 - `doc_outputs/`: Ruleset configurations and clinical samples.
 - `logs/audit.jsonl`: The immutable ledger of all clinical decisions.
 

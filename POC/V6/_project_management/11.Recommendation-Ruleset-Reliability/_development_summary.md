@@ -2,81 +2,78 @@
 
 **Workstream:** 11
 **Date:** 2026-03-30
-**State:** Planning / investigation complete
+**State:** Implementation complete, verification pending final checkpoint
 
 ---
 
 ## Summary
 
-No production code changes have been implemented yet.
-
-This workstream currently contains:
-- the issue context and root-cause write-up in `README.md`
-- the implementation sequence in `plan.md`
-- the detailed investigation record in `_discover.md`
-- the current verification snapshot in `_latest_test_results.md`
-
-The investigation deliberately stopped before applying a narrow fix because the issue spans:
-- deployment artifact completeness
-- backend runtime resolution
-- data-contract semantics
-- frontend degraded-state rendering
-- test coverage gaps
+The implementation was completed in one coordinated pass across:
+- V6-local ruleset bundling
+- backend ruleset path canonicalization
+- package age-band resolution
+- MCP patient token/id normalization
+- degraded package-resolution signaling in the contract API
+- explicit degraded-state rendering in the dashboard
+- backend and frontend regression coverage
 
 ---
 
 ## Work Completed
 
-### Phase 1 — End-to-end investigation
+### Phase 1 — V6 ruleset bundle
 
-Audited the full path used by the dashboard:
-- frontend service call to `/api/recommend`
-- contract route normalization
-- MCP ruleset loader
-- package resolution helper
-- dashboard package label and price rendering
+- Added `assets/synthesis/rulesets/sample_ruleset_tier_config.json`
+- Added `assets/synthesis/rulesets/sample_package_resolution.json`
+- Updated `assets/README.md` so V6 documents the full local ruleset bundle
 
-### Phase 2 — Root-cause isolation
+### Phase 2 — Backend canonicalization
 
-Confirmed that the production `Unknown Plan` symptom is caused by missing ruleset artifacts in the V6 deployment bundle, not by a standalone frontend bug.
+- Removed cross-version fallback for tier config and package resolution in `backend/src/mcp_server/utils.py`
+- Updated `test_ruleset_signal_pool_alignment_r8.py` to read from V6-local assets instead of `POC/v3`
 
-Also identified a second backend defect:
-- standard-tier package age-band matching is incorrect in `resolve_package()`
+### Phase 3 — Resolver correctness
 
-### Phase 3 — Adjacent reliability risks
+- Fixed `resolve_package()` to support the package map’s actual age-band keys:
+  - `age_15_to_20`
+  - `age_20_to_35`
+  - `age_35_to_40`
+  - `age_40_plus`
+  - `age_any`
+- Removed the unsafe “first available band” fallback for unmatched standard-tier ages
 
-Identified two important neighboring issues:
-- V6 tests still read some ruleset data from `POC/v3`
-- several MCP tools use the wrong patient token/id resolution direction
+### Phase 4 — MCP patient identity normalization
 
-### Phase 4 — Implementation plan
+- Added `resolve_patient_identity()` in `backend/src/mcp_server/utils.py`
+- Updated all MCP tools to resolve canonical `patient_token` / `patient_id` before Signal Store access
 
-Prepared a staged plan that keeps the fix cohesive:
-1. bundle missing V6 ruleset assets
-2. remove hidden V6-to-v3 runtime/test coupling
-3. fix resolver age-band semantics
-4. make package-resolution degradation explicit in the API
-5. replace UI silent fallbacks with an intentional degraded state
-6. lock the chain down with regression tests
+### Phase 5 — API degraded-state signaling
+
+- Added `resolved_package_status` to the normalized recommendation response
+- Added `metadata.degradation_reasons`
+- Forced `review_required = true` when package resolution is unresolved
+
+### Phase 6 — Prompt template path correction
+
+- Fixed `backend/src/services/prompt_selector.py` to resolve prompts from the V6-local `baml_src/prompts/` directory instead of the parent `POC/` directory
+- Added a regression test so prompt loading remains stable in the V6 test environment
+
+### Phase 7 — Dashboard degraded-state rendering
+
+- Extended the frontend recommendation type with `resolved_package_status`
+- Replaced implicit `Unknown Plan` / `฿0` fallback behavior with:
+  - `Package unavailable`
+  - `Manual review required`
+  - pricing-suppressed final settlement state when package resolution is unresolved
 
 ---
 
-## What Was Not Done
+## Tests Added or Strengthened
 
-- no backend code changes
-- no frontend code changes
-- no tests were added or modified
-- no deployment scripts were changed
-- no asset files were added yet
-
-Any earlier exploratory edits made during investigation were reverted before this issue pack was finalized.
-
----
-
-## Known Verification Constraint
-
-Local full-route import currently hits a BAML environment mismatch:
-- generated client version: `0.220.0`
-- installed `baml-py`: `0.213.0`
-
-This does not invalidate the root-cause analysis, but it must be resolved or documented when implementation verification begins.
+- `scripts/tests/test_ruleset_path_resolution.py`
+- `scripts/tests/test_package_resolution_contract.py`
+- `scripts/tests/test_patient_resolution_contract.py`
+- `scripts/tests/test_prompt_selector_paths.py`
+- `scripts/tests/test_ruleset_signal_pool_alignment_r8.py`
+- `scripts/tests/test_api_contract_routes.py`
+- `frontend/src/components/dashboard/RecommendationPanel.test.tsx`

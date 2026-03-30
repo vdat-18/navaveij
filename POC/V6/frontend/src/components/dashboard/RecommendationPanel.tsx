@@ -688,6 +688,13 @@ export function RecommendationPanel({
     const consultationNextActions = data.communication_script?.next_actions ?? [];
     const maskedPackageName = "-";
     const maskedPriceValue = "-";
+    const degradationReasons = Array.isArray(data.metadata?.degradation_reasons) ? data.metadata.degradation_reasons : [];
+    const isPackageDegraded =
+        data.resolved_package_status === "unresolved"
+        || degradationReasons.includes("package_resolution_unresolved");
+    const packageDisplayName = isPackageDegraded
+        ? "Package unavailable"
+        : (data.resolved_package?.name || data.resolved_package?.package_name || data.ai_recommended_tier);
     const confidenceScore = typeof data.confidence_score === "number" ? data.confidence_score : null;
     const confidencePercent = confidenceScore === null ? null : Math.round(confidenceScore * 100);
     const confidenceColorClass =
@@ -703,8 +710,8 @@ export function RecommendationPanel({
         || `Overall risk is ${data.overall_risk_level} based on currently available clinical context.`;
 
     // --- Promotion overlay variables ---
-    const packageOriginalPrice = data.resolved_package?.original_price_thb;
-    const packageCurrentPrice = data.resolved_package?.price_thb;
+    const packageOriginalPrice = isPackageDegraded ? undefined : data.resolved_package?.original_price_thb;
+    const packageCurrentPrice = isPackageDegraded ? undefined : data.resolved_package?.price_thb;
     const promoSummary = data.promotion_summary;
     const urgencyMessages = promoSummary?.urgency_messages ?? [];
 
@@ -836,14 +843,16 @@ export function RecommendationPanel({
                                 <div className="space-y-1">
                                     <span className="text-[8px] font-medium text-white/50 uppercase tracking-[0.25em] block leading-none">Recommended Plan</span>
                                     <span className="text-[15px] font-semibold leading-tight tracking-normal block text-white">
-                                        {data.resolved_package?.name || data.resolved_package?.package_name || "Unknown Plan"}
+                                        {packageDisplayName}
                                     </span>
                                 </div>
 
                                 <div className="flex justify-center">
                                     <div className="px-3 py-1.5 bg-white/10 backdrop-blur-md border border-white/20 rounded-full flex items-center gap-2 shadow-xl hover:bg-white/15 transition-all">
                                         <ShieldCheck className="w-3.5 h-3.5 text-navavej-teal-light" />
-                                        <span className="text-[8px] font-bold uppercase text-white/90 tracking-[0.1em]">Safety Verified</span>
+                                        <span className="text-[8px] font-bold uppercase text-white/90 tracking-[0.1em]">
+                                            {isPackageDegraded ? "Manual Review Required" : "Safety Verified"}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -1321,12 +1330,12 @@ export function RecommendationPanel({
                                                 <div>
                                                     <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest block">Base Plan</span>
                                                     <span className="text-sm font-bold text-white">
-                                                        {data.resolved_package?.name || data.resolved_package?.package_name || data.ai_recommended_tier}
+                                                        {packageDisplayName}
                                                     </span>
                                                 </div>
                                             </div>
                                             <span className={cn("text-sm font-black tabular-nums", privacyMode ? "text-red-400 font-mono" : "text-white")}>
-                                                {privacyMode ? maskedPriceValue : `฿${(data.resolved_package?.price_thb ?? 0).toLocaleString()}`}
+                                                {isPackageDegraded ? "Manual review required" : (privacyMode ? maskedPriceValue : `฿${(data.resolved_package?.price_thb ?? 0).toLocaleString()}`)}
                                             </span>
                                         </div>
 
@@ -1412,7 +1421,7 @@ export function RecommendationPanel({
                                         <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-white/40">
                                             <span>Final Settlement</span>
                                         </div>
-                                        {hasFullDiscount && (
+                                        {!isPackageDegraded && hasFullDiscount && (
                                             <div className="flex items-center gap-3">
                                                 <span className="text-sm font-bold text-white/40 line-through tabular-nums">
                                                     ฿{fullOriginalPrice.toLocaleString()}
@@ -1425,11 +1434,13 @@ export function RecommendationPanel({
                                             </div>
                                         )}
                                         <div className="flex items-baseline gap-2">
-                                            <span className={cn("text-5xl font-black tracking-tighter tabular-nums", privacyMode ? "text-red-400 font-mono text-3xl" : "text-white")}>
-                                                {privacyMode ? maskedPriceValue : `฿${fullCurrentPrice.toLocaleString()}`}
+                                            <span className={cn("text-5xl font-black tracking-tighter", privacyMode ? "text-red-400 font-mono text-3xl" : "text-white")}>
+                                                {isPackageDegraded ? "Manual review required" : (privacyMode ? maskedPriceValue : `฿${fullCurrentPrice.toLocaleString()}`)}
                                             </span>
                                         </div>
-                                        <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest">Inclusive of VAT 7%</p>
+                                        <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest">
+                                            {isPackageDegraded ? "Package pricing unavailable" : "Inclusive of VAT 7%"}
+                                        </p>
                                     </div>
                                 </div>
                             </div>

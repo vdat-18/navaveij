@@ -170,6 +170,66 @@ class AuditLogger:
         logger.info(f"Decision audit log written for patient {patient_id}: {decision}")
         return current_hash
 
+    def log_llm_request(
+        self,
+        function_name: str,
+        model_id: str,
+        template_version: str,
+        prompt_template_key: str,
+        patient_id: str,
+        parent_request_id: str,
+        latency_ms: int,
+        user_id: str = "usr-system",
+        user_role: str = "system",
+        client_ip: str = "unknown",
+    ) -> str:
+        """Record a single BAML function call in the audit trail (LLM_REQUEST event)."""
+        timestamp = datetime.now(timezone.utc).isoformat()
+
+        payload = {
+            "schema_version": 2,
+            "timestamp": timestamp,
+            # Dimension 1 — WHO: same actor that triggered the recommendation
+            "who": {"user_id": user_id, "user_role": user_role},
+            # Dimension 2 — WHEN: implicit via timestamp
+            # Dimension 3 — WHERE: same service, linked to parent request
+            "where": {
+                "service_id": "recommendation-engine-api",
+                "client_ip": client_ip,
+                "request_id": parent_request_id,
+            },
+            # Dimension 4 — WHAT: the individual LLM call
+            "what": {
+                "event": "LLM_REQUEST",
+                "function_name": function_name,
+                "model_id": model_id,
+                "template_version": template_version,
+                "prompt_template_key": prompt_template_key,
+                "latency_ms": latency_ms,
+            },
+            # Dimension 5 — WHY: clinical context linking back to the parent recommendation
+            "why": {
+                "patient_id": patient_id,
+                "request_context": {
+                    "action_type": "LLMRequest",
+                    "request_id": parent_request_id,
+                },
+            },
+            "metadata": {"environment": settings.environment, "request_id": parent_request_id},
+            "previous_hash": self.last_hash,
+        }
+
+        payload_str = json.dumps(payload, sort_keys=True)
+        current_hash = hashlib.sha256(payload_str.encode("utf-8")).hexdigest()
+        payload["current_hash"] = current_hash
+
+        with open(self.log_file_jsonl, "a", encoding="utf-8") as f:
+            f.write(json.dumps(payload) + "\n")
+
+        self.last_hash = current_hash
+        logger.debug(f"LLM request audit written: {function_name} ({model_id}, {latency_ms}ms)")
+        return current_hash
+
     def get_logs(self) -> list[dict[str, Any]]:
         """Retrieve all logs from the JSONL audit file."""
         if not self.log_file_jsonl.exists():

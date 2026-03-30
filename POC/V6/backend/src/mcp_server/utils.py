@@ -21,30 +21,9 @@ def _resolve_existing_path(candidates: list[Path], default_path: Path) -> Path:
 
 
 SIGNAL_STORE_DIR = V2_ROOT / "assets/synthesis/generated"
-RULESET_TIER_CONFIG_PATH = _resolve_existing_path(
-    candidates=[
-        V2_ROOT / "assets/synthesis/rulesets/sample_ruleset_tier_config.json",
-        REPO_ROOT / "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_ruleset_tier_config.json",
-        REPO_ROOT / "POC/v3/assets/synthesis/rulesets/sample_ruleset_tier_config.json",
-    ],
-    default_path=V2_ROOT / "assets/synthesis/rulesets/sample_ruleset_tier_config.json",
-)
-RULESET_ADD_ON_ITEMS_PATH = _resolve_existing_path(
-    candidates=[
-        V2_ROOT / "assets/synthesis/rulesets/sample_add_on_items.json",
-        REPO_ROOT / "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_add_on_items.json",
-        REPO_ROOT / "POC/v3/assets/synthesis/rulesets/sample_add_on_items.json",
-    ],
-    default_path=V2_ROOT / "assets/synthesis/rulesets/sample_add_on_items.json",
-)
-PACKAGE_RESOLUTION_PATH = _resolve_existing_path(
-    candidates=[
-        V2_ROOT / "assets/synthesis/rulesets/sample_package_resolution.json",
-        REPO_ROOT / "doc_outputs/architecture/AI/Recommendation Engine/v3/samples/sample_package_resolution.json",
-        REPO_ROOT / "POC/v3/assets/synthesis/rulesets/sample_package_resolution.json",
-    ],
-    default_path=V2_ROOT / "assets/synthesis/rulesets/sample_package_resolution.json",
-)
+RULESET_TIER_CONFIG_PATH = V2_ROOT / "assets/synthesis/rulesets/sample_ruleset_tier_config.json"
+RULESET_ADD_ON_ITEMS_PATH = V2_ROOT / "assets/synthesis/rulesets/sample_add_on_items.json"
+PACKAGE_RESOLUTION_PATH = V2_ROOT / "assets/synthesis/rulesets/sample_package_resolution.json"
 PROMOTIONS_PATH = _resolve_existing_path(
     candidates=[
         V2_ROOT / "assets/synthesis/rulesets/sample_promotions.json",
@@ -137,6 +116,22 @@ def resolve_patient_id(patient_token: str) -> str | None:
 def resolve_patient_token(patient_id: str) -> str | None:
     patient = _registry_id_index.get(patient_id)
     return patient.get("patient_token") if patient else None
+
+
+def resolve_patient_identity(
+    patient_token: str | None = None,
+    patient_id: str | None = None,
+) -> tuple[str | None, str | None]:
+    """Return canonical patient_token and patient_id from any valid identifier."""
+    resolved_token = patient_token
+    resolved_id = patient_id
+
+    if not resolved_id and resolved_token:
+        resolved_id = resolve_patient_id(resolved_token)
+    if not resolved_token and resolved_id:
+        resolved_token = resolve_patient_token(resolved_id)
+
+    return resolved_token, resolved_id
 
 
 def load_signal_store_record(patient_token: str | None = None, patient_id: str | None = None) -> dict | None:
@@ -401,33 +396,24 @@ def resolve_package(
     tier_map = package_resolution_map.get(tier, {})
     gender_map = tier_map.get(gender, {})
 
-    # Determine age band
+    # Determine age band from the ruleset's real schema.
     age_band = None
-    age_band_keys = [
-        "age_15_to_35",
-        "age_35_plus",
-        "age_36_plus",
-        "age_40_plus",
-    ]
-    for band_key in age_band_keys:
-        if band_key in gender_map:
-            # Simple age band matching (can be enhanced)
-            if "15_to_35" in band_key and 15 <= age <= 35:
-                age_band = band_key
-                break
-            elif "35_plus" in band_key and age >= 35:
-                age_band = band_key
-                break
-            elif "36_plus" in band_key and age >= 36:
-                age_band = band_key
-                break
-            elif "40_plus" in band_key and age >= 40:
-                age_band = band_key
-                break
-
-    if not age_band:
-        # Fallback to first available age band
-        age_band = next(iter(gender_map.keys()), None)
+    if "age_any" in gender_map:
+        age_band = "age_any"
+    elif "age_15_to_20" in gender_map and 15 <= age <= 20:
+        age_band = "age_15_to_20"
+    elif "age_20_to_35" in gender_map and 20 < age <= 35:
+        age_band = "age_20_to_35"
+    elif "age_35_to_40" in gender_map and 35 < age < 40:
+        age_band = "age_35_to_40"
+    elif "age_40_plus" in gender_map and age >= 40:
+        age_band = "age_40_plus"
+    elif "age_15_to_35" in gender_map and 15 <= age <= 35:
+        age_band = "age_15_to_35"
+    elif "age_35_plus" in gender_map and age >= 35:
+        age_band = "age_35_plus"
+    elif "age_36_plus" in gender_map and age >= 36:
+        age_band = "age_36_plus"
 
     if not age_band:
         return None
