@@ -28,7 +28,8 @@ export function Sidebar() {
     const { user } = useAuth();
 
     // Physicians and nurses use the new single-entry-point search flow — no sidebar needed.
-    if (user && SIDEBAR_HIDDEN_ROLES.has(user.role)) {
+    // The /report page is standalone and also renders without sidebar for all roles.
+    if (pathname === '/report' || (user && SIDEBAR_HIDDEN_ROLES.has(user.role))) {
         return null;
     }
 

@@ -17,6 +17,8 @@ The **Navavej ROC** is an enterprise-grade AI Clinical Decision Support System (
 
 ## Quick Start
 
+> **TL;DR — local dev:** configure `.env`, then run `./start_backend.sh` (Terminal 1) and `./start_frontend.sh` (Terminal 2).
+
 ### Step 1 — Configure environment
 
 Copy `.env.example` to `.env` and fill in your API credentials:

@@ -83,3 +83,12 @@ body {
   border-right: 1px solid rgba(255, 255, 255, 0.1);
   color: #F8F9FA;
 }
+
+/* Print / PDF export — /report page */
+@media print {
+  .report-action-bar { display: none !important; }
+  .glass-sidebar, nav, header { display: none !important; }
+  body { background: white !important; color: black !important; }
+  .report-section { page-break-inside: avoid; }
+  .report-page { box-shadow: none !important; padding: 0 !important; }
+}

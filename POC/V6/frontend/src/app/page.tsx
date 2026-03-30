@@ -330,6 +330,7 @@ export default function DashboardPage() {
               isRuleBasedForced={isRuleBasedForced}
               hideCharts={true}
               onViewTimeline={() => setDrawerOpen(true)}
+              patient={selectedPatient}
             />
 
 
@@ -560,6 +561,7 @@ export default function DashboardPage() {
                 setSecurityMetadata(data?.security_metadata || null);
               }}
               isRuleBasedForced={isRuleBasedForced}
+              patient={selectedPatient}
             />
 
           </div>

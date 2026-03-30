@@ -33,6 +33,11 @@ vi.mock("framer-motion", () => ({
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
 const mockClinicalService = vi.mocked(clinicalService);
 
 const mockStreamRecommendation = (response: RecommendationResponse) => {
@@ -84,9 +89,18 @@ const makeResponse = (overrides?: Partial<RecommendationResponse>): Recommendati
   ...overrides,
 });
 
+const mockPatient = {
+  patient_id: "p-001",
+  patient_name: "John Doe",
+  patient_token: "tok-001",
+  email: "john@example.com",
+  mrn: "MRN-001",
+};
+
 describe("RecommendationPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPush.mockClear();
     clearRecommendationCache();
     mockStreamRecommendation(makeResponse());
     Element.prototype.scrollIntoView = vi.fn();
@@ -421,5 +435,56 @@ describe("RecommendationPanel", () => {
     expect(container.textContent).toContain("Prediabetes trajectory worsening");
     expect(container.textContent).toContain("Premium tier covers all required cardiovascular");
     expect(container.textContent).toContain("Schedule follow-up in 3 months");
+  });
+
+  it("renders Email this Report button when patient prop is provided", async () => {
+    render(
+      <RecommendationPanel
+        patientId="p-1"
+        patientToken="tok-1"
+        privacyMode={false}
+        isRuleBasedForced={false}
+        patient={mockPatient}
+      />
+    );
+
+    expect(await screen.findByRole("button", { name: /email this report/i })).toBeInTheDocument();
+  });
+
+  it("Email this Report button writes sessionStorage and navigates to /report", async () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+    render(
+      <RecommendationPanel
+        patientId="p-1"
+        patientToken="tok-1"
+        privacyMode={false}
+        isRuleBasedForced={false}
+        patient={mockPatient}
+      />
+    );
+
+    const emailBtn = await screen.findByRole("button", { name: /email this report/i });
+    await userEvent.click(emailBtn);
+
+    expect(setItemSpy).toHaveBeenCalledWith(
+      "navaveij_report_export",
+      expect.stringContaining('"patient_id":"p-001"')
+    );
+    expect(mockPush).toHaveBeenCalledWith("/report");
+    setItemSpy.mockRestore();
+  });
+
+  it("does not render Email this Report button without patient prop", async () => {
+    render(
+      <RecommendationPanel
+        patientId="p-1"
+        patientToken="tok-1"
+        privacyMode={false}
+        isRuleBasedForced={false}
+      />
+    );
+
+    await screen.findByText("Clinical Conclusion");
+    expect(screen.queryByRole("button", { name: /email this report/i })).not.toBeInTheDocument();
   });
 });

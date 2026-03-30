@@ -28,14 +28,17 @@ import {
     Binary,
     AlertCircle,
     Tag,
+    Mail,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { clinicalService, StageUpdate } from "@/services/api";
 import { cn } from "@/shared/utils";
 import { BiomarkerCharts } from "./BiomarkerCharts";
 import { LabResultsGrid } from "./LabResultsGrid";
 import { CriticalSignal, PatientHighAlert, RecommendationAddOn, RecommendationResponse } from "@/types/recommendation";
+import { Patient } from "@/types/patient";
 import { renderHighlightedText, severityToStyles } from "@/shared/recommendationTextFormatting";
 import { PromotionDrawer } from "./PromotionDrawer";
 
@@ -59,6 +62,7 @@ interface RecommendationPanelProps {
     isRuleBasedForced: boolean;
     hideCharts?: boolean;
     onViewTimeline?: () => void;
+    patient?: Patient | null;
 }
 
 interface NormalizedAlert {
@@ -381,8 +385,10 @@ export function RecommendationPanel({
     onRecommendationLoad,
     isRuleBasedForced,
     hideCharts = false,
-    onViewTimeline
+    onViewTimeline,
+    patient,
 }: RecommendationPanelProps) {
+    const router = useRouter();
     const [data, setData] = useState<RecommendationResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [currentStage, setCurrentStage] = useState<StageUpdate | null>(null);
@@ -489,6 +495,16 @@ export function RecommendationPanel({
         };
         fetchRecommendation();
     }, [patientToken, isRuleBasedForced]);
+
+    const handleEmailReport = () => {
+        if (!data || !patient) return;
+        sessionStorage.setItem("navaveij_report_export", JSON.stringify({
+            patient,
+            recommendation: data,
+            generatedAt: new Date().toISOString(),
+        }));
+        router.push("/report");
+    };
 
     const handleApprove = async () => {
         if (!data?.recommendation_hash || !patientId) return;
@@ -1502,6 +1518,17 @@ export function RecommendationPanel({
                                                     <span>{isSubmitting ? "..." : "Confirm Strategy"}</span>
                                                 </button>
                                             </div>
+                                        )}
+
+                                        {/* Email Report CTA */}
+                                        {patient && (
+                                            <button
+                                                onClick={handleEmailReport}
+                                                className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-3 border border-white/15 text-white/60 hover:text-white hover:bg-white/5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-colors"
+                                            >
+                                                <Mail className="w-4 h-4" />
+                                                Email this Report
+                                            </button>
                                         )}
                                     </div>
                                 </div>
