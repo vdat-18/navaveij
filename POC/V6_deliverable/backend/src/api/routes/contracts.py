@@ -20,8 +20,10 @@ from src.mcp_server.tools.clinical_signals import get_clinical_signals
 from src.mcp_server.tools.patient_event_timeline import get_patient_event_timeline
 from src.mcp_server.tools.program_ruleset import get_program_ruleset
 from src.mcp_server.utils import load_promotions, load_ruleset_add_on_items
+from src.services.active_client import resolve_active_client
 from src.services.cache import cache_service
 from src.services.orchestrator import OrchestrationManager
+from src.services.prompt_selector import get_prompt_selector
 from src.services.promotions import PromotionEngine
 
 router = APIRouter()
@@ -45,6 +47,7 @@ class RecommendResponse(BaseModel):
     communication_script: dict[str, Any]
     rule_preliminary_tier: str
     resolved_package: dict[str, Any]
+    resolved_package_status: str
     confidence_score: float
     confidence_tier: str
     signal_coverage: float = 0.0
@@ -239,6 +242,8 @@ def _normalize_runtime_audit_entries() -> list[dict[str, Any]]:
         action_type = request_context.get("action_type") or what.get("event", "Generate")
         if action_type == "PROVISIONING_DECISION":
             action_type = "Decision"
+        if action_type == "LLM_REQUEST":
+            action_type = "LLMRequest"
         record = {
             "entry_id": f"alog-runtime-{index:06d}",
             "prev_entry_hash": entry.get("previous_hash") or previous_hash,
@@ -264,11 +269,18 @@ def _normalize_runtime_audit_entries() -> list[dict[str, Any]]:
                 "patient_token": patient_token,
                 "patient_token_masked": patient_token_masked,
                 "patient_id": patient_id,
+                "active_client": what.get("active_client"),
                 "model_id": what.get("model_id") or entry.get("how", {}).get("model_id"),
-                "template_version": "v1.0",
+                "model_provider": what.get("model_provider") or entry.get("how", {}).get("model_provider"),
+                "template_version": what.get("template_version", "v1.0"),
                 "latency_ms": what.get("latency_ms"),
                 "safety_validator_result": "pass",
                 "recommendation_source": "AI",
+                # LLMRequest-specific fields (None for non-LLM entries)
+                "function_name": what.get("function_name"),
+                "prompt_template_key": what.get("prompt_template_key"),
+                "input_trace_masked": what.get("input_trace_masked"),
+                "output_trace_masked": what.get("output_trace_masked"),
             },
             "why": {
                 "request_context": request_context or "Runtime clinical action",
@@ -557,6 +569,19 @@ def _confidence_tier(score: float) -> str:
     return "Low"
 
 
+def _resolved_ai_metadata(ai_metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+    candidate_client = ai_metadata.get("active_client") if isinstance(ai_metadata, dict) else None
+    resolved_client = resolve_active_client(candidate_client)
+    selector = get_prompt_selector(resolved_client.client_name)
+
+    return {
+        "active_client": ai_metadata.get("active_client", resolved_client.client_name) if isinstance(ai_metadata, dict) else resolved_client.client_name,
+        "model_id": ai_metadata.get("model_id", resolved_client.model_id) if isinstance(ai_metadata, dict) else resolved_client.model_id,
+        "model_provider": ai_metadata.get("model_provider", resolved_client.provider) if isinstance(ai_metadata, dict) else resolved_client.provider,
+        "template_version": ai_metadata.get("template_version", selector.version) if isinstance(ai_metadata, dict) else selector.version,
+    }
+
+
 def _normalize_stage2(
     *,
     patient_token: str,
@@ -565,6 +590,7 @@ def _normalize_stage2(
     latency_ms: int,
     promo_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    resolved_ai_metadata = _resolved_ai_metadata(ai_output.get("metadata"))
     clinical_signals = ai_output.get("clinical_signals", {})
     signals_fired = set(clinical_signals.get("signals_fired", []))
     missing_signals = ai_output.get("missing_signals", [])
@@ -662,15 +688,28 @@ def _normalize_stage2(
         is_risk_fallback=is_risk_fallback,
     )
 
-    resolved_package = ruleset.get("resolved_package", {}) or {}
+    resolved_package_source = ruleset.get("resolved_package", {}) or {}
     resolved_package = {
-        "tier": resolved_package.get("tier", ai_tier),
-        "package_name": resolved_package.get("package_name", ""),
-        "package_code": resolved_package.get("package_code", ""),
-        "price_thb": resolved_package.get("price_thb"),
-        "age_band": resolved_package.get("age_band", ""),
-        "gender": resolved_package.get("gender", ""),
+        "tier": resolved_package_source.get("tier", ai_tier),
+        "package_name": resolved_package_source.get("package_name", ""),
+        "package_code": resolved_package_source.get("package_code", ""),
+        "price_thb": resolved_package_source.get("price_thb"),
+        "age_band": resolved_package_source.get("age_band", ""),
+        "gender": resolved_package_source.get("gender", ""),
     }
+    degradation_reasons: list[str] = []
+    if not ruleset.get("package_resolution_map") or not ruleset.get("tier_selection_rules"):
+        degradation_reasons.append("ruleset_artifacts_missing")
+    if not resolved_package["package_code"] or not resolved_package["package_name"] or resolved_package["price_thb"] is None:
+        degradation_reasons.append("package_resolution_unresolved")
+    resolved_package_status = (
+        "resolved"
+        if (not degradation_reasons)
+        or (degradation_reasons == ["ruleset_artifacts_missing"] and resolved_package["package_code"])
+        else "unresolved"
+    )
+    if "package_resolution_unresolved" in degradation_reasons:
+        review_required = True
 
     # --- Promotion overlay (post-AI, never influences clinical logic) ---
     _promo_ctx = promo_context or {}
@@ -704,6 +743,7 @@ def _normalize_stage2(
         "communication_script": _map_communication_script(ai_output.get("communication_script", {})),
         "rule_preliminary_tier": rule_preliminary_tier,
         "resolved_package": resolved_package,
+        "resolved_package_status": resolved_package_status,
         "confidence_score": confidence_score,
         "confidence_tier": confidence_tier,
         "signal_coverage": signal_coverage,
@@ -734,12 +774,15 @@ def _normalize_stage2(
         "metadata": {
             "request_id": f"req_{uuid.uuid4().hex[:12]}",
             "patient_token": patient_token,
-            "model_id": settings.llm_model,
-            "template_version": "v1.0",
+            "active_client": resolved_ai_metadata["active_client"],
+            "model_id": resolved_ai_metadata["model_id"],
+            "model_provider": resolved_ai_metadata["model_provider"],
+            "template_version": resolved_ai_metadata["template_version"],
             "ruleset_version": ruleset.get("ruleset_version", "v2026.03.1"),
             "signal_store_pipeline_run_id": clinical_signals.get("pipeline_run_id", ""),
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "latency_ms": int(latency_ms or 0),
+            "degradation_reasons": degradation_reasons,
         },
     }
 
@@ -750,6 +793,9 @@ def _recommendation_cache_key(
     signal_store_pipeline_run_id: str,
     ruleset_version: str,
     force_rule_based: bool,
+    active_client: str,
+    model_id: str,
+    template_version: str,
 ) -> str:
     raw = json.dumps(
         {
@@ -757,8 +803,9 @@ def _recommendation_cache_key(
             "signal_store_pipeline_run_id": signal_store_pipeline_run_id,
             "ruleset_version": ruleset_version,
             "force_rule_based": force_rule_based,
-            "model_id": settings.llm_model,
-            "template_version": "v1.0",
+            "active_client": active_client,
+            "model_id": model_id,
+            "template_version": template_version,
             "api_auth_mode": settings.api_auth_mode,
         },
         sort_keys=True,
@@ -778,11 +825,15 @@ async def recommend(
     signals = get_clinical_signals(request.patient_token, patient_id=patient_id)
     pipeline_run_id = signals.get("pipeline_run_id", "")
     ruleset = get_program_ruleset(request.patient_token, patient_id=patient_id)
+    resolved_ai_metadata = _resolved_ai_metadata()
     cache_key = _recommendation_cache_key(
         patient_token=request.patient_token,
         signal_store_pipeline_run_id=pipeline_run_id,
         ruleset_version=ruleset.get("ruleset_version", "v2026.03.1"),
         force_rule_based=request.force_rule_based,
+        active_client=resolved_ai_metadata["active_client"],
+        model_id=resolved_ai_metadata["model_id"],
+        template_version=resolved_ai_metadata["template_version"],
     )
     cache_ttl = settings.cache_recommendation_ttl_seconds or settings.cache_ttl_seconds
     cache_key_hash = cache_key.split(":", 1)[-1][:16]
@@ -1068,25 +1119,28 @@ async def admin_master_add_ons(_auth: AuthContext = Depends(require_monitoring_a
 
 @router.get("/system-config", response_model=SystemConfigResponse)
 def get_system_config(_auth: AuthContext = Depends(require_monitoring_access)):
+    resolved_client = resolve_active_client()
+    selector = get_prompt_selector(resolved_client.client_name)
+    active = resolved_client.client_name
+    supported_clients = [
+        "GeminiClient",
+        "OpenAIClient",
+        "AnthropicClient",
+        "LocalHostedClient",
+        "OpenRouterClient",
+    ]
+    clients = [
+        BamlClientInfo(
+            name=client_name,
+            provider=resolve_active_client(client_name).provider,
+            model=resolve_active_client(client_name).model_id,
+            status="active" if active == client_name else "standby",
+        )
+        for client_name in supported_clients
+    ]
     return SystemConfigResponse(
-        active_client=settings.ai_active_client,
-        all_clients=[
-            BamlClientInfo(name="NavaveijClient", provider="openai-generic", model=settings.llm_model, status="active"),
-            BamlClientInfo(name="GPT4o", provider="openai", model="gpt-4o", status="standby"),
-            BamlClientInfo(
-                name="Claude35Sonnet", provider="anthropic", model="claude-3-5-sonnet-20241022", status="standby"
-            ),
-            BamlClientInfo(name="LocalLlama", provider="openai-generic", model="llama3.1:70b", status="standby"),
-            BamlClientInfo(
-                name="OpenRouterClient", provider="openai-generic", model="openai/gpt-oss-120b", status="standby"
-            ),
-            BamlClientInfo(
-                name="ActiveModel",
-                provider="fallback",
-                model="NavaveijClient→GPT4o→Claude35Sonnet→LocalLlama→OpenRouterClient",
-                status="fallback-chain",
-            ),
-        ],
+        active_client=active,
+        all_clients=clients,
         mcp_tools=[
             McpToolInfo(
                 name="get_biomarker_trends", type="READ-ONLY", description="Fetch biomarker trend series for a patient"
@@ -1101,5 +1155,5 @@ def get_system_config(_auth: AuthContext = Depends(require_monitoring_access)):
             McpToolInfo(name="get_program_ruleset", type="READ-ONLY", description="Load tier + add-on ruleset"),
         ],
         auth_mode=settings.api_auth_mode,
-        template_version="v3.1-poc",
+        template_version=selector.version,
     )

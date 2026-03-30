@@ -69,11 +69,17 @@ export interface AuditLogEntry {
     patient_token: string | null;
     patient_token_masked: string | null;
     patient_id: string | null;
+    active_client?: string | null;
     model_id: string | null;
+    model_provider?: string | null;
     template_version: string | null;
     latency_ms: number | null;
     safety_validator_result: string | null;
     recommendation_source: string | null;
+    function_name?: string | null;
+    prompt_template_key?: string | null;
+    input_trace_masked?: unknown;
+    output_trace_masked?: unknown;
   };
   why: {
     request_context: string | Record<string, unknown>;

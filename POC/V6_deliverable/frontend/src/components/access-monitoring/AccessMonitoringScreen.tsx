@@ -9,13 +9,14 @@ import { AuditLogSearchPanel } from "./AuditLogSearchPanel";
 import { RoleManagementTab } from "./RoleManagementTab";
 import { MappingToolTab } from "./MappingToolTab";
 import { MasterDataTab } from "./MasterDataTab";
-import { SystemConfigTab } from "./SystemConfigTab";
+import { MCPConfigsTab } from "./MCPConfigsTab";
+import { AIConfigsTab } from "./AIConfigsTab";
 
 interface AccessMonitoringScreenProps {
   role: "admin" | "dpo";
 }
 
-type TabKey = "role" | "mapping" | "master" | "sysconfig";
+type TabKey = "role" | "mapping" | "master" | "mcp_config" | "ai_config";
 
 export function AccessMonitoringScreen({ role }: AccessMonitoringScreenProps) {
   const [snapshot, setSnapshot] = useState<MonitoringSnapshot | null>(null);
@@ -118,13 +119,15 @@ export function AccessMonitoringScreen({ role }: AccessMonitoringScreenProps) {
             <TabButton label="Role Management" active={tab === "role"} onClick={() => setTab("role")} />
             <TabButton label="Mapping Tool" active={tab === "mapping"} onClick={() => setTab("mapping")} />
             <TabButton label="Master Data" active={tab === "master"} onClick={() => setTab("master")} />
-            <TabButton label="System Config" active={tab === "sysconfig"} onClick={() => setTab("sysconfig")} />
+            <TabButton label="MCP Configs" active={tab === "mcp_config"} onClick={() => setTab("mcp_config")} />
+            <TabButton label="AI Configs" active={tab === "ai_config"} onClick={() => setTab("ai_config")} />
           </div>
 
           {tab === "role" && <RoleManagementTab roles={roles} />}
           {tab === "mapping" && <MappingToolTab mappings={mappings} />}
           {tab === "master" && <MasterDataTab programs={programs} addOns={addOns} />}
-          {tab === "sysconfig" && sysConfig && <SystemConfigTab config={sysConfig} />}
+          {tab === "mcp_config" && sysConfig && <MCPConfigsTab config={sysConfig} />}
+          {tab === "ai_config" && sysConfig && <AIConfigsTab config={sysConfig} />}
         </>
       )}
     </div>

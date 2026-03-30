@@ -22,6 +22,8 @@ assets/
     │   ├── senior_cancer_screening_gap_seed.json
     │   └── uncontrolled_hypertension_seed.json
     └── rulesets/                   # Commercial rules & product catalog
+        ├── sample_ruleset_tier_config.json
+        ├── sample_package_resolution.json
         ├── sample_add_on_items.json
         └── sample_promotions.json
 ```
@@ -95,6 +97,15 @@ Template seeds used as archetypes for generating synthetic patient records. Each
 
 Commercial configuration for the recommendation deal-closing layer.
 
+**`sample_ruleset_tier_config.json`** — Tier selection policy:
+- Contains `tier_selection_rules` used to determine Standard / Advanced / Premium recommendation boundaries
+- Must be present in the V6 deployment bundle; V6 should not depend on `POC/v3` or `doc_outputs` copies in production
+
+**`sample_package_resolution.json`** — Package resolution map:
+- Maps tier + demographic age band to the actual package code, name, and price
+- Used to resolve the base package shown in the dashboard and billing panel
+- Must be present in the V6 deployment bundle; missing this file degrades the recommendation into manual-review state
+
 **`sample_add_on_items.json`** — Catalog of 28 clinical add-on tests:
 - Each item links `trigger_signals` (which clinical flags trigger it) to a `navavej_product` (product code, price in THB)
 - Includes safety contraindications, guideline references (USPSTF, AHA/ACC), gender/age constraints
@@ -135,3 +146,4 @@ patient_registry.json          Signal Store (synthesis/generated/)
 - **`pipeline_run_id`** — Every record traces back to a specific pipeline execution for auditability
 - **`computed_at`** — ISO 8601 timestamp indicating when the clinical assessment was computed
 - **`schema_version`** — Currently `signal_store_record_v1`; check this if records fail to parse
+- **V6 ruleset bundle is self-contained** — production deployment should include all four files in `assets/synthesis/rulesets/`; runtime should not rely on cross-version fallbacks

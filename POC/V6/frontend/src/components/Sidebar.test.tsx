@@ -29,6 +29,15 @@ describe("Sidebar", () => {
     vi.clearAllMocks();
   });
 
+  it("renders the management metrics nav link for admin users", () => {
+    mockPathname.mockReturnValue("/");
+
+    render(<Sidebar />);
+
+    const link = screen.getByRole("link", { name: "Management Metrics" });
+    expect(link).toHaveAttribute("href", "/management");
+  });
+
   it("marks the active link with aria-current page", () => {
     mockPathname.mockReturnValue("/trend-timeline");
 
@@ -38,4 +47,3 @@ describe("Sidebar", () => {
     expect(link).toHaveAttribute("aria-current", "page");
   });
 });
-

@@ -30,6 +30,7 @@ export interface LabTrend {
   label: string;
   loinc_code: string;
   current_value: number;
+  current_severity?: "normal" | "borderline" | "abnormal" | "unknown";
   unit: string;
   reference_range?: LabReferenceRange;
   interpretation?: string;
@@ -47,13 +48,14 @@ export interface BiomarkerTrendsResponse {
   patient_token: string;
   bmi: {
     current: number;
+    current_severity?: "normal" | "borderline" | "abnormal" | "unknown";
     unit: string;
     trend_direction: string;
     slope_per_year?: number | null;
     history: NumericHistoryPoint[];
   };
   blood_pressure: {
-    latest?: { sbp: number; dbp: number; date: string };
+    latest?: { sbp: number; sbp_severity?: "normal" | "borderline" | "abnormal" | "unknown"; dbp: number; date: string };
     unit: string;
     trend_direction: string;
     sbp_slope_per_year?: number | null;
@@ -61,6 +63,7 @@ export interface BiomarkerTrendsResponse {
   };
   egfr: {
     current: number;
+    current_severity?: "normal" | "borderline" | "abnormal" | "unknown";
     unit: string;
     loinc_code: string;
     trend_direction: string;

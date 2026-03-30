@@ -1,0 +1,255 @@
+{
+  "_schema_note": "Ruleset Store DB record — record_type: ruleset_tier_config. This is the complete tier selection rule set evaluated top-down by the Clinical Signal Engine (offline) and exposed via MCP Tool get_program_ruleset(patient_token) at query time. First matching rule wins.",
+  "_version_note": "Draft v2026.03.1-draft — for clinical expert verification. Set status to 'active' only after Medical Acceptance Test (MAT) confirms ≥ 95% accuracy on 100 blind cases (TOR §6.2).",
+  "_framework_reference": "rule-synthesis-framework.md — all signal_ids trace to signal-store-contract.md Field Dictionary; all clinical claims trace to clinical-guidelines-reference.md",
+  "_option_a_symptom_signals": "Symptom-derived signals (symptom_palpitations, symptom_chronic_back_pain, symptom_unexplained_weight_loss, symptom_chest_pain, symptom_dyspnea_on_exertion) are treated as first-class signal IDs per Option A resolution. They are populated by the Clinical Signal Engine from the symptom_tags[] array in get_clinical_signals. These must be added to the signal-store-contract.md Field Dictionary before production deployment.",
+  "_expert_review_instructions": "Please verify: (1) tier boundary signals and thresholds in each rule; (2) which signals belong in Premium vs Advanced pools; (3) whether min_count values are clinically appropriate; (4) whether any signals are missing from or incorrectly placed in a pool. Somchai W. (sample_patient_checkup.json) fires 8 of 12 signals in PREMIUM_MULTI_SIGNAL — see _expert_review_note on that rule.",
+  "record_type": "ruleset_tier_config",
+  "version": "v2026.03.1-draft",
+  "status": "draft",
+  "previous_version": null,
+  "created_by": "system_initial_seed",
+  "created_at": "2026-03-13T00:00:00Z",
+  "change_summary": "Initial ruleset draft — synthesized from clinical-guidelines-reference.md v1.0 and navavej-checkup-package-discovery.md v1.0. Pending MAT validation.",
+  "tier_selection_rules": [
+    {
+      "rule_id": "PREMIUM_SEVERE_SINGLE",
+      "priority": 1,
+      "tier": "Premium",
+      "match_logic": "ANY",
+      "_clinical_rationale": "A single high-severity condition that places the patient in active multi-organ disease or imminent serious-outcome territory. Any one is sufficient to warrant the Diamond (Premium) program.",
+      "_expert_review_note": "Please confirm: are these the correct conditions for mandatory Premium escalation? Should any be Advanced instead?",
+      "conditions": [
+        {
+          "type": "signal_active",
+          "signal_ids": [
+            "ckd_rapid_progression"
+          ],
+          "description": "CKD rapid progression — eGFR annual decline > 5 mL/min/1.73m². KDIGO 2022: urgent nephrology referral; comprehensive evaluation warranted beyond Advanced.",
+          "guideline_ref": "clinical-guidelines-reference.md §7.2"
+        },
+        {
+          "type": "signal_active",
+          "signal_ids": [
+            "ascvd_very_high"
+          ],
+          "description": "ASCVD 10-year risk ≥ 20%. ACC/AHA 2013/2018: high-intensity statin mandatory + comprehensive cardiovascular workup beyond standard Enhanced screening.",
+          "guideline_ref": "clinical-guidelines-reference.md §5.1"
+        },
+        {
+          "type": "signal_active",
+          "signal_ids": [
+            "hypertensive_crisis"
+          ],
+          "description": "Hypertensive crisis — SBP > 180 OR DBP > 120. ACC/AHA 2017: emergency evaluation; EST and contrast procedures contraindicated. Cannot proceed with routine checkup without specialist clearance.",
+          "guideline_ref": "clinical-guidelines-reference.md §2"
+        },
+        {
+          "type": "signal_active",
+          "signal_ids": [
+            "diabetes_confirmed"
+          ],
+          "and_signal_active": [
+            "dm_organ_complication_screening"
+          ],
+          "description": "Confirmed DM (HbA1c ≥ 6.5%) with active organ complication screening gap — at least one of: retinopathy, nephropathy, neuropathy, or cardiac screening overdue. ADA 2024: multi-organ surveillance program required.",
+          "guideline_ref": "clinical-guidelines-reference.md §1.2, §6.2"
+        },
+        {
+          "type": "signal_active",
+          "signal_ids": [
+            "liver_enzyme_elevation_significant"
+          ],
+          "and_signal_active": [
+            "fibroscan_indication"
+          ],
+          "description": "ALT > 3× ULN (significant hepatocellular injury) combined with liver disease risk indicator (NAFLD, alcohol, or high TG). AASLD 2023: comprehensive hepatic evaluation required — beyond basic LFT add-on.",
+          "guideline_ref": "clinical-guidelines-reference.md §1.4, §8.1"
+        }
+      ],
+      "guideline_basis": "TOR §3.2: Risk Level High → Premium/Personalized Package",
+      "admin_configurable": {
+        "tier_assignment": false,
+        "conditions": false,
+        "_note": "No admin-configurable fields. Any change to conditions requires clinical review and code release."
+      }
+    },
+    {
+      "rule_id": "PREMIUM_MULTI_SIGNAL",
+      "priority": 2,
+      "tier": "Premium",
+      "match_logic": "COUNT_THRESHOLD",
+      "_clinical_rationale": "Convergence of multiple independent moderate-severity risk signals across organ systems. Even without a single dominant condition, the cumulative burden exceeds what an Advanced (Platinum) package with add-ons can adequately address.",
+      "_expert_review_note": "CRITICAL CALIBRATION ITEM. The sample patient Somchai W. (sample_patient_checkup.json) fires 8 of 12 signals in this pool: prediabetes_confirmed, htn_active, dyslipidemia_active, ascvd_risk_intermediate, family_hx_premature_cad, at_risk_alcohol_use, lung_ct_threshold_met, uric_acid_hyperuricemia. With min_count: 5, Somchai resolves to Premium. Clinical question: Is Premium (Diamond) appropriate for Somchai's profile, or should he remain Advanced (Platinum)? If Somchai should be Advanced, either (a) raise min_count to 9, or (b) remove some signals from the pool (e.g., uric_acid_hyperuricemia, at_risk_alcohol_use) to reduce his match count below the threshold.",
+      "conditions": [
+        {
+          "type": "signal_count_threshold",
+          "signal_pool": [
+            "prediabetes_confirmed",
+            "diabetes_confirmation_required",
+            "htn_active",
+            "dyslipidemia_active",
+            "bmi_obese_asian",
+            "ascvd_risk_intermediate",
+            "bp_stage2_htn",
+            "family_hx_premature_cad",
+            "history_syncope",
+            "at_risk_alcohol_use",
+            "fibroscan_indication",
+            "lung_ct_threshold_met",
+            "ckd_comorbidity",
+            "uric_acid_hyperuricemia"
+          ],
+          "min_count": 5,
+          "description": "≥ 5 of 12 moderate-severity risk signals active simultaneously — indicates multi-system disease burden requiring comprehensive Premium evaluation.",
+          "_signal_pool_rationale": {
+            "prediabetes_confirmed": "Metabolic — pre-DM; organ risk precursor",
+            "diabetes_confirmation_required": "Metabolic — probable diabetes requires confirmatory testing and intensified surveillance",
+            "htn_active": "Cardiovascular — confirmed hypertension comorbidity",
+            "dyslipidemia_active": "Cardiovascular — confirmed dyslipidemia comorbidity",
+            "bmi_obese_asian": "Metabolic — Asian-adjusted obese (BMI ≥ 27.5); high NCD risk",
+            "ascvd_risk_intermediate": "Cardiovascular — 10-yr risk 7.5–19.9%; significant CV burden",
+            "bp_stage2_htn": "Cardiovascular — Stage 2 HTN (SBP ≥ 140 or DBP ≥ 90)",
+            "family_hx_premature_cad": "Genetic — first-degree premature CAD; ACC/AHA risk enhancer",
+            "history_syncope": "Cardiovascular — syncope history can indicate high-risk cardiac etiology requiring escalated workup",
+            "at_risk_alcohol_use": "Behavioral — AUDIT-C positive; liver + metabolic risk",
+            "fibroscan_indication": "Hepatic — liver disease risk from BMI + ALT or alcohol + ALT",
+            "lung_ct_threshold_met": "Oncologic — LDCT-eligible smoker; significant cancer risk",
+            "ckd_comorbidity": "Renal — confirmed CKD any stage",
+            "uric_acid_hyperuricemia": "Metabolic — hyperuricemia; associated with metabolic syndrome"
+          }
+        }
+      ],
+      "guideline_basis": "TOR §3.2: Risk Level High → Premium/Personalized Package",
+      "admin_configurable": {
+        "min_count": true,
+        "min_count_range": {
+          "min": 3,
+          "max": 12
+        },
+        "signal_pool": false,
+        "_note": "Admin may adjust min_count via Admin Panel. Signal pool membership requires code release + clinical review. Final threshold must be validated by MAT."
+      }
+    },
+    {
+      "rule_id": "ADVANCED_METABOLIC_OR_CVD",
+      "priority": 3,
+      "tier": "Advanced",
+      "match_logic": "ANY",
+      "_clinical_rationale": "Any single moderate-severity signal places the patient into elevated-risk territory requiring enhanced (Platinum) screening beyond the standard annual package. Alternatively, two or more lower-severity signals co-occurring indicates sufficient cumulative risk.",
+      "_expert_review_note": "Please verify: (1) Are all 7 single-signal qualifiers appropriate for Advanced? Should any be Standard instead? (2) Is min_count: 2 the right threshold for the low-moderate pool? (3) Are all low-moderate pool signals correctly categorized?",
+      "conditions": [
+        {
+          "type": "signal_active",
+          "signal_ids": [
+            "prediabetes_confirmed",
+            "diabetes_confirmation_required"
+          ],
+          "description": "Pre-diabetes confirmed (FBS 100–125 or HbA1c 5.7–6.4%) OR diabetes requiring confirmation (FBS ≥ 126, pending retest). ADA 2024: significantly elevated DM progression risk.",
+          "guideline_ref": "clinical-guidelines-reference.md §1.1, §1.2"
+        },
+        {
+          "type": "signal_active",
+          "signal_ids": [
+            "ascvd_risk_intermediate"
+          ],
+          "description": "ASCVD 10-year risk 7.5–19.9% (Intermediate). ACC/AHA 2018: moderate-intensity statin consideration + enhanced cardiovascular screening.",
+          "guideline_ref": "clinical-guidelines-reference.md §5.1"
+        },
+        {
+          "type": "signal_active",
+          "signal_ids": [
+            "htn_active"
+          ],
+          "description": "Active hypertension comorbidity confirmed (Stage 1 or Stage 2 HTN with comorbidity tag). Requires enhanced monitoring beyond Standard package baseline.",
+          "guideline_ref": "clinical-guidelines-reference.md §2"
+        },
+        {
+          "type": "signal_active",
+          "signal_ids": [
+            "lung_ct_threshold_met"
+          ],
+          "description": "LDCT lung cancer screening eligible — age 50–80, ≥ 20 pack-years, current smoker or quit ≤ 15 years. USPSTF 2021 Grade B: annual screening indicated.",
+          "guideline_ref": "clinical-guidelines-reference.md §4.4, §10.1"
+        },
+        {
+          "type": "signal_active",
+          "signal_ids": [
+            "ckd_comorbidity"
+          ],
+          "description": "CKD any stage confirmed. KDIGO 2022: requires structured monitoring and nephrology input beyond Standard baseline.",
+          "guideline_ref": "clinical-guidelines-reference.md §1.5, §7.1"
+        },
+        {
+          "type": "signal_active",
+          "signal_ids": [
+            "bmi_obese_asian"
+          ],
+          "description": "Obese by Asian-adjusted BMI (≥ 27.5 kg/m²). WHO Asia-Pacific 2000: significantly elevated NCD risk requiring enhanced metabolic screening.",
+          "guideline_ref": "clinical-guidelines-reference.md §3"
+        },
+        {
+          "type": "signal_count_threshold",
+          "signal_pool": [
+            "bmi_overweight_asian",
+            "low_hdl",
+            "high_triglycerides",
+            "high_ldl",
+            "bp_stage1_htn",
+            "bp_worsening",
+            "family_hx_premature_cad",
+            "at_risk_alcohol_use",
+            "office_syndrome",
+            "night_shift_worker",
+            "uric_acid_hyperuricemia",
+            "dyslipidemia_active",
+            "fibroscan_indication",
+            "fbs_upward_trend",
+            "diagnosis_fatty_liver"
+          ],
+          "min_count": 2,
+          "description": "≥ 2 of 15 low-to-moderate severity signals active simultaneously — combined risk burden warrants enhanced screening beyond Standard.",
+          "_signal_pool_rationale": {
+            "bmi_overweight_asian": "Asian-adjusted overweight (BMI ≥ 23); elevated metabolic risk",
+            "low_hdl": "HDL < 40 (M) / < 50 (F); CV risk factor",
+            "high_triglycerides": "TG ≥ 200 mg/dL; metabolic + hepatic risk",
+            "high_ldl": "LDL ≥ 160 mg/dL; CV risk",
+            "bp_stage1_htn": "SBP 130–139 or DBP 80–89 (ACC/AHA 2017 Stage 1); not yet active comorbidity",
+            "bp_worsening": "BP trend worsening over serial readings",
+            "family_hx_premature_cad": "First-degree premature CAD; ACC/AHA risk enhancer",
+            "at_risk_alcohol_use": "AUDIT-C ≥ 3 (F) / ≥ 4 (M); liver + metabolic risk",
+            "office_syndrome": "Prolonged sedentary desk work; MSK + metabolic risk",
+            "night_shift_worker": "Rotating/permanent night shift; elevated DM + HTN + sleep risk",
+            "uric_acid_hyperuricemia": "Uric acid above sex-specific threshold; metabolic syndrome marker",
+            "dyslipidemia_active": "Confirmed dyslipidemia comorbidity",
+            "fibroscan_indication": "Liver disease risk indicator (AASLD 2023)",
+            "fbs_upward_trend": "Worsening fasting glucose trend indicates accelerating metabolic risk",
+            "diagnosis_fatty_liver": "Diagnosed fatty liver indicates hepatic-metabolic risk burden"
+          }
+        }
+      ],
+      "guideline_basis": "TOR §3.2: Risk Level Moderate → Advanced Package",
+      "admin_configurable": {
+        "min_count": true,
+        "min_count_range": {
+          "min": 2,
+          "max": 5
+        },
+        "signal_pool": false
+      }
+    },
+    {
+      "rule_id": "STANDARD_DEFAULT",
+      "priority": 4,
+      "tier": "Standard",
+      "match_logic": "DEFAULT",
+      "_clinical_rationale": "No Premium or Advanced rule matched. Patient has no active elevated-risk signals; routine preventive annual health screening (Gold package) is appropriate.",
+      "conditions": [],
+      "guideline_basis": "TOR §3.2: Risk Level Low → Standard Package",
+      "admin_configurable": {
+        "tier_assignment": false,
+        "_note": "Default rule cannot be removed or reordered. Tier assignment cannot be changed."
+      }
+    }
+  ]
+}

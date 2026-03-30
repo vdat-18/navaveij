@@ -11,7 +11,7 @@ from src.mcp_server.utils import (
     load_ruleset_tier_config,
     load_signal_store_record,
     resolve_package,
-    resolve_patient_token,
+    resolve_patient_identity,
 )
 
 
@@ -47,10 +47,10 @@ def get_program_ruleset(patient_token: str, patient_id: str | None = None) -> di
         }
     """
     logger.info(f"Retrieving program ruleset for patient_token: {patient_token}")
-    resolved_patient_id = patient_id or resolve_patient_token(patient_token)
+    resolved_patient_token, resolved_patient_id = resolve_patient_identity(patient_token=patient_token, patient_id=patient_id)
 
     # Load Signal Store record to get patient demographics and signals_fired
-    record = load_signal_store_record(patient_token=patient_token, patient_id=resolved_patient_id)
+    record = load_signal_store_record(patient_token=resolved_patient_token, patient_id=resolved_patient_id)
     if not record:
         logger.error(f"Signal Store record not found for patient_token: {patient_token}")
         return {

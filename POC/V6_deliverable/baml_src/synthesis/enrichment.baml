@@ -30,7 +30,7 @@ class EnrichmentFields {
 }
 
 function EnrichHealthyPatientRecord(record: SignalStoreRecord) -> EnrichmentFields {
-  client NavaveijWithFallback
+  client GeminiClient
 
   prompt #"
     ### MISSION:

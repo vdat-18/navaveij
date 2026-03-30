@@ -8,7 +8,8 @@ import {
     LayoutDashboard,
     LineChart,
     ShieldCheck,
-    HelpCircle
+    HelpCircle,
+    Activity
 } from "lucide-react";
 import { cn } from "@/shared/utils";
 import { useAuth } from "@/shared/auth-context";
@@ -18,6 +19,7 @@ const menuItems = [
     { icon: LineChart,       label: "Trend & Timeline",   id: "timeline",   href: "/trend-timeline" },
     // /audit remains available as an alias route and redirects to /access-monitoring.
     { icon: ShieldCheck,     label: "Access Monitoring & Audit Log", id: "monitoring", href: "/access-monitoring" },
+    { icon: Activity,        label: "Management Metrics", id: "management", href: "/management" },
 ];
 
 /** Roles that use the single-entry-point flow (no sidebar). */
@@ -28,7 +30,8 @@ export function Sidebar() {
     const { user } = useAuth();
 
     // Physicians and nurses use the new single-entry-point search flow — no sidebar needed.
-    if (user && SIDEBAR_HIDDEN_ROLES.has(user.role)) {
+    // The /report page is standalone and also renders without sidebar for all roles.
+    if (pathname === '/report' || (user && SIDEBAR_HIDDEN_ROLES.has(user.role))) {
         return null;
     }
 

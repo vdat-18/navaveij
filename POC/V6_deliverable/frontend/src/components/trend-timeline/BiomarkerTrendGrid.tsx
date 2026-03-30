@@ -15,7 +15,7 @@ import {
 
 import { ChartTooltip } from "@/components/charts/ChartTooltip";
 import { defaultCartesianGrid, defaultXAxisProps, defaultYAxisProps } from "@/components/charts/chartConfig";
-import { BiomarkerSeries } from "@/types/timeline";
+import { BiomarkerSeries, MetricSeverity } from "@/types/timeline";
 
 interface BiomarkerTrendGridProps {
   series: BiomarkerSeries[];
@@ -29,6 +29,19 @@ const BIOMARKER_INFO: Record<string, { what: string; interpret: string }> = {
   "BP Systolic": { what: "Systolic Blood Pressure — pressure when heart beats.", interpret: "Normal < 120 mmHg. Elevated 120–129. Stage 1 HTN 130–139. Stage 2 ≥ 140." },
   "eGFR":        { what: "Estimated Glomerular Filtration Rate — kidney function.", interpret: "Normal ≥ 90. Mild decline 60–89 (G2). Moderate 30–59 (G3). Severe < 30." },
 };
+
+
+function getSeverityForValue(item: BiomarkerSeries, value: number | undefined): MetricSeverity {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "unknown";
+  }
+
+  if (item.current_severity) {
+    return item.current_severity;
+  }
+
+  return "unknown";
+}
 
 function getNumericYAxisDomain(item: BiomarkerSeries): [number, number] | undefined {
   const values = item.history
@@ -120,20 +133,9 @@ export function BiomarkerTrendGrid({ series }: BiomarkerTrendGridProps) {
                       
                       // For this logic, assuming higher is worse for simplicity, or just highlighting if it crossed
                       // We can check if trend_direction implies what's bad, but simple threshold check:
-                      let isAbnormal = false;
-                      if (hasRef && payload.value !== undefined) {
-                        // Very simple fallback: if it's > reference, flag it (could be enhanced based on biomarker rules)
-                        // Actually, let's highlight if value is significantly different. We don't have > or < rules per metric here.
-                        // For demonstration, let's say value > reference is abnormal if trend is upward, etc.
-                        // Let's just highlight if it's > reference for now as a default "alert" demo.
-                        // TODO V6: move abnormality_direction ("high" | "low" | "range") to BiomarkerSeries BE response
-                        // so the FE does not need per-biomarker hardcodes. HDL is currently the only exception.
-                        if (item.label.toLowerCase().includes('hdl')) {
-                            isAbnormal = payload.value < item.reference!; // HDL lower is bad
-                        } else {
-                            isAbnormal = payload.value > item.reference!;
-                        }
-                      }
+                      const severity = getSeverityForValue(item, payload.value);
+                      const isAbnormal = severity === "abnormal";
+                      const isBorderline = severity === "borderline";
 
                       if (isLast) {
                         return (
@@ -142,7 +144,7 @@ export function BiomarkerTrendGrid({ series }: BiomarkerTrendGridProps) {
                             cx={cx}
                             cy={cy}
                             r={6}
-                            fill={isAbnormal ? "var(--color-navavej-red)" : "var(--color-navavej-teal)"}
+                            fill={isAbnormal ? "var(--color-navavej-red)" : isBorderline ? "var(--color-navavej-amber)" : "var(--color-navavej-teal)"}
                             stroke="white"
                             strokeWidth={2}
                           />
@@ -157,6 +159,20 @@ export function BiomarkerTrendGrid({ series }: BiomarkerTrendGridProps) {
                             cy={cy}
                             r={5}
                             fill="var(--color-navavej-red)"
+                            stroke="white"
+                            strokeWidth={1}
+                          />
+                        );
+                      }
+
+                      if (isBorderline) {
+                        return (
+                          <circle
+                            key={`dot-${index}`}
+                            cx={cx}
+                            cy={cy}
+                            r={4}
+                            fill="var(--color-navavej-amber)"
                             stroke="white"
                             strokeWidth={1}
                           />
@@ -183,14 +199,9 @@ export function BiomarkerTrendGrid({ series }: BiomarkerTrendGridProps) {
             {/* Status Banner - Ultra Prominent */}
             <div className="mt-5 relative z-10">
               {typeof item.reference === "number" && item.current !== undefined ? (() => {
-                let isGood = true;
-                if (item.label.toLowerCase().includes('hdl')) {
-                    isGood = item.current >= item.reference;
-                } else {
-                    isGood = item.current <= item.reference;
-                }
+                const severity = getSeverityForValue(item, item.current);
 
-                if (isGood) {
+                if (severity === "normal") {
                   return (
                     <div className="bg-emerald-500 text-white px-4 py-3 rounded-2xl flex items-center justify-between shadow-lg shadow-emerald-500/20 border border-emerald-400/30">
                       <div className="flex items-center gap-3">
@@ -208,25 +219,45 @@ export function BiomarkerTrendGrid({ series }: BiomarkerTrendGridProps) {
                       </div>
                     </div>
                   );
-                } else {
+                }
+
+                if (severity === "borderline") {
                   return (
-                    <div className="bg-navavej-red text-white px-4 py-3 rounded-2xl flex items-center justify-between shadow-lg shadow-navavej-red/20 border border-navavej-red/30 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <div className="bg-amber-500 text-white px-4 py-3 rounded-2xl flex items-center justify-between shadow-lg shadow-amber-500/20 border border-amber-400/30 animate-in fade-in slide-in-from-bottom-2 duration-500">
                       <div className="flex items-center gap-3">
                         <div className="bg-white/20 p-1.5 rounded-lg backdrop-blur-sm">
                             <AlertTriangle className="w-4 h-4 text-white" />
                         </div>
                         <div>
-                            <p className="text-[14px] font-black uppercase tracking-tight">Status: Alert</p>
-                            <p className="text-[10px] font-bold opacity-80 italic">Out of range detection</p>
+                            <p className="text-[14px] font-black uppercase tracking-tight">Status: Watch</p>
+                            <p className="text-[10px] font-bold opacity-80 italic">Borderline range</p>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="text-[10px] font-black opacity-60 uppercase">Reference</p>
-                        <p className="text-[12px] font-black">{item.label.toLowerCase().includes('hdl') ? '≥' : '≤'} {item.reference}</p>
+                        <p className="text-[12px] font-black">{item.reference}</p>
                       </div>
                     </div>
                   );
                 }
+
+                return (
+                  <div className="bg-navavej-red text-white px-4 py-3 rounded-2xl flex items-center justify-between shadow-lg shadow-navavej-red/20 border border-navavej-red/30 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-white/20 p-1.5 rounded-lg backdrop-blur-sm">
+                          <AlertTriangle className="w-4 h-4 text-white" />
+                      </div>
+                      <div>
+                          <p className="text-[14px] font-black uppercase tracking-tight">Status: Alert</p>
+                          <p className="text-[10px] font-bold opacity-80 italic">Out of range detection</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-black opacity-60 uppercase">Reference</p>
+                      <p className="text-[12px] font-black">{item.reference}</p>
+                    </div>
+                  </div>
+                );
               })() : (
                  <div className="bg-navavej-gray-light p-4 rounded-2xl flex items-center justify-between border border-navavej-border">
                   <div className="flex items-center gap-3">

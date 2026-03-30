@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { AuditLogEntry, AuditLogFilters } from "@/types/access-monitoring";
 import { usePrivacyMode } from "@/shared/privacy-mode";
 import { patientService } from "@/services/api";
 import { Patient } from "@/types/patient";
 
-const ACTION_OPTIONS = ["", "View", "Export", "Generate", "Decision", "AdminUpdate"];
+const ACTION_OPTIONS = ["", "View", "Export", "Generate", "Decision", "AdminUpdate", "LLMRequest"];
 
 interface AuditLogSearchPanelProps {
   entries: AuditLogEntry[];
@@ -32,6 +32,7 @@ export function AuditLogSearchPanel({
   const [revealWho, setRevealWho] = useState(false);
   const [revealPatient, setRevealPatient] = useState(false);
   const [patientDetails, setPatientDetails] = useState<Patient | null>(null);
+  const [traceInspectorOpen, setTraceInspectorOpen] = useState(false);
 
   // Initialize reveal states based on privacy mode when a new entry is selected
   const handleEntrySelect = (entry: AuditLogEntry) => {
@@ -41,6 +42,7 @@ export function AuditLogSearchPanel({
     setRevealWho(false);
     setRevealPatient(false);
     setPatientDetails(null);
+    setTraceInspectorOpen(false);
     if (entry.what.patient_id) {
       patientService.getDetails(entry.what.patient_id).then(setPatientDetails).catch(() => {});
     }
@@ -226,15 +228,56 @@ export function AuditLogSearchPanel({
             <div className="p-4 space-y-1">
               <p className="text-[10px] font-black uppercase tracking-widest text-navavej-gray-med">What</p>
               <p className="text-xs font-bold">{selectedEntry.what.action_type}</p>
-              <p className="text-[11px] text-navavej-gray-med">{selectedEntry.what.resource_type}</p>
-              {(selectedEntry.what.model_id || selectedEntry.what.latency_ms != null) && (
-                <p className="text-[11px] text-navavej-gray-med">
-                  {[
-                    selectedEntry.what.model_id,
-                    selectedEntry.what.latency_ms != null ? `${selectedEntry.what.latency_ms}ms` : null,
-                    selectedEntry.what.safety_validator_result === "pass" ? "Safety \u2713" : null,
-                  ].filter(Boolean).join(" · ")}
-                </p>
+              {selectedEntry.what.action_type === "LLMRequest" ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[11px] text-navavej-gray-med font-mono">
+                      {selectedEntry.what.function_name ?? "—"}
+                    </p>
+                    <button
+                      type="button"
+                      aria-label="Inspect LLM Request"
+                      onClick={() => setTraceInspectorOpen(true)}
+                      className="text-gray-400 hover:text-gray-600 focus:outline-none"
+                    >
+                      <EyeIcon revealed={traceInspectorOpen} />
+                    </button>
+                  </div>
+                  {(selectedEntry.what.active_client || selectedEntry.what.model_provider) && (
+                    <p className="text-[11px] text-navavej-gray-med">
+                      {[
+                        selectedEntry.what.active_client,
+                        selectedEntry.what.model_provider,
+                      ].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                  <p className="text-[11px] text-navavej-gray-med">
+                    {[
+                      selectedEntry.what.model_id,
+                      selectedEntry.what.template_version,
+                      selectedEntry.what.latency_ms != null ? `${selectedEntry.what.latency_ms}ms` : null,
+                    ].filter(Boolean).join(" · ")}
+                  </p>
+                  {selectedEntry.what.prompt_template_key && (
+                    <p className="text-[11px] text-navavej-gray-med">
+                      Template key: <span className="font-mono">{selectedEntry.what.prompt_template_key}</span>
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-[11px] text-navavej-gray-med">{selectedEntry.what.resource_type}</p>
+                  {(selectedEntry.what.model_id || selectedEntry.what.latency_ms != null) && (
+                    <p className="text-[11px] text-navavej-gray-med">
+                      {[
+                        selectedEntry.what.active_client,
+                        selectedEntry.what.model_id,
+                        selectedEntry.what.latency_ms != null ? `${selectedEntry.what.latency_ms}ms` : null,
+                        selectedEntry.what.safety_validator_result === "pass" ? "Safety \u2713" : null,
+                      ].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                </>
               )}
             </div>
             {/* WHERE */}
@@ -322,8 +365,81 @@ export function AuditLogSearchPanel({
           </div>
         </div>
       )}
+      {selectedEntry?.what.action_type === "LLMRequest" && traceInspectorOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="LLM Request Trace Inspector"
+        >
+          <div className="w-full max-w-4xl rounded-2xl border border-navavej-border bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-navavej-border px-6 py-4">
+              <div>
+                <h4 className="text-sm font-black uppercase tracking-widest text-navavej-gray-dark">
+                  LLM Request Trace Inspector
+                </h4>
+                <p className="mt-1 text-xs text-navavej-gray-med">
+                  {[
+                    selectedEntry.what.function_name,
+                    selectedEntry.what.active_client,
+                    selectedEntry.what.model_provider,
+                  ].filter(Boolean).join(" · ")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTraceInspectorOpen(false)}
+                className="rounded-lg border border-navavej-border px-3 py-1 text-[10px] font-black uppercase"
+              >
+                Close
+              </button>
+            </div>
+            <div className="grid gap-6 p-6 lg:grid-cols-2">
+              <div className="space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-navavej-gray-med">Request Summary</p>
+                <div className="space-y-1 text-[11px] text-navavej-gray-med">
+                  <p><span className="font-bold lowercase">request id</span>: <span className="font-mono">{selectedEntry.where.request_id}</span></p>
+                  <p><span className="font-bold lowercase">model</span>: {[selectedEntry.what.model_id, selectedEntry.what.template_version].filter(Boolean).join(" · ") || "—"}</p>
+                  <p><span className="font-bold lowercase">latency</span>: {selectedEntry.what.latency_ms != null ? `${selectedEntry.what.latency_ms}ms` : "—"}</p>
+                  <p><span className="font-bold lowercase">template key</span>: <span className="font-mono">{selectedEntry.what.prompt_template_key ?? "—"}</span></p>
+                </div>
+                <div>
+                  <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-navavej-gray-med">Masked Input Trace</p>
+                  <TraceBlock value={selectedEntry.what.input_trace_masked} />
+                </div>
+              </div>
+              <div>
+                <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-navavej-gray-med">Masked Output Trace</p>
+                <TraceBlock value={selectedEntry.what.output_trace_masked} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function TraceBlock({ value }: { value: unknown }) {
+  return (
+    <pre className="max-h-[420px] overflow-auto rounded-xl bg-navavej-gray-light px-4 py-3 text-[11px] text-navavej-gray-dark whitespace-pre-wrap break-words">
+      {formatTraceValue(value)}
+    </pre>
+  );
+}
+
+function formatTraceValue(value: unknown): string {
+  if (value == null) {
+    return "—";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
 }
 
 function EyeIcon({ revealed }: { revealed: boolean }) {

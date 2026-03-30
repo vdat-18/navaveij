@@ -148,7 +148,8 @@ export function ClinicalEventTimeline({ timeline, startYear }: ClinicalEventTime
 
   }, [timeline, startYear]);
 
-  const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
+  const [collapsedDates, setCollapsedDates] = useState<Set<string>>(() => new Set(groupedEvents.map((g) => g.date)));
+
   const toggleDate = (date: string) => {
     setCollapsedDates(prev => {
       const next = new Set(prev);

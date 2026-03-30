@@ -18,6 +18,8 @@ class WorkflowContext(BaseModel):
     ai_output: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
     rehydration_map: dict[str, str] = Field(default_factory=dict)
+    # Per-BAML-call timing records; read by the orchestrator to emit LLMRequest audit entries.
+    llm_call_records: list[dict[str, Any]] = Field(default_factory=list)
 
 
 TContext = TypeVar("TContext", bound=WorkflowContext)

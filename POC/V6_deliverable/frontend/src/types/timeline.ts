@@ -24,6 +24,7 @@ export interface TimelineLabEvent {
   value: number;
   unit: string;
   interpretation: string;
+  interpretation_label?: string;
   threshold_crossed: string;
 }
 
@@ -67,7 +68,10 @@ export interface BiomarkerHistoryEntry {
   dbp?: number;
 }
 
+export type MetricSeverity = "normal" | "borderline" | "abnormal" | "unknown";
+
 export interface BiomarkerSeries {
+  metric_id: string;
   label: string;
   loinc_code: string;
   unit: string;
@@ -75,6 +79,7 @@ export interface BiomarkerSeries {
   slope_per_year: number | null;
   reference?: number;
   current: number;
+  current_severity?: MetricSeverity;
   history: BiomarkerHistoryEntry[];
 }
 

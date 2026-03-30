@@ -20,6 +20,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.services.active_client import ResolvedActiveClient  # noqa: E402
+
 # Stub baml_client before the clinical workflow module is imported.
 for _mod in (
     "baml_client",
@@ -304,3 +306,136 @@ async def test_regression_cache_hit_skips_agent1(workflow, context):
 
     mock_b.AnalyzeClinicalRisks.assert_not_called()
     assert context.ai_output["recommendation_source"] == "AI"
+
+
+@pytest.mark.asyncio
+async def test_scope2_workflow_uses_resolved_client_for_llm_dispatch(workflow, context):
+    resolved = ResolvedActiveClient(
+        client_name="OpenAIClient",
+        provider="openai",
+        model_id="gpt-5.4-mini",
+        prompt_registry_key="openai",
+    )
+    selector = MagicMock(version="openai-v1")
+    selector.get.side_effect = lambda key: f"prompt::{key}"
+    llm_client = MagicMock()
+    llm_client.AnalyzeClinicalRisks = AsyncMock(return_value=_risk_profile())
+    llm_client.MatchPolicy = AsyncMock(return_value=_policy())
+    llm_client.WriteNarrative = AsyncMock(return_value=_narrative())
+    llm_client.AnnotateReasoningLines = AsyncMock(return_value=[_annotation()])
+
+    with (
+        patch("src.services.workflows.clinical.b") as mock_b,
+        patch("src.services.workflows.clinical.cache_service") as mock_cache,
+        patch("src.services.workflows.clinical.resolve_package", return_value={}),
+        patch("src.services.workflows.clinical.resolve_active_client", return_value=resolved),
+        patch("src.services.workflows.clinical.get_prompt_selector", return_value=selector),
+    ):
+        mock_b.with_options.return_value = llm_client
+        mock_cache.get.return_value = (False, None)
+
+        await workflow._generate_recommendation(context)
+
+    mock_b.with_options.assert_called_once_with(client="OpenAIClient")
+    llm_client.AnalyzeClinicalRisks.assert_awaited_once()
+    assert context.metadata["active_client"] == "OpenAIClient"
+    assert context.metadata["model_id"] == "gpt-5.4-mini"
+    assert context.metadata["model_provider"] == "openai"
+    assert context.metadata["template_version"] == "openai-v1"
+    assert context.llm_call_records
+    assert {record["active_client"] for record in context.llm_call_records} == {"OpenAIClient"}
+    assert {record["model_id"] for record in context.llm_call_records} == {"gpt-5.4-mini"}
+    assert {record["template_version"] for record in context.llm_call_records} == {"openai-v1"}
+
+
+@pytest.mark.asyncio
+async def test_scope2_parallel_agents_record_independent_latencies(workflow, context):
+    resolved = ResolvedActiveClient(
+        client_name="OpenAIClient",
+        provider="openai",
+        model_id="gpt-5.4-mini",
+        prompt_registry_key="openai",
+    )
+    selector = MagicMock(version="openai-v1")
+    selector.get.side_effect = lambda key: f"prompt::{key}"
+    llm_client = MagicMock()
+    llm_client.AnalyzeClinicalRisks = AsyncMock(return_value=_risk_profile())
+
+    async def _policy_delayed(*_args, **_kwargs):
+        await asyncio.sleep(0.01)
+        return _policy()
+
+    async def _narrative_delayed(*_args, **_kwargs):
+        await asyncio.sleep(0.03)
+        return _narrative()
+
+    async def _annotation_delayed(*_args, **_kwargs):
+        await asyncio.sleep(0.005)
+        return [_annotation()]
+
+    llm_client.MatchPolicy = AsyncMock(side_effect=_policy_delayed)
+    llm_client.WriteNarrative = AsyncMock(side_effect=_narrative_delayed)
+    llm_client.AnnotateReasoningLines = AsyncMock(side_effect=_annotation_delayed)
+
+    with (
+        patch("src.services.workflows.clinical.b") as mock_b,
+        patch("src.services.workflows.clinical.cache_service") as mock_cache,
+        patch("src.services.workflows.clinical.resolve_package", return_value={}),
+        patch("src.services.workflows.clinical.resolve_active_client", return_value=resolved),
+        patch("src.services.workflows.clinical.get_prompt_selector", return_value=selector),
+    ):
+        mock_b.with_options.return_value = llm_client
+        mock_cache.get.return_value = (False, None)
+
+        await workflow._generate_recommendation(context)
+
+    records = {record["function_name"]: record for record in context.llm_call_records}
+    assert records["MatchPolicy"]["latency_ms"] < records["WriteNarrative"]["latency_ms"]
+    assert records["MatchPolicy"]["latency_ms"] != records["WriteNarrative"]["latency_ms"]
+
+
+@pytest.mark.asyncio
+async def test_scope4_workflow_records_masked_input_and_output_traces(workflow, context):
+    resolved = ResolvedActiveClient(
+        client_name="OpenAIClient",
+        provider="openai",
+        model_id="gpt-5.4-mini",
+        prompt_registry_key="openai",
+    )
+    selector = MagicMock(version="openai-v1")
+    selector.get.side_effect = lambda key: f"prompt::{key}"
+    llm_client = MagicMock()
+    llm_client.AnalyzeClinicalRisks = AsyncMock(return_value=_risk_profile())
+    llm_client.MatchPolicy = AsyncMock(return_value=_policy())
+    llm_client.WriteNarrative = AsyncMock(return_value=_narrative())
+    llm_client.AnnotateReasoningLines = AsyncMock(return_value=[_annotation()])
+
+    with (
+        patch("src.services.workflows.clinical.b") as mock_b,
+        patch("src.services.workflows.clinical.cache_service") as mock_cache,
+        patch("src.services.workflows.clinical.resolve_package", return_value={}),
+        patch("src.services.workflows.clinical.resolve_active_client", return_value=resolved),
+        patch("src.services.workflows.clinical.get_prompt_selector", return_value=selector),
+    ):
+        mock_b.with_options.return_value = llm_client
+        mock_cache.get.return_value = (False, None)
+
+        await workflow._generate_recommendation(context)
+
+    records = {record["function_name"]: record for record in context.llm_call_records}
+    assert records["AnalyzeClinicalRisks"]["input_trace_masked"] == {
+        "system_prompt": "prompt::analyze_clinical_risks",
+        "clinical_signals": context.masked_context["get_clinical_signals"],
+        "biomarker_trends": context.masked_context["get_biomarker_trends"],
+        "hard_constraints": context.masked_context["get_hard_constraints"],
+        "program_ruleset": context.masked_context["get_program_ruleset"],
+    }
+    assert records["AnalyzeClinicalRisks"]["output_trace_masked"]["severity_assessment"] == (
+        "Moderate risk requiring monitoring."
+    )
+    assert records["WriteNarrative"]["input_trace_masked"]["risk_profile"]["severity_assessment"] == (
+        "Moderate risk requiring monitoring."
+    )
+    assert records["WriteNarrative"]["output_trace_masked"]["summary_headline"] == (
+        "Elevated BP requires monitoring."
+    )

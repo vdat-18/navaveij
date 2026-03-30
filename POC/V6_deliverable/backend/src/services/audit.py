@@ -8,6 +8,7 @@ from typing import Any
 
 from loguru import logger
 
+from src.services.active_client import resolve_active_client
 from shared.settings import settings
 
 
@@ -50,6 +51,7 @@ class AuditLogger:
         masked_context: dict[str, Any],
         ai_output: dict[str, Any],
         model_id: str,
+        model_provider: str | None = None,
         safety_conflict_events: list[dict[str, Any]] | None = None,
         patient_token: str | None = None,
         user_id: str = "usr-system",
@@ -95,7 +97,11 @@ class AuditLogger:
                     "request_id": resolved_request_id,
                 },
             },
-            "how": {"model_provider": settings.llm_provider, "model_id": model_id, "action_type": action_type},
+            "how": {
+                "model_provider": model_provider or resolve_active_client().provider,
+                "model_id": model_id,
+                "action_type": action_type,
+            },
             "confidence": ai_output.get("confidence_score"),
             "metadata": {"environment": settings.environment, "request_id": resolved_request_id},
             "previous_hash": self.last_hash,
@@ -168,6 +174,72 @@ class AuditLogger:
 
         self.last_hash = current_hash
         logger.info(f"Decision audit log written for patient {patient_id}: {decision}")
+        return current_hash
+
+    def log_llm_request(
+        self,
+        function_name: str,
+        active_client: str,
+        model_id: str,
+        template_version: str,
+        prompt_template_key: str,
+        input_trace_masked: dict[str, Any],
+        output_trace_masked: Any,
+        patient_id: str,
+        parent_request_id: str,
+        latency_ms: int,
+        user_id: str = "usr-system",
+        user_role: str = "system",
+        client_ip: str = "unknown",
+    ) -> str:
+        """Record a single BAML function call in the audit trail (LLM_REQUEST event)."""
+        timestamp = datetime.now(timezone.utc).isoformat()
+
+        payload = {
+            "schema_version": 2,
+            "timestamp": timestamp,
+            # Dimension 1 — WHO: same actor that triggered the recommendation
+            "who": {"user_id": user_id, "user_role": user_role},
+            # Dimension 2 — WHEN: implicit via timestamp
+            # Dimension 3 — WHERE: same service, linked to parent request
+            "where": {
+                "service_id": "recommendation-engine-api",
+                "client_ip": client_ip,
+                "request_id": parent_request_id,
+            },
+            # Dimension 4 — WHAT: the individual LLM call
+            "what": {
+                "event": "LLM_REQUEST",
+                "function_name": function_name,
+                "active_client": active_client,
+                "model_id": model_id,
+                "template_version": template_version,
+                "prompt_template_key": prompt_template_key,
+                "latency_ms": latency_ms,
+                "input_trace_masked": input_trace_masked,
+                "output_trace_masked": output_trace_masked,
+            },
+            # Dimension 5 — WHY: clinical context linking back to the parent recommendation
+            "why": {
+                "patient_id": patient_id,
+                "request_context": {
+                    "action_type": "LLMRequest",
+                    "request_id": parent_request_id,
+                },
+            },
+            "metadata": {"environment": settings.environment, "request_id": parent_request_id},
+            "previous_hash": self.last_hash,
+        }
+
+        payload_str = json.dumps(payload, sort_keys=True)
+        current_hash = hashlib.sha256(payload_str.encode("utf-8")).hexdigest()
+        payload["current_hash"] = current_hash
+
+        with open(self.log_file_jsonl, "a", encoding="utf-8") as f:
+            f.write(json.dumps(payload) + "\n")
+
+        self.last_hash = current_hash
+        logger.debug(f"LLM request audit written: {function_name} ({model_id}, {latency_ms}ms)")
         return current_hash
 
     def get_logs(self) -> list[dict[str, Any]]:

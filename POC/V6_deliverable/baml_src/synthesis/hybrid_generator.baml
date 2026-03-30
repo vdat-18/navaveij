@@ -1,6 +1,6 @@
 // Hybrid Synthesis - Step 1: Perturb from Seed
 function PerturbSignalStoreRecord(seed: SignalStoreRecord, scenario: ClinicalScenario) -> SignalStoreRecord {
-  client NavaveijWithFallback
+  client GeminiClient
 
   prompt #"
     ### MISSION:
@@ -35,7 +35,7 @@ function PerturbSignalStoreRecord(seed: SignalStoreRecord, scenario: ClinicalSce
 
 // Hybrid Synthesis - Step 2: Critique and Fix
 function CritiqueAndFixRecord(record: SignalStoreRecord) -> SignalStoreRecord {
-  client NavaveijWithFallback
+  client GeminiClient
 
   prompt #"
     ### MISSION:
@@ -86,7 +86,7 @@ function CritiqueAndFixRecord(record: SignalStoreRecord) -> SignalStoreRecord {
 }
 
 function ListScenarioSeeds() -> string[] {
-  client NavaveijWithFallback
+  client GeminiClient
   prompt #"
     List the available seed filenames for clinical scenarios in a medical synthesis context.
     Return a list of strings representing clinical scenario seed files.

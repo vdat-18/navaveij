@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/shared/auth-context";
 
 /** Roles that hide the sidebar and should have no left padding offset. */
@@ -13,7 +14,8 @@ const NO_SIDEBAR_ROLES = new Set(["physician", "nurse"]);
  */
 export function RoleAwareMain({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const hasSidebar = user ? !NO_SIDEBAR_ROLES.has(user.role) : false;
+  const pathname = usePathname();
+  const hasSidebar = user ? !NO_SIDEBAR_ROLES.has(user.role) && pathname !== '/report' : false;
 
   return (
     <main
