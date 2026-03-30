@@ -8,9 +8,9 @@ from typing import Any
 from loguru import logger
 
 from src.api.routes.patients import resolve_patient_token
+from src.services.active_client import resolve_active_client
 from src.services.mcp_client import MCPClientFactory
 from src.services.audit import AuditLogger
-from src.services.prompt_selector import prompt_selector
 from src.services.safety import SafetyRuleValidator
 from src.services.workflows.clinical import ClinicalReasoningWorkflow
 from shared.settings import settings
@@ -96,12 +96,29 @@ class OrchestrationManager:
             logger.info("Recording audit log")
             t_audit_start = time.monotonic()
             total_ms_so_far = int((t_audit_start - t_start) * 1000)
+            resolved_client = None
+            if context.metadata:
+                resolved_client = {
+                    "active_client": context.metadata.get("active_client"),
+                    "model_id": context.metadata.get("model_id"),
+                    "model_provider": context.metadata.get("model_provider"),
+                    "template_version": context.metadata.get("template_version"),
+                }
+            if not resolved_client or not resolved_client.get("model_id"):
+                fallback = resolve_active_client()
+                resolved_client = {
+                    "active_client": fallback.client_name,
+                    "model_id": fallback.model_id,
+                    "model_provider": fallback.provider,
+                    "template_version": context.metadata.get("template_version"),
+                }
             recommendation_hash = self.audit_logger.log_recommendation(
                 patient_id=patient_id,
                 patient_token=resolved_patient_token,
                 masked_context=context.masked_context,
                 ai_output=context.ai_output,
-                model_id=settings.llm_model,
+                model_id=resolved_client["model_id"],
+                model_provider=resolved_client.get("model_provider"),
                 safety_conflict_events=safety_result["conflict_events"],
                 user_id=audit_context.get("user_id", "usr-system"),
                 user_role=audit_context.get("user_role", "system"),
@@ -114,6 +131,7 @@ class OrchestrationManager:
             for record in context.llm_call_records:
                 self.audit_logger.log_llm_request(
                     function_name=record["function_name"],
+                    active_client=record["active_client"],
                     model_id=record["model_id"],
                     template_version=record["template_version"],
                     prompt_template_key=record["prompt_template_key"],
@@ -128,10 +146,14 @@ class OrchestrationManager:
 
             context.ai_output["recommendation_hash"] = recommendation_hash
 
-            # Inject template_version into recommendation metadata
+            # Inject resolved runtime identity into recommendation metadata
             if "metadata" not in context.ai_output:
                 context.ai_output["metadata"] = {}
-            context.ai_output["metadata"]["template_version"] = prompt_selector.version
+            context.ai_output["metadata"]["active_client"] = resolved_client.get("active_client")
+            context.ai_output["metadata"]["model_id"] = resolved_client["model_id"]
+            context.ai_output["metadata"]["model_provider"] = resolved_client.get("model_provider")
+            if resolved_client.get("template_version"):
+                context.ai_output["metadata"]["template_version"] = resolved_client["template_version"]
 
             # Save masked AI output before rehydration
             masked_ai_output = copy.deepcopy(context.ai_output)

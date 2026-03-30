@@ -1,53 +1,63 @@
 # Discovery
 
-Status: In progress
+Status: Complete (post-GAP-4 follow-up fixes)
 
-## Scope executed
+## Problem observed
 
-- Added contract-backed timeline data path for Screen 2.
-- Added dedicated Screen 2 frontend route and UI components.
-- Added token-first API endpoints to support trend + timeline + screening panels.
-- Added timeline contract test coverage and regression verification.
+- Trend panel and Clinical Event Timeline could disagree on severity labels for the same metric/value (e.g., eGFR showing WATCH in Trend but OPTIMAL in Timeline).
+- Clinical Event Timeline initially expanded all date groups, creating a long scroll and reducing scanability.
+- Timeline lab event coverage did not include eGFR/BMI/BP derived from `biomarker_trends`, and lab counts could diverge from the 6 trend graphs.
 
-## Backend contract decisions
+## Root causes
 
-- Implemented MCP tool `get_patient_event_timeline(patient_token, patient_id=None)`.
-- Updated `/api/timeline/{patient_token}` to return event-timeline contract shape:
-  - `timeline_span`
-  - `diagnoses`
-  - `hospitalizations`
-  - `significant_lab_events`
-  - `screening_procedure_history`
-  - `medication_changes`
-  - `pipeline_run_id`
-  - `computed_at`
-- Added supporting Screen 2 API endpoints:
-  - `GET /api/biomarker-trends/{patient_token}`
-  - `GET /api/screening-gaps/{patient_token}`
+### Severity mismatch
 
-## Frontend implementation decisions
+- Trend graph severity was computed client-side using heuristic comparisons.
+- Timeline severity was derived from backend-emitted `interpretation` / `threshold_crossed` fields.
+- Backend eGFR logic used a hard-coded threshold (>= 60 => normal) that conflicted with the intended staging thresholds.
 
-- Created dedicated page route: `/trend-timeline`.
-- Built Screen 2 as isolated components:
-  - trend grid (6 charts)
-  - clinical event timeline
-  - screening gap status panel
-- Added shared time-range selector driving chart and timeline filtering.
-- Preserved existing summary and governance routes.
+### Timeline UX
 
-## Files changed
+- Date groups were rendered expanded by default.
 
-- `backend/src/mcp_server/tools/patient_event_timeline.py` (new)
+## Decisions
+
+### Single source of truth
+
+- Canonical severity rules are defined in JSON:
+  - `assets/synthesis/rulesets/metric_severity_rules.json`
+- Backend is the single source of truth for severity evaluation:
+  - `backend/src/services/metric_severity.py`
+- Backend emits severity fields for biomarker trends and timeline events.
+- Frontend consumes backend-provided severity for Trend status/alert rendering.
+
+### Timeline parity
+
+- Timeline lab events are filtered to match the 6 trend graphs:
+  - FBS, HbA1c, LDL, BMI, BP systolic, eGFR
+
+### Timeline default collapsed
+
+- All date groups start collapsed and expand on click.
+
+## Files updated
+
+Backend:
+
+- `assets/synthesis/rulesets/metric_severity_rules.json`
+- `backend/src/services/metric_severity.py`
 - `backend/src/mcp_server/utils.py`
-- `backend/src/mcp_server/server.py`
-- `backend/src/api/routes/contracts.py`
-- `frontend/src/types/timeline.ts` (new)
-- `frontend/src/services/api.ts`
-- `frontend/src/app/trend-timeline/page.tsx` (new)
-- `frontend/src/components/trend-timeline/TrendTimelineScreen.tsx` (new)
-- `frontend/src/components/trend-timeline/BiomarkerTrendGrid.tsx` (new)
-- `frontend/src/components/trend-timeline/ClinicalEventTimeline.tsx` (new)
-- `frontend/src/components/trend-timeline/ScreeningGapStatus.tsx` (new)
-- `frontend/src/app/page.tsx`
-- `scripts/tests/test_api_contract_routes.py`
-- `scripts/tests/test_timeline_contract_payload.py` (new)
+
+Frontend:
+
+- `frontend/src/components/trend-timeline/BiomarkerTrendGrid.tsx`
+- `frontend/src/components/trend-timeline/TrendTimelineScreen.tsx`
+- `frontend/src/components/trend-timeline/ClinicalEventTimeline.tsx`
+- `frontend/src/types/biomarker-trends.ts`
+- `frontend/src/types/timeline.ts`
+- `frontend/src/components/trend-timeline/ClinicalEventTimeline.test.tsx`
+
+## Verification notes
+
+- Frontend tests and build pass.
+- Backend compiles cleanly; run `scripts/tests` in a fully provisioned backend runtime for contract verification.

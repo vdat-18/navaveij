@@ -20,7 +20,7 @@ Renamed all five named BAML clients to match their actual deployed model identit
 
 | Old | New | Model |
 |---|---|---|
-| `NavaveijClient` | `GeminiClient` | `gemini-3-flash-preview` (env `LLM_MODEL`) |
+| `NavaveijClient` | `GeminiClient` | `gemini-3-flash-preview` (env `GEMINI_MODEL`) |
 | `GPT4o` | `OpenAIClient` | `gpt-5.4-mini` |
 | `Claude35Sonnet` | `AnthropicClient` | `claude-haiku-4-5` |
 | `LocalLlama` | `LocalHostedClient` | `llama-3.3-70b-instruct` |
@@ -31,7 +31,7 @@ Renamed all five named BAML clients to match their actual deployed model identit
 - `AnnotationModel` redefined with the **same** fallback chain as `ActiveModel` (no separate `LLM_ANNOTATION_MODEL` env var).
 - All non-clinical BAML files (`test.baml`, `synthesis/hybrid_generator.baml`, `synthesis/enrichment.baml`, `clinical/safety_critic.baml`) updated from old names.
 - `shared/settings.py`: `ai_active_client` default changed to `"GeminiClient"`, comment updated to list new valid values; added `openai_api_key`, `anthropic_api_key`, `openrouter_api_key` fields.
-- `.env.example` rewritten: removed `LLM_ANNOTATION_MODEL`, updated model strings, restructured by client.
+- `.env.example` rewritten around provider-native env names; removed `LLM_ANNOTATION_MODEL` and the legacy Gemini `LLM_*` keys.
 - `backend/src/api/routes/contracts.py` `get_system_config()` updated to list new client names and mark the active client dynamically; `template_version` now sourced live from `prompt_selector.version`.
 
 ### Part 2 — Per-Model Prompt Template Registry
@@ -106,7 +106,7 @@ Frontend:
 | `backend/src/services/orchestrator.py` | Loops llm_call_records → log_llm_request; injects template_version into metadata |
 | `backend/src/api/routes/contracts.py` | Updated `get_system_config()`; LLM_REQUEST normalization in audit endpoint |
 | `shared/settings.py` | Updated `ai_active_client` default and comment; added API key fields |
-| `.env.example` | Updated client names, model strings, removed `LLM_ANNOTATION_MODEL` |
+| `.env.example` | Updated client names, model strings, and provider-native env keys; removed `LLM_ANNOTATION_MODEL` and legacy Gemini `LLM_*` keys |
 | `frontend/src/types/access-monitoring.ts` | Added `function_name`, `prompt_template_key` to `AuditLogEntry.what` |
 | `frontend/src/components/access-monitoring/MCPConfigsTab.tsx` | New |
 | `frontend/src/components/access-monitoring/AIConfigsTab.tsx` | New |

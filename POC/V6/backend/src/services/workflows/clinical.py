@@ -11,9 +11,10 @@ from mcp import ClientSession
 
 from baml_client.async_client import b
 from src.mcp_server.utils import resolve_package
+from src.services.active_client import ResolvedActiveClient, resolve_active_client
 from src.services.cache import cache_service
 from src.services.privacy import PIIMasker
-from src.services.prompt_selector import prompt_selector
+from src.services.prompt_selector import PromptTemplateSelector, get_prompt_selector
 from src.services.rules import RuleEvaluator
 from src.services.text_annotations import annotate_reasoning_lines_fallback, find_highlight_terms, strip_markdown_bold
 from src.services.workflows.base import BaseWorkflow, WorkflowContext
@@ -42,6 +43,44 @@ def _risk_profile_cache_key(masked_context: dict) -> str:
     return "risk_profile:" + hashlib.sha256(
         json.dumps(payload, sort_keys=True).encode()
     ).hexdigest()
+
+
+async def _timed_llm_call(
+    *,
+    context: WorkflowContext,
+    resolved_client: ResolvedActiveClient,
+    prompt_selector: PromptTemplateSelector,
+    function_name: str,
+    prompt_template_key: str,
+    call: Any,
+) -> Any:
+    """Await a single LLM call and record accurate per-call timing metadata."""
+    started_at = time.monotonic()
+    result = await call
+    context.llm_call_records.append(
+        {
+            "function_name": function_name,
+            "active_client": resolved_client.client_name,
+            "model_id": resolved_client.model_id,
+            "template_version": prompt_selector.version,
+            "prompt_template_key": prompt_template_key,
+            "latency_ms": int((time.monotonic() - started_at) * 1000),
+        }
+    )
+    return result
+
+
+def _build_llm_client(resolved_client: ResolvedActiveClient) -> Any:
+    """Return a BAML client bound to the resolved active client.
+
+    Gemini remains on the default generated client path because the repo already
+    configures it through the base environment, and many existing tests patch
+    that default object directly. Non-Gemini clients use an explicit per-call
+    override via BAML's `client` option.
+    """
+    if resolved_client.client_name == "GeminiClient":
+        return b
+    return b.with_options(client=resolved_client.client_name)
 
 
 class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
@@ -122,6 +161,17 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         age = demographics.get("age", 0)
         ruleset = context.raw_context.get("get_program_ruleset", {})
         package_resolution_map = ruleset.get("package_resolution_map", {})
+        resolved_client = resolve_active_client()
+        selector = get_prompt_selector(resolved_client.client_name)
+        llm_client = _build_llm_client(resolved_client)
+        context.metadata.update(
+            {
+                "active_client": resolved_client.client_name,
+                "model_id": resolved_client.model_id,
+                "model_provider": resolved_client.provider,
+                "template_version": selector.version,
+            }
+        )
 
         if force_rule_based:
             rule_result = RuleEvaluator(signals_fired).evaluate()
@@ -147,22 +197,21 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
             _cache_key = _risk_profile_cache_key(context.masked_context)
             _found, risk_profile = cache_service.get(_cache_key)
             if not _found:
-                _agent1_start = time.monotonic()
-                risk_profile = await b.AnalyzeClinicalRisks(
-                    system_prompt=prompt_selector.get("analyze_clinical_risks"),
-                    clinical_signals=json.dumps(context.masked_context.get("get_clinical_signals"), indent=2),
-                    biomarker_trends=json.dumps(context.masked_context.get("get_biomarker_trends"), indent=2),
-                    hard_constraints=json.dumps(context.masked_context.get("get_hard_constraints"), indent=2),
-                    program_ruleset=json.dumps(context.masked_context.get("get_program_ruleset"), indent=2),
+                risk_profile = await _timed_llm_call(
+                    context=context,
+                    resolved_client=resolved_client,
+                    prompt_selector=selector,
+                    function_name="AnalyzeClinicalRisks",
+                    prompt_template_key="analyze_clinical_risks",
+                    call=llm_client.AnalyzeClinicalRisks(
+                        system_prompt=selector.get("analyze_clinical_risks"),
+                        clinical_signals=json.dumps(context.masked_context.get("get_clinical_signals"), indent=2),
+                        biomarker_trends=json.dumps(context.masked_context.get("get_biomarker_trends"), indent=2),
+                        hard_constraints=json.dumps(context.masked_context.get("get_hard_constraints"), indent=2),
+                        program_ruleset=json.dumps(context.masked_context.get("get_program_ruleset"), indent=2),
+                    ),
                 )
                 cache_service.set(_cache_key, risk_profile, settings.cache_signal_store_ttl_seconds)
-                context.llm_call_records.append({
-                    "function_name": "AnalyzeClinicalRisks",
-                    "prompt_template_key": "analyze_clinical_risks",
-                    "model_id": settings.llm_model,
-                    "template_version": prompt_selector.version,
-                    "latency_ms": int((time.monotonic() - _agent1_start) * 1000),
-                })
             else:
                 logger.debug("risk_profile cache hit — skipping AnalyzeClinicalRisks LLM call")
         except Exception as exc:
@@ -188,44 +237,49 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         # Collected non-blocking after the gather — never extends the critical path.
         _annotate_start = time.monotonic()
         annotation_task = asyncio.create_task(
-            b.AnnotateReasoningLines(
-                system_prompt=prompt_selector.get("annotate_reasoning_lines"),
-                clinical_lines=getattr(risk_profile, "clinical_summary_bullets", []) or [],
+            _timed_llm_call(
+                context=context,
+                resolved_client=resolved_client,
+                prompt_selector=selector,
+                function_name="AnnotateReasoningLines",
+                prompt_template_key="annotate_reasoning_lines",
+                call=llm_client.AnnotateReasoningLines(
+                    system_prompt=selector.get("annotate_reasoning_lines"),
+                    clinical_lines=getattr(risk_profile, "clinical_summary_bullets", []) or [],
+                ),
             )
         )
 
         # ── Parallel fan-out: MatchPolicy + WriteNarrative ───────────────────────────
         # Agent 2c (AnnotateReasoningLines) is NOT in this gather — it runs concurrently above.
         # return_exceptions=True so a single failure doesn't cancel the other call.
-        _agent2_start = time.monotonic()
         policy_result, narrative = await asyncio.gather(
-            b.MatchPolicy(
-                system_prompt=prompt_selector.get("match_policy"),
-                risk_profile=risk_profile,
-                program_ruleset=json.dumps(context.masked_context.get("get_program_ruleset"), indent=2),
+            _timed_llm_call(
+                context=context,
+                resolved_client=resolved_client,
+                prompt_selector=selector,
+                function_name="MatchPolicy",
+                prompt_template_key="match_policy",
+                call=llm_client.MatchPolicy(
+                    system_prompt=selector.get("match_policy"),
+                    risk_profile=risk_profile,
+                    program_ruleset=json.dumps(context.masked_context.get("get_program_ruleset"), indent=2),
+                ),
             ),
-            b.WriteNarrative(
-                system_prompt=prompt_selector.get("write_narrative"),
-                risk_profile=risk_profile,
+            _timed_llm_call(
+                context=context,
+                resolved_client=resolved_client,
+                prompt_selector=selector,
+                function_name="WriteNarrative",
+                prompt_template_key="write_narrative",
+                call=llm_client.WriteNarrative(
+                    system_prompt=selector.get("write_narrative"),
+                    risk_profile=risk_profile,
+                ),
             ),
             return_exceptions=True,
         )
-        _agent2_ms = int((time.monotonic() - _agent2_start) * 1000)
         context.metadata["ai_chain_ms"] = int((time.monotonic() - _ai_start) * 1000)
-        context.llm_call_records.append({
-            "function_name": "MatchPolicy",
-            "prompt_template_key": "match_policy",
-            "model_id": settings.llm_model,
-            "template_version": prompt_selector.version,
-            "latency_ms": _agent2_ms,
-        })
-        context.llm_call_records.append({
-            "function_name": "WriteNarrative",
-            "prompt_template_key": "write_narrative",
-            "model_id": settings.llm_model,
-            "template_version": prompt_selector.version,
-            "latency_ms": _agent2_ms,
-        })
 
         # ── Opt 1: Non-blocking collection of annotation result ──────────────────────
         # If annotation finished during the gather, use the LLM result.
@@ -233,13 +287,6 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         if annotation_task.done() and not annotation_task.cancelled():
             try:
                 reasoning_annotations = annotation_task.result()
-                context.llm_call_records.append({
-                    "function_name": "AnnotateReasoningLines",
-                    "prompt_template_key": "annotate_reasoning_lines",
-                    "model_id": settings.llm_model,
-                    "template_version": prompt_selector.version,
-                    "latency_ms": int((time.monotonic() - _annotate_start) * 1000),
-                })
             except Exception as exc:
                 logger.warning(f"Agent 2c (AnnotateReasoningLines) failed: {exc}")
                 reasoning_annotations = None

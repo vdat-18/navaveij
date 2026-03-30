@@ -23,10 +23,9 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 
 def _llm_env_ready() -> bool:
-    api_key = (os.getenv("LLM_API_KEY") or "").strip()
-    base_url = (os.getenv("LLM_BASE_URL") or "").strip()
-    model = (os.getenv("LLM_MODEL") or "").strip()
-    if not api_key or not base_url or not model:
+    api_key = (os.getenv("GOOGLE_API_KEY") or "").strip()
+    model = (os.getenv("GEMINI_MODEL") or "").strip()
+    if not api_key or not model:
         return False
     if api_key.startswith("sk-..."):
         return False
@@ -42,6 +41,26 @@ def _load_patient_ids(limit: int = 2) -> list[str]:
     registry = Path("assets/patient_registry.json")
     data = json.loads(registry.read_text(encoding="utf-8"))
     return [item["patient_id"] for item in data[:limit]]
+
+
+def test_llm_env_ready_uses_provider_native_gemini_keys(monkeypatch):
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    monkeypatch.setenv("GOOGLE_API_KEY", "google-real-key")
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+    assert _llm_env_ready() is True
+
+
+def test_llm_env_ready_rejects_legacy_gemini_llm_keys(monkeypatch):
+    monkeypatch.setenv("LLM_API_KEY", "legacy-key")
+    monkeypatch.setenv("LLM_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
+    monkeypatch.setenv("LLM_MODEL", "gemini-3-flash-preview")
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_MODEL", raising=False)
+
+    assert _llm_env_ready() is False
 
 
 @pytest.mark.asyncio

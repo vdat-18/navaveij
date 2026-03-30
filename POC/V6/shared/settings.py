@@ -27,16 +27,21 @@ class LogLevel(str, Enum):
 
 
 class LLMSettings(ProjectBaseSettings):
-    """Configuration for any OpenAI-compatible LLM provider (Cloud or Local)."""
+    """Configuration for the pluggable LLM client layer."""
 
-    llm_api_key: str | None = "no-key-required"
-    llm_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
-    llm_model: str = "gemini-3-flash-preview"
-    llm_provider: str = "openai"
     llm_timeout_ms: int = 15000
+    google_api_key: str | None = None
+    gemini_model: str = "gemini-3-flash-preview"
     openai_api_key: str | None = None
+    openai_model: str = "gpt-5.4-mini"
     anthropic_api_key: str | None = None
+    anthropic_model: str = "claude-haiku-4-5"
     openrouter_api_key: str | None = None
+    openrouter_model: str = "openai/gpt-oss-120b"
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    localhosted_base_url: str = "http://localhost:11434/v1"
+    localhosted_api_key: str = "ollama"
+    localhosted_model: str = "llama-3.3-70b-instruct"
     # Pluggable AI — TOR §4.3: active BAML client name (no code deploy required to switch)
     # Valid values: GeminiClient | OpenAIClient | AnthropicClient | OpenRouterClient | LocalHostedClient
     ai_active_client: str = "GeminiClient"

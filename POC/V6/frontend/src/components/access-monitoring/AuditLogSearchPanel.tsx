@@ -231,6 +231,14 @@ export function AuditLogSearchPanel({
                   <p className="text-[11px] text-navavej-gray-med font-mono">
                     {selectedEntry.what.function_name ?? "—"}
                   </p>
+                  {(selectedEntry.what.active_client || selectedEntry.what.model_provider) && (
+                    <p className="text-[11px] text-navavej-gray-med">
+                      {[
+                        selectedEntry.what.active_client,
+                        selectedEntry.what.model_provider,
+                      ].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
                   <p className="text-[11px] text-navavej-gray-med">
                     {[
                       selectedEntry.what.model_id,
@@ -250,6 +258,7 @@ export function AuditLogSearchPanel({
                   {(selectedEntry.what.model_id || selectedEntry.what.latency_ms != null) && (
                     <p className="text-[11px] text-navavej-gray-med">
                       {[
+                        selectedEntry.what.active_client,
                         selectedEntry.what.model_id,
                         selectedEntry.what.latency_ms != null ? `${selectedEntry.what.latency_ms}ms` : null,
                         selectedEntry.what.safety_validator_result === "pass" ? "Safety \u2713" : null,

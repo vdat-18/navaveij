@@ -1,85 +1,114 @@
-"""
-validate_clients.py — Per-client connectivity smoke-test.
+"""Per-client connectivity smoke test using one child process per client."""
 
-For each named BAML client, makes a minimal AnalyzeClinicalRisks call with
-dummy data and reports ✓ OK or ✗ FAIL with the error message.
-
-Usage:
-    uv run python scripts/validate_clients.py
-
-Exit code: 0 if all pass, 1 if any fail.
-"""
-
+import argparse
 import asyncio
+import json
 import os
+import subprocess
 import sys
 import time
 from pathlib import Path
 
-# Ensure the project root is on the Python path
-sys.path.insert(0, str(Path(__file__).parents[1]))
+from dotenv import load_dotenv
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+load_dotenv(PROJECT_ROOT / ".env")
 
 _CLIENTS = [
-    ("GeminiClient",      "gemini-3-flash-preview"),
-    ("OpenAIClient",      "gpt-5.4-mini"),
-    ("AnthropicClient",   "claude-haiku-4-5"),
-    ("OpenRouterClient",  "openai/gpt-oss-120b"),
-    ("LocalHostedClient", "llama-3.3-70b-instruct"),
+    "GeminiClient",
+    "OpenAIClient",
+    "AnthropicClient",
+    "OpenRouterClient",
+    "LocalHostedClient",
 ]
 
 _DUMMY_SYSTEM_PROMPT = (
     "You are a test assistant. Return a minimal valid JSON response matching the requested output schema."
 )
-_DUMMY_SIGNALS   = '{"signals_fired": [], "risk_flags": []}'
-_DUMMY_TRENDS    = '{"biomarkers": []}'
+_DUMMY_SIGNALS = '{"signals_fired": [], "risk_flags": []}'
+_DUMMY_TRENDS = '{"biomarkers": []}'
 _DUMMY_CONSTRAINTS = '{"patient_demographics": {"age": 40, "gender": "M"}, "hard_constraints": []}'
-_DUMMY_RULESET   = '{"tier_selection_rules": [], "add_on_library": [], "package_resolution_map": {}}'
+_DUMMY_RULESET = '{"tier_selection_rules": [], "add_on_library": [], "package_resolution_map": {}}'
 
 _COL_CLIENT = 18
-_COL_MODEL  = 30
+_COL_MODEL = 30
 
 
-async def _test_client(client_name: str, model_label: str) -> tuple[bool, int, str]:
-    """Override AI_ACTIVE_CLIENT, attempt a minimal BAML call, return (ok, ms, error)."""
+def _client_model_labels() -> dict[str, str]:
+    return {
+        "GeminiClient": os.getenv("GEMINI_MODEL", "gemini-3-flash-preview"),
+        "OpenAIClient": os.getenv("OPENAI_MODEL", "gpt-5.4-mini"),
+        "AnthropicClient": os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5"),
+        "OpenRouterClient": os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b"),
+        "LocalHostedClient": os.getenv("LOCALHOSTED_MODEL", "llama-3.3-70b-instruct"),
+    }
+
+
+async def _run_child_validation(client_name: str) -> dict[str, object]:
     os.environ["AI_ACTIVE_CLIENT"] = client_name
 
-    # Re-import baml_client each time so it picks up the env override.
-    # BAML resolves the active client at call time via the fallback chain,
-    # but we short-circuit by temporarily setting each client as the only option
-    # through the env var read by shared.settings.
-    try:
-        from baml_client.async_client import b  # type: ignore
+    from baml_client.async_client import b  # Imported after env hydration and client selection.
 
-        t0 = time.monotonic()
-        await b.AnalyzeClinicalRisks(
-            system_prompt=_DUMMY_SYSTEM_PROMPT,
-            clinical_signals=_DUMMY_SIGNALS,
-            biomarker_trends=_DUMMY_TRENDS,
-            hard_constraints=_DUMMY_CONSTRAINTS,
-            program_ruleset=_DUMMY_RULESET,
-        )
-        elapsed_ms = int((time.monotonic() - t0) * 1000)
-        return True, elapsed_ms, ""
-    except Exception as exc:
-        elapsed_ms = int((time.monotonic() - t0) * 1000) if "t0" in dir() else 0
-        return False, elapsed_ms, str(exc)
+    started_at = time.monotonic()
+    await b.AnalyzeClinicalRisks(
+        system_prompt=_DUMMY_SYSTEM_PROMPT,
+        clinical_signals=_DUMMY_SIGNALS,
+        biomarker_trends=_DUMMY_TRENDS,
+        hard_constraints=_DUMMY_CONSTRAINTS,
+        program_ruleset=_DUMMY_RULESET,
+    )
+    return {
+        "client": client_name,
+        "ok": True,
+        "latency_ms": int((time.monotonic() - started_at) * 1000),
+    }
 
 
-async def main() -> int:
+def _run_parent() -> int:
     print("\nNavaveij Client Connectivity Validation")
     print("=" * 60)
-    any_failed = False
 
-    for client_name, model_label in _CLIENTS:
-        ok, ms, error = await _test_client(client_name, model_label)
+    any_failed = False
+    model_labels = _client_model_labels()
+
+    for client_name in _CLIENTS:
+        command = [sys.executable, __file__, "--child", "--client", client_name]
+        result = subprocess.run(
+            command,
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            env=os.environ.copy(),
+            check=False,
+        )
+
         client_col = client_name.ljust(_COL_CLIENT)
-        model_col  = f"({model_label})".ljust(_COL_MODEL)
-        if ok:
-            print(f"  {client_col} {model_col} \u2713 OK ({ms}ms)")
+        model_col = f"({model_labels.get(client_name, '?')})".ljust(_COL_MODEL)
+
+        payload: dict[str, object] | None = None
+        stdout_lines = [line for line in result.stdout.splitlines() if line.strip()]
+        if stdout_lines:
+            try:
+                payload = json.loads(stdout_lines[-1])
+            except json.JSONDecodeError:
+                payload = None
+
+        if result.returncode == 0 and payload and payload.get("ok") is True:
+            print(f"  {client_col} {model_col} ✓ OK ({payload['latency_ms']}ms)")
+            continue
+
+        any_failed = True
+        error = ""
+        if payload:
+            error = str(payload.get("error", "unknown error"))
+        elif result.stderr.strip():
+            error = result.stderr.strip().splitlines()[-1]
         else:
-            short_err = error.split("\n")[0][:80]
-            print(f"  {client_col} {model_col} \u2717 FAIL \u2014 {short_err}")
-            any_failed = True
+            error = "validation subprocess did not return structured output"
+        print(f"  {client_col} {model_col} ✗ FAIL — {error[:80]}")
 
     print("=" * 60)
     if any_failed:
@@ -89,5 +118,29 @@ async def main() -> int:
     return 0
 
 
+def _run_child(client_name: str) -> int:
+    try:
+        payload = asyncio.run(_run_child_validation(client_name))
+    except Exception as exc:
+        print(json.dumps({"client": client_name, "ok": False, "error": str(exc)}))
+        return 1
+
+    print(json.dumps(payload))
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--child", action="store_true")
+    parser.add_argument("--client")
+    args = parser.parse_args()
+
+    if args.child:
+        if not args.client:
+            raise SystemExit("--client is required with --child")
+        return _run_child(args.client)
+    return _run_parent()
+
+
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main()))
+    raise SystemExit(main())

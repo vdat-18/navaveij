@@ -33,6 +33,12 @@ def test_standard_female_age_25_resolves_to_gold():
     assert resolved["package_code"] == "GOLD_ANY"
 
 
+def test_standard_female_age_38_resolves_to_platinum_women():
+    resolved = resolve_package("Standard", "female", 38, _package_map())
+    assert resolved is not None
+    assert resolved["package_code"] == "PLAT_F"
+
+
 def test_advanced_and_premium_age_any_paths_still_resolve():
     advanced = resolve_package("Advanced", "female", 50, _package_map())
     premium = resolve_package("Premium", "male", 60, _package_map())

@@ -102,17 +102,19 @@ def print_profile_summary(profile_collector: list[ScenarioProfile]):
     order = {name: i for i, (name, _, _) in enumerate(SCENARIOS)}
     profiles = sorted(profile_collector, key=lambda p: order.get(p.scenario, 99))
 
-    primary = os.getenv("LLM_MODEL", "?")
-    fallback = os.getenv("OPENROUTER_MODEL", "?")
+    gemini_model, openai_model, anthropic_model, openrouter_model, localhosted_model = _provider_model_summary()
 
     print("\n")
-    print("=" * 92)
+    print("=" * 108)
     print("  BAML RECOMMENDATION PIPELINE — PROFILE SUMMARY (parallel Agent 2a/2b)")
-    print(f"  primary : {primary}  (TrollLLM)")
-    print(f"  fallback: {fallback}  (OpenRouter)")
-    print("=" * 92)
+    print(f"  Gemini      : {gemini_model}")
+    print(f"  OpenAI      : {openai_model}")
+    print(f"  Anthropic   : {anthropic_model}")
+    print(f"  OpenRouter  : {openrouter_model}")
+    print(f"  LocalHosted : {localhosted_model}")
+    print("=" * 108)
     print(f"  {'Scenario':<32} {'Agent 1 (ms)':>14} {'2a Policy (ms)':>16} {'2b Narr (ms)':>14} {'Total (ms)':>12}")
-    print("-" * 92)
+    print("-" * 108)
     for p in profiles:
         a1  = next((s for s in p.steps if s.name == "AnalyzeClinicalRisks"), None)
         a2a = next((s for s in p.steps if s.name == "MatchPolicy"), None)
@@ -123,7 +125,7 @@ def print_profile_summary(profile_collector: list[ScenarioProfile]):
         total_str = f"{p.total_ms:,}" if p.passed else "FAILED"
         status = "✅" if p.passed else "❌"
         print(f"  {status} {p.scenario:<30} {a1_str:>14} {a2a_str:>16} {a2b_str:>14} {total_str:>12}")
-    print("=" * 92)
+    print("=" * 108)
     passed = sum(1 for p in profiles if p.passed)
     print(f"  {passed}/{len(profiles)} scenarios passed\n")
 
@@ -140,6 +142,33 @@ def _load_fixture(scenario: str) -> dict:
 def _is_external_error(exc: Exception) -> bool:
     msg = str(exc).lower()
     return any(k in msg for k in ("503", "broken pipe", "connection", "service unavailable", "timeout"))
+
+
+def _provider_model_summary() -> tuple[str, str, str, str, str]:
+    return (
+        os.getenv("GEMINI_MODEL", "?"),
+        os.getenv("OPENAI_MODEL", "?"),
+        os.getenv("ANTHROPIC_MODEL", "?"),
+        os.getenv("OPENROUTER_MODEL", "?"),
+        os.getenv("LOCALHOSTED_MODEL", "?"),
+    )
+
+
+def test_provider_model_summary_uses_provider_native_env_keys(monkeypatch):
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-2.5-flash")
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-5.4-mini")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
+    monkeypatch.setenv("OPENROUTER_MODEL", "openai/gpt-oss-120b")
+    monkeypatch.setenv("LOCALHOSTED_MODEL", "llama-3.3-70b-instruct")
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+
+    assert _provider_model_summary() == (
+        "gemini-2.5-flash",
+        "gpt-5.4-mini",
+        "claude-haiku-4-5",
+        "openai/gpt-oss-120b",
+        "llama-3.3-70b-instruct",
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -1,13 +1,21 @@
 # Latest Test Results — Per-Model Prompt Template Registry
 
 **Date:** 2026-03-30
-**State:** ✅ All parts complete — Parts 1–3 re-verified; Parts 4–5 verified via manual inspection and import checks
+**State:** ⚠️ Local regression tests pass, but the workstream is not yet approved after deeper verification
 
 ---
 
 ## Summary
 
-BAML regeneration succeeded cleanly after client rename and `system_prompt` parameter addition. Prompt selector loads correctly. Gap-9 verification pack and contract regression suite pass. No regressions on neighbouring workstream tests. Parts 4 and 5 verified via backend import check and code inspection.
+BAML regeneration succeeded cleanly after client rename and `system_prompt` parameter addition. Gap-9 verification pack and contract regression suite pass. No regressions on neighbouring workstream tests.
+
+However, subsequent verification found gaps that these tests do not cover:
+- runtime active-client resolution is not proven
+- `template_version` is still hardcoded in the normalized API payload/cache key path
+- LLM audit fields are not yet accurate enough to satisfy the workstream claims
+- `scripts/validate_clients.py` relies on an invalid runtime env-switching assumption
+
+See `_verification_review.md` for the current source-of-truth assessment.
 
 ---
 
@@ -57,7 +65,7 @@ analyze_clinical_risks prompt (first 60 chars): 'You are a Senior Medical Consul
 OK
 ```
 
-Confirms: `PromptTemplateSelector` loads the correct YAML, exposes `version`, and returns non-empty prompt strings for all four function keys.
+This confirms only that `PromptTemplateSelector` can load a YAML file at import time. It does not prove that the resolved prompt registry is structurally tied to the actual BAML client used for inference.
 
 ---
 
@@ -118,31 +126,31 @@ No regressions on contract routes or access monitoring endpoints.
 
 ---
 
-## Effective Status
+## Effective Status After Review
 
 | Area | Status |
 |---|---|
-| BAML client rename (5 clients) | ✅ Complete |
+| BAML client rename (5 clients) | ⚠️ Present, but active-client resolution remains unproven |
 | BAML code generation | ✅ Clean |
 | Prompt YAML registry (5 files) | ✅ Complete |
-| PromptTemplateSelector service | ✅ Complete |
+| PromptTemplateSelector service | ⚠️ Present, but import-time fallback behavior is not sufficient |
 | BAML function signatures (`system_prompt`) | ✅ Complete |
-| Clinical workflow wired | ✅ Complete |
+| Clinical workflow wired | ⚠️ Wired, but metadata/audit accuracy gaps remain |
 | `llm_call_records` in WorkflowContext | ✅ Complete |
 | System Config tab split (Frontend) | ✅ Complete |
-| `log_llm_request()` in AuditLogger | ✅ Complete |
-| Orchestrator LLM audit wiring | ✅ Complete |
-| `template_version` injected into recommendation metadata | ✅ Complete |
+| `log_llm_request()` in AuditLogger | ⚠️ Present, but fields are not yet trustworthy |
+| Orchestrator LLM audit wiring | ⚠️ Present, but depends on inaccurate workflow records |
+| `template_version` injected into recommendation metadata | ❌ Not complete in the normalized API payload |
 | `_normalize_runtime_audit_entries()` LLM_REQUEST handling | ✅ Complete |
-| `get_system_config()` — live template_version + new client names | ✅ Complete |
+| `get_system_config()` — live template_version + new client names | ⚠️ Can diverge under invalid active-client config |
 | Frontend type extensions (function_name, prompt_template_key) | ✅ Complete |
 | AuditLogSearchPanel — LLMRequest filter + WHAT detail expansion | ✅ Complete |
-| `scripts/validate_clients.py` | ✅ Complete |
+| `scripts/validate_clients.py` | ❌ Not a valid proof of per-client routing |
 
 ---
 
 ## Notes
 
 - Verification run against `POC/V6/.venv` (Python 3.12.12, pytest 9.0.2, BAML CLI 0.220.0).
-- Parts 4 and 5 are not yet covered by the automated test suite; integration verification requires a running backend with valid API keys. Use `scripts/validate_clients.py` for per-client connectivity checks pre-demo.
-- The active `.env` may still reference old `AI_ACTIVE_CLIENT` values (e.g. `claude-haiku-4.5`). Update to one of: `GeminiClient | OpenAIClient | AnthropicClient | OpenRouterClient | LocalHostedClient`.
+- Parts 4 and 5 are not yet covered by the automated test suite; the original document overstated their completion.
+- The active `.env` may still reference old `AI_ACTIVE_CLIENT` values (e.g. `claude-haiku-4.5`). The repaired implementation should reject such values explicitly instead of silently falling back.

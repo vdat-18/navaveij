@@ -41,7 +41,7 @@ This platform empowers physicians to provide personalized, data-driven health ch
 - **HMAC Tokens**: Security-first tokenization for cross-system data exchange.
 
 ### 5. Resilient LLM Client Layer
-- **Multi-Provider Fallback**: Primary LLM (TrollLLM) with automatic failover to OpenRouter. Configured via `NavaveijWithFallback` in `baml_src/clients.baml`.
+- **Pluggable Multi-Provider Runtime**: `AI_ACTIVE_CLIENT` selects the active BAML client (`GeminiClient`, `OpenAIClient`, `AnthropicClient`, `OpenRouterClient`, `LocalHostedClient`) without code changes.
 - **Bounded Latency**: `LLM_TIMEOUT_MS` caps each LLM HTTP call; worst-case end-to-end pipeline completes in ≤42s.
 - **Deterministic Output**: Per-call timeout ensures the backend always resolves before the frontend's 60s limit, eliminating inconsistent AI/rule-based cache races.
 
@@ -51,7 +51,7 @@ This platform empowers physicians to provide personalized, data-driven health ch
 
 - **Frontend**: Next.js 15+, Tailwind CSS, Framer Motion, Recharts, Lucide Icons.
 - **Backend API**: Python 3.10+, FastAPI, Loguru.
-- **Intelligence Layer**: BAML (Structured LLM prompting), Model Context Protocol (MCP), multi-provider fallback (TrollLLM → OpenRouter).
+- **Intelligence Layer**: BAML (Structured LLM prompting), Model Context Protocol (MCP), provider-native client configuration for Gemini, OpenAI, Anthropic, OpenRouter, and local hosted models.
 - **Data Governance**: SHA-256 Hash Chaining Auditor.
 
 ---
@@ -61,7 +61,12 @@ This platform empowers physicians to provide personalized, data-driven health ch
 ### Prerequisites
 - Python 3.10+ and `uv` package manager.
 - Node.js 18+ and `npm`.
-- Primary LLM API key (`LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`) and optional fallback (`OPENROUTER_API_KEY`, `OPENROUTER_MODEL`) — see `.env.example`.
+- Provider-native LLM env vars — see `.env.example`:
+  - Gemini: `GOOGLE_API_KEY`, `GEMINI_MODEL`
+  - OpenAI: `OPENAI_API_KEY`, `OPENAI_MODEL`
+  - Anthropic: `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`
+  - OpenRouter: `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `OPENROUTER_BASE_URL`
+  - Local hosted: `LOCALHOSTED_BASE_URL`, `LOCALHOSTED_API_KEY`, `LOCALHOSTED_MODEL`
 
 ### 1. Backend Setup & Run
 ```bash
@@ -93,7 +98,7 @@ npm run dev
 ## 📂 Repository Structure
 
 - `backend/src/`: Core Python logic (API, Orchestrator, MCP).
-- `baml_src/`: BAML prompt templates, LLM schema definitions, and client configuration (primary + OpenRouter fallback).
+- `baml_src/`: BAML prompt templates, LLM schema definitions, and provider-native client configuration.
 - `baml_client/`: Auto-generated BAML client for Python (at root).
 - `frontend/`: Next.js frontend application.
 - `scripts/`: Integration tests, helper scripts, and pipeline profile tests.

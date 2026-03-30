@@ -41,13 +41,13 @@
             },
             "age_35_to_40": {
                 "package_name": "Platinum — Women",
-                "package_code": "PLAT_W",
+                "package_code": "PLAT_F",
                 "price_thb": 13500,
                 "source": "Recommendation_Rule_based.csv §Line 7"
             },
             "age_40_plus": {
                 "package_name": "Diamond — Women",
-                "package_code": "DIAM_W",
+                "package_code": "DIAM_F",
                 "price_thb": 19000,
                 "source": "Recommendation_Rule_based.csv §Line 11"
             }

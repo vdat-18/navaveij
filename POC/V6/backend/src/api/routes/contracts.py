@@ -20,8 +20,10 @@ from src.mcp_server.tools.clinical_signals import get_clinical_signals
 from src.mcp_server.tools.patient_event_timeline import get_patient_event_timeline
 from src.mcp_server.tools.program_ruleset import get_program_ruleset
 from src.mcp_server.utils import load_promotions, load_ruleset_add_on_items
+from src.services.active_client import resolve_active_client
 from src.services.cache import cache_service
 from src.services.orchestrator import OrchestrationManager
+from src.services.prompt_selector import get_prompt_selector
 from src.services.promotions import PromotionEngine
 
 router = APIRouter()
@@ -267,7 +269,9 @@ def _normalize_runtime_audit_entries() -> list[dict[str, Any]]:
                 "patient_token": patient_token,
                 "patient_token_masked": patient_token_masked,
                 "patient_id": patient_id,
+                "active_client": what.get("active_client"),
                 "model_id": what.get("model_id") or entry.get("how", {}).get("model_id"),
+                "model_provider": what.get("model_provider") or entry.get("how", {}).get("model_provider"),
                 "template_version": what.get("template_version", "v1.0"),
                 "latency_ms": what.get("latency_ms"),
                 "safety_validator_result": "pass",
@@ -563,6 +567,19 @@ def _confidence_tier(score: float) -> str:
     return "Low"
 
 
+def _resolved_ai_metadata(ai_metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+    candidate_client = ai_metadata.get("active_client") if isinstance(ai_metadata, dict) else None
+    resolved_client = resolve_active_client(candidate_client)
+    selector = get_prompt_selector(resolved_client.client_name)
+
+    return {
+        "active_client": ai_metadata.get("active_client", resolved_client.client_name) if isinstance(ai_metadata, dict) else resolved_client.client_name,
+        "model_id": ai_metadata.get("model_id", resolved_client.model_id) if isinstance(ai_metadata, dict) else resolved_client.model_id,
+        "model_provider": ai_metadata.get("model_provider", resolved_client.provider) if isinstance(ai_metadata, dict) else resolved_client.provider,
+        "template_version": ai_metadata.get("template_version", selector.version) if isinstance(ai_metadata, dict) else selector.version,
+    }
+
+
 def _normalize_stage2(
     *,
     patient_token: str,
@@ -571,6 +588,7 @@ def _normalize_stage2(
     latency_ms: int,
     promo_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    resolved_ai_metadata = _resolved_ai_metadata(ai_output.get("metadata"))
     clinical_signals = ai_output.get("clinical_signals", {})
     signals_fired = set(clinical_signals.get("signals_fired", []))
     missing_signals = ai_output.get("missing_signals", [])
@@ -682,7 +700,12 @@ def _normalize_stage2(
         degradation_reasons.append("ruleset_artifacts_missing")
     if not resolved_package["package_code"] or not resolved_package["package_name"] or resolved_package["price_thb"] is None:
         degradation_reasons.append("package_resolution_unresolved")
-    resolved_package_status = "resolved" if not degradation_reasons or degradation_reasons == ["ruleset_artifacts_missing"] and resolved_package["package_code"] else "unresolved"
+    resolved_package_status = (
+        "resolved"
+        if (not degradation_reasons)
+        or (degradation_reasons == ["ruleset_artifacts_missing"] and resolved_package["package_code"])
+        else "unresolved"
+    )
     if "package_resolution_unresolved" in degradation_reasons:
         review_required = True
 
@@ -749,8 +772,10 @@ def _normalize_stage2(
         "metadata": {
             "request_id": f"req_{uuid.uuid4().hex[:12]}",
             "patient_token": patient_token,
-            "model_id": settings.llm_model,
-            "template_version": "v1.0",
+            "active_client": resolved_ai_metadata["active_client"],
+            "model_id": resolved_ai_metadata["model_id"],
+            "model_provider": resolved_ai_metadata["model_provider"],
+            "template_version": resolved_ai_metadata["template_version"],
             "ruleset_version": ruleset.get("ruleset_version", "v2026.03.1"),
             "signal_store_pipeline_run_id": clinical_signals.get("pipeline_run_id", ""),
             "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -766,6 +791,9 @@ def _recommendation_cache_key(
     signal_store_pipeline_run_id: str,
     ruleset_version: str,
     force_rule_based: bool,
+    active_client: str,
+    model_id: str,
+    template_version: str,
 ) -> str:
     raw = json.dumps(
         {
@@ -773,8 +801,9 @@ def _recommendation_cache_key(
             "signal_store_pipeline_run_id": signal_store_pipeline_run_id,
             "ruleset_version": ruleset_version,
             "force_rule_based": force_rule_based,
-            "model_id": settings.llm_model,
-            "template_version": "v1.0",
+            "active_client": active_client,
+            "model_id": model_id,
+            "template_version": template_version,
             "api_auth_mode": settings.api_auth_mode,
         },
         sort_keys=True,
@@ -794,11 +823,15 @@ async def recommend(
     signals = get_clinical_signals(request.patient_token, patient_id=patient_id)
     pipeline_run_id = signals.get("pipeline_run_id", "")
     ruleset = get_program_ruleset(request.patient_token, patient_id=patient_id)
+    resolved_ai_metadata = _resolved_ai_metadata()
     cache_key = _recommendation_cache_key(
         patient_token=request.patient_token,
         signal_store_pipeline_run_id=pipeline_run_id,
         ruleset_version=ruleset.get("ruleset_version", "v2026.03.1"),
         force_rule_based=request.force_rule_based,
+        active_client=resolved_ai_metadata["active_client"],
+        model_id=resolved_ai_metadata["model_id"],
+        template_version=resolved_ai_metadata["template_version"],
     )
     cache_ttl = settings.cache_recommendation_ttl_seconds or settings.cache_ttl_seconds
     cache_key_hash = cache_key.split(":", 1)[-1][:16]
@@ -1084,25 +1117,25 @@ async def admin_master_add_ons(_auth: AuthContext = Depends(require_monitoring_a
 
 @router.get("/system-config", response_model=SystemConfigResponse)
 def get_system_config(_auth: AuthContext = Depends(require_monitoring_access)):
-    active = settings.ai_active_client
-    clients = [
-        BamlClientInfo(name="GeminiClient", provider="openai-generic", model=settings.llm_model, status="active" if active == "GeminiClient" else "standby"),
-        BamlClientInfo(name="OpenAIClient", provider="openai", model="gpt-5.4-mini", status="active" if active == "OpenAIClient" else "standby"),
-        BamlClientInfo(name="AnthropicClient", provider="anthropic", model="claude-haiku-4-5", status="active" if active == "AnthropicClient" else "standby"),
-        BamlClientInfo(name="LocalHostedClient", provider="openai-generic", model="llama-3.3-70b-instruct", status="active" if active == "LocalHostedClient" else "standby"),
-        BamlClientInfo(name="OpenRouterClient", provider="openai-generic", model="openai/gpt-oss-120b", status="active" if active == "OpenRouterClient" else "standby"),
-        BamlClientInfo(
-            name="ActiveModel",
-            provider="fallback",
-            model="GeminiClient→OpenAIClient→AnthropicClient→LocalHostedClient→OpenRouterClient",
-            status="fallback-chain",
-        ),
+    resolved_client = resolve_active_client()
+    selector = get_prompt_selector(resolved_client.client_name)
+    active = resolved_client.client_name
+    supported_clients = [
+        "GeminiClient",
+        "OpenAIClient",
+        "AnthropicClient",
+        "LocalHostedClient",
+        "OpenRouterClient",
     ]
-    try:
-        from src.services.prompt_selector import prompt_selector
-        template_version = prompt_selector.version
-    except Exception:
-        template_version = "v1.0"
+    clients = [
+        BamlClientInfo(
+            name=client_name,
+            provider=resolve_active_client(client_name).provider,
+            model=resolve_active_client(client_name).model_id,
+            status="active" if active == client_name else "standby",
+        )
+        for client_name in supported_clients
+    ]
     return SystemConfigResponse(
         active_client=active,
         all_clients=clients,
@@ -1120,5 +1153,5 @@ def get_system_config(_auth: AuthContext = Depends(require_monitoring_access)):
             McpToolInfo(name="get_program_ruleset", type="READ-ONLY", description="Load tier + add-on ruleset"),
         ],
         auth_mode=settings.api_auth_mode,
-        template_version=template_version,
+        template_version=selector.version,
     )

@@ -210,7 +210,39 @@ def extract_biomarker_trends(record: dict) -> dict:
     Returns:
         Biomarker trends dict matching Signal Store Contract format
     """
-    return record.get("biomarker_trends", {})
+    from src.services.metric_severity import evaluate_metric_severity
+
+    trends = record.get("biomarker_trends", {})
+
+    egfr = trends.get("egfr")
+    if isinstance(egfr, dict):
+        current = egfr.get("current")
+        egfr["current_severity"] = evaluate_metric_severity("egfr", current).severity
+
+    bmi = trends.get("bmi")
+    if isinstance(bmi, dict):
+        current = bmi.get("current")
+        bmi["current_severity"] = evaluate_metric_severity("bmi", current).severity
+
+    bp = trends.get("blood_pressure")
+    if isinstance(bp, dict):
+        latest = bp.get("latest")
+        if isinstance(latest, dict):
+            sbp = latest.get("sbp")
+            latest["sbp_severity"] = evaluate_metric_severity("bp_systolic", sbp).severity
+
+    labs = trends.get("labs")
+    if isinstance(labs, list):
+        for lab in labs:
+            if not isinstance(lab, dict):
+                continue
+            lab_id = str(lab.get("lab_id", "") or "").lower()
+            if not lab_id:
+                continue
+            current = lab.get("current_value")
+            lab["current_severity"] = evaluate_metric_severity(lab_id, current).severity
+
+    return trends
 
 
 def load_ruleset_tier_config() -> dict:
@@ -532,26 +564,105 @@ def build_timeline_from_signal_store(record: dict, patient_token: str) -> dict:
         )
     significant_lab_events = []
     lab_counter = 1
+
+    def _append_lab_event(
+        *,
+        date: str,
+        loinc_code: str,
+        label: str,
+        value: float | int | None,
+        unit: str,
+        interpretation: str = "",
+        interpretation_label: str = "",
+        threshold_crossed: str = "",
+    ) -> None:
+        nonlocal lab_counter
+        dates.append(date)
+        significant_lab_events.append(
+            {
+                "event_id": f"lab-{lab_counter:03d}",
+                "date": date,
+                "loinc_code": loinc_code,
+                "label": label,
+                "value": value,
+                "unit": unit,
+                "interpretation": interpretation,
+                "interpretation_label": interpretation_label,
+                "threshold_crossed": threshold_crossed,
+                "normal_range": "",
+            }
+        )
+        lab_counter += 1
+
+    allowed_lab_ids = {"fbs", "hba1c", "ldl"}
     for lab in biomarker_trends.get("labs", []):
+        if str(lab.get("lab_id", "") or "").lower() not in allowed_lab_ids:
+            continue
         history = lab.get("history", [])
         for entry in history:
             date = entry.get("date", computed_at[:10])
-            dates.append(date)
-            significant_lab_events.append(
-                {
-                    "event_id": f"lab-{lab_counter:03d}",
-                    "date": date,
-                    "loinc_code": lab.get("loinc_code", ""),
-                    "label": lab.get("label", ""),
-                    "value": entry.get("value"),
-                    "unit": lab.get("unit", ""),
-                    "interpretation": lab.get("interpretation", ""),
-                    "interpretation_label": lab.get("category", ""),
-                    "threshold_crossed": "",
-                    "normal_range": "",
-                }
+            _append_lab_event(
+                date=date,
+                loinc_code=lab.get("loinc_code", ""),
+                label=lab.get("label", ""),
+                value=entry.get("value"),
+                unit=lab.get("unit", ""),
+                interpretation=lab.get("interpretation", ""),
+                interpretation_label=lab.get("category", ""),
             )
-            lab_counter += 1
+
+    from src.services.metric_severity import evaluate_metric_severity
+
+    egfr = biomarker_trends.get("egfr", {})
+    for entry in egfr.get("history", []) or []:
+        date = entry.get("date", computed_at[:10])
+        value = entry.get("value")
+        severity = evaluate_metric_severity("egfr", value)
+        _append_lab_event(
+            date=date,
+            loinc_code=egfr.get("loinc_code", ""),
+            label="eGFR",
+            value=value,
+            unit=egfr.get("unit", ""),
+            interpretation=severity.interpretation,
+            interpretation_label=egfr.get("ckd_stage_label", "") or egfr.get("ckd_stage", ""),
+            threshold_crossed=severity.threshold_crossed,
+        )
+
+    bmi = biomarker_trends.get("bmi", {})
+    for entry in bmi.get("history", []) or []:
+        date = entry.get("date", computed_at[:10])
+        value = entry.get("value")
+        severity = evaluate_metric_severity("bmi", value)
+        _append_lab_event(
+            date=date,
+            loinc_code="39156-5",
+            label="BMI",
+            value=value,
+            unit=bmi.get("unit", ""),
+            interpretation=severity.interpretation,
+            interpretation_label=str(bmi.get("category", "") or ""),
+            threshold_crossed=severity.threshold_crossed,
+        )
+
+    blood_pressure = biomarker_trends.get("blood_pressure", {})
+    for entry in blood_pressure.get("history", []) or []:
+        date = entry.get("date", computed_at[:10])
+        sbp = entry.get("sbp")
+        if sbp is not None:
+            severity = evaluate_metric_severity("bp_systolic", sbp)
+            _append_lab_event(
+                date=date,
+                loinc_code="8480-6",
+                label="Systolic Blood Pressure",
+                value=sbp,
+                unit=blood_pressure.get("unit", "mmHg"),
+                interpretation=severity.interpretation,
+                interpretation_label=str(blood_pressure.get("category_label", "") or blood_pressure.get("category", "") or ""),
+                threshold_crossed=severity.threshold_crossed,
+            )
+
+
     screening_procedure_history = []
     for i, gap in enumerate(clinical_signals.get("screening_gaps", []), start=1):
         performed = gap.get("last_performed_date")

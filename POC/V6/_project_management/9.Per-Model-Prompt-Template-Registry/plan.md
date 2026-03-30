@@ -1,140 +1,169 @@
-# Plan — Per-Model Prompt Template Registry (Revised)
+# Per-Model Prompt Template Registry Repair Implementation Plan
 
-**Original Date:** 2026-03-27
-**Revised Date:** 2026-03-30
-**Input:** `problem.md` + expanded client request (2026-03-30)
-**Superseded by:** `/Users/nguyen.tran/.claude/plans/tranquil-spinning-eclipse.md`
+> **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **Note:** The original 2026-03-27 plan covered Tasks 1–6 (YAML registry, PromptTemplateSelector, BAML signature update, workflow wiring, template_version in audit, .env.example update). The 2026-03-30 client review expanded the scope to include client rename, admin UI split, and LLM-level audit logging. This file reflects the full revised scope.
+**Goal:** Repair workstream 9 so active-client resolution, prompt selection, clinical dispatch, metadata, cache behavior, audit logging, and client validation all derive from one explicit and testable runtime path.
 
----
+**Architecture:** Replace the current split brain between BAML fallback configuration, Python settings, prompt-selector singleton, API normalization, and validation script with one explicit active-client resolver. Route clinical calls through that resolver, propagate the same resolved identity into prompts, metadata, caches, and audit rows, and verify each stage through dedicated tests before moving to the next scope.
 
-## Part 1 — BAML Client Rename ✅
-
-### Client identity mapping
-
-| Old | New | Provider | Model |
-|---|---|---|---|
-| `NavaveijClient` | `GeminiClient` | `openai-generic` | `gemini-3-flash-preview` (env `LLM_MODEL`) |
-| `GPT4o` | `OpenAIClient` | `openai` | `gpt-5.4-mini` |
-| `Claude35Sonnet` | `AnthropicClient` | `anthropic` | `claude-haiku-4-5` |
-| `OpenRouterClient` | `OpenRouterClient` | `openai-generic` | `openai/gpt-oss-120b` (hardcoded) |
-| `LocalLlama` | `LocalHostedClient` | `openai-generic` | `llama-3.3-70b-instruct` |
-| `NavaveijWithFallback` | _(deleted)_ | — | — |
-
-`ActiveModel` chain: `GeminiClient → OpenAIClient → AnthropicClient → LocalHostedClient → OpenRouterClient`
-`AnnotationModel` uses the same chain as `ActiveModel` (no separate model).
-
-**Status: Complete**
+**Tech Stack:** Python 3.12, FastAPI, Pydantic Settings, BAML, pytest, React/TypeScript, JSONL audit logging
 
 ---
 
-## Part 2 — Per-Model Prompt Template Registry ✅
+## Scope Map
 
-### Task 1 — Create YAML template registry files ✅
+Implementation is split into four controlled scopes:
 
-**New files:**
-- `baml_src/prompts/gemini.yaml` — `version: "gemini-v1"`
-- `baml_src/prompts/openai.yaml` — `version: "openai-v1"`
-- `baml_src/prompts/anthropic.yaml` — `version: "anthropic-v1"`
-- `baml_src/prompts/openrouter.yaml` — `version: "openrouter-v1"`
-- `baml_src/prompts/local.yaml` — `version: "local-v1"`
+1. `1.Active-Client-Resolution`
+2. `2.Workflow-Dispatch-and-Audit-Integrity`
+3. `3.API-Metadata-Cache-and-Admin-Consistency`
+4. `4.Validation-Harness-and-Final-Verification`
 
-Content is identical for POC; tunable per model in production without code changes.
+Each scope has its own checkpoint docs:
+- `README.md`
+- `_discover.md`
+- `_development_summary.md`
+- `_latest_test_results.md`
 
-### Task 2 — Add `PromptTemplateSelector` service ✅
+Do not start a later scope until the earlier scope has an updated checkpoint and passing scope-local tests.
 
-**New file:** `backend/src/services/prompt_selector.py`
+---
 
-```python
-_CLIENT_TO_FILE = {
-    "GeminiClient":      "gemini",
-    "OpenAIClient":      "openai",
-    "AnthropicClient":   "anthropic",
-    "OpenRouterClient":  "openrouter",
-    "LocalHostedClient": "local",
-}
-# Default fallback: gemini
+## Chunk 1: Active-Client Resolution
+
+### Task 1: Introduce a fail-closed resolver as the single source of truth
+
+**Files:**
+- Create: `backend/src/services/active_client.py`
+- Modify: `shared/settings.py`
+- Modify: `backend/src/services/prompt_selector.py`
+- Test: `scripts/tests/test_active_client_resolution.py`
+- Test: `scripts/tests/test_prompt_selector_paths.py`
+- Docs: `_project_management/9.Per-Model-Prompt-Template-Registry/1.Active-Client-Resolution/*`
+
+- [ ] **Step 1: Write failing resolver tests**
+- [ ] **Step 2: Run tests to verify failure**
+
+Run:
+
+```bash
+.venv/bin/pytest scripts/tests/test_active_client_resolution.py scripts/tests/test_prompt_selector_paths.py -q
 ```
 
-### Task 3 — Update BAML function signatures ✅
+Expected:
+- new resolver tests fail because the resolver does not exist yet
 
-Added `system_prompt: string` as first param to all 4 functions in `baml_src/clinical/recommendation_output.baml`. Static prompt body replaced with `{{ system_prompt }}`. `baml-cli generate` run — 14 files regenerated cleanly.
-
-### Task 4 — Wire `PromptTemplateSelector` into `ClinicalReasoningWorkflow` ✅
-
-`prompt_selector` imported and `system_prompt=prompt_selector.get("<key>")` passed to each BAML call. Per-call timing appended to `context.llm_call_records`.
-
-### Task 5 — Add `template_version` to metadata and audit trail ⬜
-
-Pending: orchestrator not yet reading `context.llm_call_records` and calling `log_llm_request()`.
-
-### Task 6 — Update `.env.example` ✅
-
-`LLM_ANNOTATION_MODEL` removed. New client names and model strings documented.
+- [ ] **Step 3: Implement `active_client.py`**
+- [ ] **Step 4: Refactor prompt selection to depend on the resolver**
+- [ ] **Step 5: Run scope tests**
+- [ ] **Step 6: Update scope checkpoints**
 
 ---
 
-## Part 3 — System Config Tab Split (Frontend) ✅
+## Chunk 2: Workflow Dispatch and Audit Integrity
 
-Replaced single `"sysconfig"` tab with:
-- **MCP Configs** tab — `MCPConfigsTab.tsx` (MCP Tool Inventory + Auth Configuration)
-- **AI Configs** tab — `AIConfigsTab.tsx` (Active AI Model + BAML Client Registry)
+### Task 2: Replace implicit clinical routing with explicit resolver-driven dispatch
 
-`SystemConfigTab.tsx` deleted. `AccessMonitoringScreen.tsx` updated.
+**Files:**
+- Modify: `baml_src/clients.baml`
+- Modify: `baml_src/clinical/recommendation_output.baml`
+- Modify: `backend/src/services/workflows/clinical.py`
+- Modify: `backend/src/services/workflows/base.py`
+- Modify: `backend/src/services/audit.py`
+- Modify: `backend/src/services/orchestrator.py`
+- Regenerate: `baml_client/`
+- Test: `backend/tests/test_clinical_workflow.py`
+- Test: `scripts/tests/workflows/test_clinical_workflow.py`
+- Test: `scripts/tests/test_llm_audit_logging.py`
+- Docs: `_project_management/9.Per-Model-Prompt-Template-Registry/2.Workflow-Dispatch-and-Audit-Integrity/*`
 
-**Status: Complete**
+- [ ] **Step 1: Write failing workflow and audit tests**
+- [ ] **Step 2: Run tests to verify failure**
+
+Run:
+
+```bash
+.venv/bin/pytest backend/tests/test_clinical_workflow.py scripts/tests/workflows/test_clinical_workflow.py scripts/tests/test_llm_audit_logging.py -q
+```
+
+Expected:
+- new dispatch/audit assertions fail on the current implementation
+
+- [ ] **Step 3: Implement explicit dispatch**
+- [ ] **Step 4: Correct audit record generation**
+- [ ] **Step 5: Regenerate BAML client code and run tests**
+- [ ] **Step 6: Update scope checkpoints**
 
 ---
 
-## Part 4 — LLM Request Audit Logging ⬜
+## Chunk 3: API Metadata, Cache, and Admin Consistency
 
-### Completed sub-tasks
-- `WorkflowContext.llm_call_records` field added ✅
-- Per-call timing recorded in `clinical.py` ✅
-- `AuditLogEntry.what` extended with `function_name`, `prompt_template_key` ✅
-- `"LLMRequest"` added to `ACTION_OPTIONS` in `AuditLogSearchPanel.tsx` ✅
+### Task 3: Make API payloads, cache keys, and monitoring UI reflect the resolved client state
 
-### Remaining sub-tasks
-- `audit.py` — add `log_llm_request()` method
-- `orchestrator.py` — loop `context.llm_call_records → log_llm_request()`; inject `template_version` into recommendation metadata
-- `contracts.py` — handle `LLM_REQUEST` events in `_normalize_runtime_audit_entries()`
-- `AuditLogSearchPanel.tsx` — expand WHAT detail panel for LLM-specific fields
+**Files:**
+- Modify: `backend/src/api/routes/contracts.py`
+- Modify: `frontend/src/components/access-monitoring/AIConfigsTab.tsx`
+- Modify: `frontend/src/components/access-monitoring/AccessMonitoringScreen.tsx`
+- Modify: `frontend/src/components/access-monitoring/AuditLogSearchPanel.tsx`
+- Modify: `frontend/src/types/access-monitoring.ts`
+- Test: `scripts/tests/test_api_contract_routes.py`
+- Test: `scripts/tests/test_access_monitoring_contract.py`
+- Test: `scripts/tests/test_backend_cache_ttl.py`
+- Test: `frontend/src/components/access-monitoring/AuditLogSearchPanel.test.tsx`
+- Docs: `_project_management/9.Per-Model-Prompt-Template-Registry/3.API-Metadata-Cache-and-Admin-Consistency/*`
+
+- [ ] **Step 1: Write failing API/cache tests**
+- [ ] **Step 2: Run tests to verify failure**
+
+Run:
+
+```bash
+.venv/bin/pytest scripts/tests/test_api_contract_routes.py scripts/tests/test_access_monitoring_contract.py scripts/tests/test_backend_cache_ttl.py -q
+```
+
+Expected:
+- new assertions fail until metadata and cache behavior are repaired
+
+- [ ] **Step 3: Implement metadata and cache repair**
+- [ ] **Step 4: Adjust admin monitoring contract/UI**
+- [ ] **Step 5: Run scope tests**
+- [ ] **Step 6: Update scope checkpoints**
 
 ---
 
-## Part 5 — Client Validation Script ⬜
+## Chunk 4: Validation Harness and Final Verification
 
-**New file:** `scripts/validate_clients.py`
+### Task 4: Replace the validation script and produce final sign-off evidence
 
-For each of the 5 named clients, makes a minimal BAML inference call and reports `✓ OK` or `✗ FAIL — <error>`. Exits non-zero if any client fails. Suitable for pre-demo smoke-testing.
+**Files:**
+- Modify: `scripts/validate_clients.py`
+- Test: `scripts/tests/test_validate_clients.py`
+- Test: `scripts/tests/test_gap9_verification_pack.py`
+- Test: `scripts/tests/test_end_to_end.py`
+- Docs: `_project_management/9.Per-Model-Prompt-Template-Registry/4.Validation-Harness-and-Final-Verification/*`
+- Docs: `_project_management/9.Per-Model-Prompt-Template-Registry/_latest_test_results.md`
+- Docs: `_project_management/9.Per-Model-Prompt-Template-Registry/_development_summary.md`
+- Docs: `_project_management/9.Per-Model-Prompt-Template-Registry/README.md`
+
+- [ ] **Step 1: Write failing validation-harness tests**
+- [ ] **Step 2: Run tests to verify failure**
+
+Run:
+
+```bash
+.venv/bin/pytest scripts/tests/test_validate_clients.py -q
+```
+
+Expected:
+- fail until the script is rewritten around isolated execution
+
+- [ ] **Step 3: Implement isolated validation**
+- [ ] **Step 4: Run final verification bundle**
+- [ ] **Step 5: Run end-to-end smoke gate**
+- [ ] **Step 6: Update final checkpoints**
 
 ---
 
-## Files Changed Summary
+## Execution Handoff
 
-| File | Status |
-|---|---|
-| `baml_src/clients.baml` | ✅ Done |
-| `baml_src/prompts/gemini.yaml` | ✅ Done |
-| `baml_src/prompts/openai.yaml` | ✅ Done |
-| `baml_src/prompts/anthropic.yaml` | ✅ Done |
-| `baml_src/prompts/openrouter.yaml` | ✅ Done |
-| `baml_src/prompts/local.yaml` | ✅ Done |
-| `backend/src/services/prompt_selector.py` | ✅ Done |
-| `baml_src/clinical/recommendation_output.baml` | ✅ Done |
-| `baml_client/` | ✅ Regenerated |
-| `backend/src/services/workflows/base.py` | ✅ Done |
-| `backend/src/services/workflows/clinical.py` | ✅ Done |
-| `backend/src/services/audit.py` | ⬜ Pending |
-| `backend/src/services/orchestrator.py` | ⬜ Pending |
-| `backend/src/api/routes/contracts.py` | ✅ system-config done / ⬜ LLM_REQUEST normalize pending |
-| `shared/settings.py` | ✅ Done |
-| `.env.example` | ✅ Done |
-| `frontend/src/types/access-monitoring.ts` | ✅ Done |
-| `frontend/src/components/access-monitoring/MCPConfigsTab.tsx` | ✅ Done |
-| `frontend/src/components/access-monitoring/AIConfigsTab.tsx` | ✅ Done |
-| `frontend/src/components/access-monitoring/AccessMonitoringScreen.tsx` | ✅ Done |
-| `frontend/src/components/access-monitoring/SystemConfigTab.tsx` | ✅ Deleted |
-| `frontend/src/components/access-monitoring/AuditLogSearchPanel.tsx` | ✅ LLMRequest action done / ⬜ WHAT detail pending |
-| `scripts/validate_clients.py` | ⬜ Pending |
+Plan complete and saved to `_project_management/9.Per-Model-Prompt-Template-Registry/plan.md`. Execute scope-by-scope, updating each scope’s checkpoint docs before moving forward.

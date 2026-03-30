@@ -918,7 +918,9 @@ def test_gap_r5_stage2_metadata_and_high_alert_completeness():
 
     assert payload["patient_high_alert"]["critical_signals"][0]["signal_id"] == "signal_critical"
     assert payload["patient_high_alert"]["missing_data_alerts"][0]["signal_id"] == "signal_missing_1"
-    assert payload["metadata"]["template_version"] == "v1.0"
+    assert payload["metadata"]["active_client"] == "GeminiClient"
+    assert payload["metadata"]["model_provider"] == "google-ai"
+    assert payload["metadata"]["template_version"] == "gemini-v1"
     assert payload["metadata"]["latency_ms"] == 25
 
 
@@ -948,6 +950,46 @@ def test_gap_r6_low_confidence_without_source_is_ai_low_confidence():
         latency_ms=1,
     )
     assert payload["recommendation_source"] == "AI_LowConfidence"
+
+
+def test_gap_r6b_stage2_prefers_workflow_resolved_metadata():
+    ai_output = {
+        "ai_recommended_tier": "Advanced",
+        "tier_deviation_justification": None,
+        "reasoning_trace": "trace",
+        "add_ons": [],
+        "supporting_signals": ["signal_1"],
+        "missing_signals": [],
+        "communication_script": {"health_summary": "summary", "recommendation_rationale": "rationale", "addon_highlights": [], "next_steps": "next"},
+        "clinical_signals": {
+            "rule_preliminary_tier": "Advanced",
+            "applicable_signals": ["signal_1"],
+            "signals_fired": ["signal_1"],
+            "missing_signals": [],
+            "risk_flags": [],
+            "pipeline_run_id": "pipe_r6b_001",
+        },
+        "recommendation_source": "AI",
+        "review_required": False,
+        "metadata": {
+            "active_client": "OpenAIClient",
+            "model_id": "gpt-5.4-mini",
+            "model_provider": "openai",
+            "template_version": "openai-v1",
+        },
+    }
+
+    payload = contracts._normalize_stage2(
+        patient_token="tok_test",
+        ai_output=ai_output,
+        ruleset={"rule_preliminary_tier": "Advanced", "resolved_package": {}, "add_on_library": []},
+        latency_ms=8,
+    )
+
+    assert payload["metadata"]["active_client"] == "OpenAIClient"
+    assert payload["metadata"]["model_id"] == "gpt-5.4-mini"
+    assert payload["metadata"]["model_provider"] == "openai"
+    assert payload["metadata"]["template_version"] == "openai-v1"
 
 
 def test_gap_r7_recommend_route_passes_audit_context_to_orchestrator():
@@ -999,3 +1041,161 @@ def test_gap_r7_recommend_route_passes_audit_context_to_orchestrator():
     assert kwargs["audit_context"]["user_id"] == "usr-test-0001"
     assert kwargs["audit_context"]["user_role"] == "admin"
     assert kwargs["audit_context"]["action_type"] == "GenerateRecommendation"
+
+
+def test_gap_r8_recommend_route_surfaces_resolved_metadata_from_orchestrator():
+    contracts.cache_service.clear()
+    token = _first_patient_token()
+    mock_result = {
+        "ai_recommended_tier": "Advanced",
+        "tier_deviation_justification": None,
+        "reasoning_trace": "trace",
+        "add_ons": [],
+        "supporting_signals": ["signal_1"],
+        "missing_signals": [],
+        "communication_script": {
+            "health_summary": "summary",
+            "recommendation_rationale": "rationale",
+            "addon_highlights": [],
+            "next_steps": "next",
+        },
+        "clinical_signals": {
+            "rule_preliminary_tier": "Advanced",
+            "applicable_signals": ["signal_1"],
+            "signals_fired": ["signal_1"],
+            "missing_signals": [],
+            "risk_flags": [],
+            "pipeline_run_id": "pipe_r8_meta_001",
+        },
+        "recommendation_source": "AI",
+        "review_required": False,
+        "metadata": {
+            "active_client": "OpenAIClient",
+            "model_id": "gpt-5.4-mini",
+            "model_provider": "openai",
+            "template_version": "openai-v1",
+        },
+    }
+    contracts.get_clinical_signals = lambda _patient_token, patient_id=None: {
+        "pipeline_run_id": "pipe_r8_meta_001",
+        "signals_fired": ["signal_1"],
+        "applicable_signals": ["signal_1"],
+        "missing_signals": [],
+        "risk_flags": [],
+    }
+    contracts.get_program_ruleset = lambda _patient_token, patient_id=None: {
+        "ruleset_version": "v2026.03.1",
+        "rule_preliminary_tier": "Advanced",
+        "resolved_package": {},
+        "add_on_library": [],
+    }
+    contracts.orchestrator.generate_recommendation = AsyncMock(return_value=mock_result)
+
+    response = client.post("/api/recommend", json={"patient_token": token}, headers=_auth_headers(scopes="recommendation:read"))
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["metadata"]["active_client"] == "OpenAIClient"
+    assert payload["metadata"]["model_id"] == "gpt-5.4-mini"
+    assert payload["metadata"]["model_provider"] == "openai"
+    assert payload["metadata"]["template_version"] == "openai-v1"
+
+
+def test_gap_r9_recommend_route_rule_based_retry_keeps_resolved_metadata():
+    contracts.cache_service.clear()
+    token = _first_patient_token()
+    invalid_ai = {
+        "ai_recommended_tier": "Advanced",
+        "tier_deviation_justification": None,
+        "reasoning_trace": "trace",
+        "add_ons": [{"item_code": "UNKNOWN", "priority_level": "Yellow", "rationale": "bad"}],
+        "supporting_signals": ["signal_1"],
+        "missing_signals": [],
+        "communication_script": {
+            "health_summary": "summary",
+            "recommendation_rationale": "rationale",
+            "addon_highlights": [],
+            "next_steps": "next",
+        },
+        "clinical_signals": {
+            "rule_preliminary_tier": "Advanced",
+            "applicable_signals": ["signal_1"],
+            "signals_fired": ["signal_1"],
+            "missing_signals": [],
+            "risk_flags": [],
+            "pipeline_run_id": "pipe_r9_meta_001",
+        },
+        "recommendation_source": "AI",
+        "review_required": False,
+    }
+    fallback_rule_based = {
+        "ai_recommended_tier": "Advanced",
+        "tier_deviation_justification": "fallback",
+        "reasoning_trace": "fallback trace",
+        "add_ons": [],
+        "supporting_signals": ["signal_1"],
+        "missing_signals": [],
+        "communication_script": {
+            "health_summary": "summary",
+            "recommendation_rationale": "rationale",
+            "addon_highlights": [],
+            "next_steps": "next",
+        },
+        "clinical_signals": {
+            "rule_preliminary_tier": "Advanced",
+            "applicable_signals": ["signal_1"],
+            "signals_fired": ["signal_1"],
+            "missing_signals": [],
+            "risk_flags": [],
+            "pipeline_run_id": "pipe_r9_meta_001",
+        },
+        "recommendation_source": "RuleBased",
+        "review_required": True,
+        "metadata": {
+            "active_client": "AnthropicClient",
+            "model_id": "claude-haiku-4-5",
+            "model_provider": "anthropic",
+            "template_version": "anthropic-v1",
+        },
+    }
+    contracts.get_clinical_signals = lambda _patient_token, patient_id=None: {
+        "pipeline_run_id": "pipe_r9_meta_001",
+        "signals_fired": ["signal_1"],
+        "applicable_signals": ["signal_1"],
+        "missing_signals": [],
+        "risk_flags": [],
+    }
+    contracts.get_program_ruleset = lambda _patient_token, patient_id=None: {
+        "ruleset_version": "v2026.03.1",
+        "rule_preliminary_tier": "Advanced",
+        "resolved_package": {},
+        "add_on_library": [],
+    }
+    contracts.orchestrator.generate_recommendation = AsyncMock(side_effect=[invalid_ai, fallback_rule_based])
+
+    response = client.post("/api/recommend", json={"patient_token": token}, headers=_auth_headers(scopes="recommendation:read"))
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["recommendation_source"] == "RuleBased"
+    assert payload["metadata"]["active_client"] == "AnthropicClient"
+    assert payload["metadata"]["model_id"] == "claude-haiku-4-5"
+    assert payload["metadata"]["model_provider"] == "anthropic"
+    assert payload["metadata"]["template_version"] == "anthropic-v1"
+
+
+def test_gap_r10_system_config_uses_resolved_identity_without_fallback_chain():
+    response = client.get("/api/system-config", headers=_auth_headers(scopes="monitoring:read"))
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["active_client"] == "GeminiClient"
+    assert payload["template_version"] == "gemini-v1"
+    assert {item["name"] for item in payload["all_clients"]} == {
+        "GeminiClient",
+        "OpenAIClient",
+        "AnthropicClient",
+        "OpenRouterClient",
+        "LocalHostedClient",
+    }
+    assert sum(1 for item in payload["all_clients"] if item["status"] == "active") == 1

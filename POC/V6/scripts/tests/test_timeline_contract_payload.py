@@ -76,6 +76,36 @@ def test_timeline_contract_contains_terminology_fields():
     assert first_proc["cpt_code"] or first_proc["snomed_code"]
 
 
+def test_timeline_contract_trend_parity_and_severity_fields():
+    token = _token_by_patient_id("id_33cc44dd")
+    response = client.get(f"/api/timeline/{token}", headers=_auth_headers())
+    assert response.status_code == 200
+    payload = response.json()
+
+    allowed_labels = {
+        "Fasting Blood Glucose",
+        "HbA1c",
+        "LDL Cholesterol",
+        "BMI",
+        "Systolic Blood Pressure",
+        "eGFR",
+    }
+
+    lab_events = payload["significant_lab_events"]
+    assert len(lab_events) > 0
+
+    labels = {item.get("label") for item in lab_events}
+    assert "eGFR" in labels
+    assert labels.issubset(allowed_labels)
+
+    for item in lab_events:
+        assert "threshold_crossed" in item
+        assert "interpretation" in item
+        if item.get("label") in {"eGFR", "BMI", "Systolic Blood Pressure"}:
+            assert item.get("threshold_crossed")
+            assert item.get("interpretation")
+
+
 def test_timeline_contract_invalid_token():
     response = client.get("/api/timeline/tok_hmac_not_found", headers=_auth_headers())
     assert response.status_code == 404

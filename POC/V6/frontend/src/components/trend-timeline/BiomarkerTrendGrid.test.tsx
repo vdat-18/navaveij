@@ -28,6 +28,7 @@ describe("BiomarkerTrendGrid", () => {
   it("uses y-axis domain around min/max values with margin", () => {
     const series: BiomarkerSeries[] = [
       {
+        metric_id: "fbs",
         label: "FBS",
         loinc_code: "1558-6",
         unit: "mg/dL",

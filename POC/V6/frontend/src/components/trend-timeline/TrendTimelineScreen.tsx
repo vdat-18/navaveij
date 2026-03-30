@@ -83,6 +83,7 @@ export function TrendTimelineScreen({ patientName, patientId, patientToken, priv
     const egfr = biomarkers.egfr;
     return [
       {
+        metric_id: "fbs",
         label: "FBS",
         loinc_code: fbs?.loinc_code || "1558-6",
         unit: fbs?.unit || "mg/dL",
@@ -90,9 +91,11 @@ export function TrendTimelineScreen({ patientName, patientId, patientToken, priv
         slope_per_year: fbs?.velocity_per_year ?? null,
         reference: fbs?.reference_range?.high,
         current: fbs?.current_value || 0,
+        current_severity: fbs?.current_severity,
         history: filterHistory(fbs?.history || []),
       },
       {
+        metric_id: "hba1c",
         label: "HbA1c",
         loinc_code: hba1c?.loinc_code || "4548-4",
         unit: hba1c?.unit || "%",
@@ -100,9 +103,11 @@ export function TrendTimelineScreen({ patientName, patientId, patientToken, priv
         slope_per_year: hba1c?.velocity_per_year ?? null,
         reference: hba1c?.reference_range?.high,
         current: hba1c?.current_value || 0,
+        current_severity: hba1c?.current_severity,
         history: filterHistory(hba1c?.history || []),
       },
       {
+        metric_id: "ldl",
         label: "LDL",
         loinc_code: ldl?.loinc_code || "2089-1",
         unit: ldl?.unit || "mg/dL",
@@ -110,9 +115,11 @@ export function TrendTimelineScreen({ patientName, patientId, patientToken, priv
         slope_per_year: ldl?.velocity_per_year ?? null,
         reference: ldl?.reference_range?.borderline_high_low || 130,
         current: ldl?.current_value || 0,
+        current_severity: ldl?.current_severity,
         history: filterHistory(ldl?.history || []),
       },
       {
+        metric_id: "bmi",
         label: "BMI",
         loinc_code: "39156-5",
         unit: bmi?.unit || "kg/m²",
@@ -120,9 +127,11 @@ export function TrendTimelineScreen({ patientName, patientId, patientToken, priv
         slope_per_year: bmi?.slope_per_year ?? null,
         reference: BMI_TARGET,
         current: bmi?.current || 0,
+        current_severity: bmi?.current_severity,
         history: filterHistory(bmi?.history || []),
       },
       {
+        metric_id: "bp_systolic",
         label: "BP Systolic",
         loinc_code: "55284-4",
         unit: "mmHg",
@@ -130,9 +139,11 @@ export function TrendTimelineScreen({ patientName, patientId, patientToken, priv
         slope_per_year: bp?.sbp_slope_per_year ?? null,
         reference: BP_SYSTOLIC_NORMAL,
         current: bp?.latest?.sbp || 0,
+        current_severity: bp?.latest?.sbp_severity,
         history: filterHistory((bp?.history || []).map((item) => ({ date: item.date, value: item.sbp }))),
       },
       {
+        metric_id: "egfr",
         label: "eGFR",
         loinc_code: egfr?.loinc_code || "62238-1",
         unit: egfr?.unit || "mL/min/1.73m2",
@@ -140,6 +151,7 @@ export function TrendTimelineScreen({ patientName, patientId, patientToken, priv
         slope_per_year: egfr?.annual_slope ?? null,
         reference: 60,
         current: egfr?.current || 0,
+        current_severity: egfr?.current_severity,
         history: filterHistory(egfr?.history || []),
       },
     ];

@@ -8,6 +8,7 @@ from typing import Any
 
 from loguru import logger
 
+from src.services.active_client import resolve_active_client
 from shared.settings import settings
 
 
@@ -50,6 +51,7 @@ class AuditLogger:
         masked_context: dict[str, Any],
         ai_output: dict[str, Any],
         model_id: str,
+        model_provider: str | None = None,
         safety_conflict_events: list[dict[str, Any]] | None = None,
         patient_token: str | None = None,
         user_id: str = "usr-system",
@@ -95,7 +97,11 @@ class AuditLogger:
                     "request_id": resolved_request_id,
                 },
             },
-            "how": {"model_provider": settings.llm_provider, "model_id": model_id, "action_type": action_type},
+            "how": {
+                "model_provider": model_provider or resolve_active_client().provider,
+                "model_id": model_id,
+                "action_type": action_type,
+            },
             "confidence": ai_output.get("confidence_score"),
             "metadata": {"environment": settings.environment, "request_id": resolved_request_id},
             "previous_hash": self.last_hash,
@@ -173,6 +179,7 @@ class AuditLogger:
     def log_llm_request(
         self,
         function_name: str,
+        active_client: str,
         model_id: str,
         template_version: str,
         prompt_template_key: str,
@@ -202,6 +209,7 @@ class AuditLogger:
             "what": {
                 "event": "LLM_REQUEST",
                 "function_name": function_name,
+                "active_client": active_client,
                 "model_id": model_id,
                 "template_version": template_version,
                 "prompt_template_key": prompt_template_key,

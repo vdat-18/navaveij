@@ -14,6 +14,8 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export function AIConfigsTab({ config }: AIConfigsTabProps) {
+  const registryClients = config.all_clients.filter((client) => client.name !== "ActiveModel" && client.status !== "fallback-chain");
+
   return (
     <div className="space-y-5">
 
@@ -48,7 +50,7 @@ export function AIConfigsTab({ config }: AIConfigsTabProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-navavej-border">
-              {config.all_clients.map((client) => (
+              {registryClients.map((client) => (
                 <tr key={client.name} className={client.name === config.active_client ? "bg-navavej-teal/5" : ""}>
                   <td className="py-2.5 pr-4 font-mono font-bold text-navavej-gray-dark">
                     {client.name === config.active_client && (

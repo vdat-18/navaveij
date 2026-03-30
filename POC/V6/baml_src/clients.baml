@@ -1,7 +1,7 @@
 // BAML Clients Configuration
 //
 // Architecture-spec named clients (Pluggable AI — TOR §4.3):
-//   GeminiClient      → Google Gemini 3 Flash (primary; OpenAI-compatible endpoint)
+//   GeminiClient      → Google Gemini 3 Flash (primary; Google AI provider)
 //   OpenAIClient      → OpenAI GPT-5.4 Mini (cloud)
 //   AnthropicClient   → Anthropic Claude Haiku 4.5 (cloud)
 //   OpenRouterClient  → OpenRouter — openai/gpt-oss-120b (broad model access fallback)
@@ -13,13 +13,12 @@
 // Valid values: GeminiClient | OpenAIClient | AnthropicClient | OpenRouterClient | LocalHostedClient
 
 // ── Primary Client — Google Gemini ───────────────────────────────────────────
-// Uses openai-generic provider to talk to the Gemini OpenAI-compatible endpoint.
+// Uses BAML's native Google AI Gemini provider and provider-native env names.
 client<llm> GeminiClient {
-  provider openai-generic
+  provider google-ai
   options {
-    base_url env.LLM_BASE_URL
-    api_key env.LLM_API_KEY
-    model env.LLM_MODEL
+    api_key env.GOOGLE_API_KEY
+    model env.GEMINI_MODEL
     timeout_ms env.LLM_TIMEOUT_MS
   }
 }
@@ -30,7 +29,7 @@ client<llm> GeminiClient {
 client<llm> OpenAIClient {
   provider openai
   options {
-    model "gpt-5.4-mini"
+    model env.OPENAI_MODEL
     api_key env.OPENAI_API_KEY
     timeout_ms env.LLM_TIMEOUT_MS
   }
@@ -40,7 +39,7 @@ client<llm> OpenAIClient {
 client<llm> AnthropicClient {
   provider anthropic
   options {
-    model "claude-haiku-4-5"
+    model env.ANTHROPIC_MODEL
     api_key env.ANTHROPIC_API_KEY
     timeout_ms env.LLM_TIMEOUT_MS
   }
@@ -50,9 +49,9 @@ client<llm> AnthropicClient {
 client<llm> LocalHostedClient {
   provider openai-generic
   options {
-    base_url "http://localhost:11434/v1"
-    api_key "ollama"
-    model "llama-3.3-70b-instruct"
+    base_url env.LOCALHOSTED_BASE_URL
+    api_key env.LOCALHOSTED_API_KEY
+    model env.LOCALHOSTED_MODEL
     timeout_ms env.LLM_TIMEOUT_MS
   }
 }
@@ -61,9 +60,9 @@ client<llm> LocalHostedClient {
 client<llm> OpenRouterClient {
   provider openai-generic
   options {
-    base_url "https://openrouter.ai/api/v1"
+    base_url env.OPENROUTER_BASE_URL
     api_key env.OPENROUTER_API_KEY
-    model "openai/gpt-oss-120b"
+    model env.OPENROUTER_MODEL
     timeout_ms env.LLM_TIMEOUT_MS
   }
 }
