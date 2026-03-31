@@ -422,13 +422,24 @@ Returns non-overridable eligibility rules applied before and after AI inference.
 
 **Tool 2 — `get_clinical_signals`**
 
-Returns pre-computed risk signals organised into four sub-objects:
-- `risk_flags[]` — named signals with severity (e.g., `hypertension_stage_2`, `high_ldl`)
+Returns pre-computed risk signals organised into five sub-objects:
+- `risk_flags[]` — named signals with severity (e.g., `hypertension_stage_2`, `high_ldl`, `family_hx_ca_breast`, `smoking_lung_ct_eligible`)
 - `screening_gaps[]` — overdue screenings with `days_overdue` and `next_recommended_date`
 - `vaccination_gaps[]` — overdue vaccines
 - `abnormal_triggers[]` — follow-up triggers from previously abnormal results
+- `symptom_triggers[]` — signals derived from the current-visit symptom intake form (see Technical Proposal §4.3.1)
 
 Each signal has a `signal_id` (snake_case, traceable to clinical guidelines) and a `severity` (`high`/`moderate`/`low`).
+
+> **TODO (Onboarding doc update):** Document the full `symptom_triggers[]` sub-object schema:
+> ```
+> symptom_triggers[]
+>   signal_id       string  e.g., "symptom_palpitations"
+>   severity        "high" | "moderate" | "low"
+>   reported_date   ISO 8601
+>   mapped_add_ons  string[]  item_ids this symptom triggers
+> ```
+> Symptom signals are treated identically to `risk_flags[]` by the AI — they appear in `supporting_signals[]` and `reasoning_trace` in the output. Valid `signal_id` values from symptom intake: `symptom_palpitations`, `symptom_chronic_back_pain`, `symptom_unexplained_weight_loss`, `symptom_haematochezia`, `symptom_syncope`.
 
 **Tool 3 — `get_biomarker_trends`**
 
@@ -442,6 +453,16 @@ Returns admin-configurable program logic:
 - `tier_rules[]` — 4 rules (PREMIUM_SEVERE_SINGLE, PREMIUM_MULTI_SIGNAL, ADVANCED_METABOLIC_OR_CVD, STANDARD_DEFAULT) with signal conditions
 - `resolved_package` — the Navavej product matching the computed tier for this patient's gender/age
 - `add_on_items[]` — full library of 28+ individually recommendable items with `item_id`, `label`, `triggers[]`, `product_code`, `price_thb`, `category`, `priority`
+- `seasonal_context` — system-level seasonal input computed from query-time calendar date (no patient data)
+
+> **TODO (Onboarding doc update):** Document the `seasonal_context` schema once Data Platform delivers it:
+> ```
+> seasonal_context
+>   season               "Cool" | "Hot" | "Rainy"   (Thailand: Cool Nov–Feb, Hot Mar–Jun, Rainy Jul–Oct)
+>   peak_diseases        string[]  e.g., ["Influenza", "Dengue"]
+>   recommended_vaccines string[]  e.g., ["Influenza"]
+> ```
+> The AI uses `seasonal_context` to escalate vaccination gap priority during peak seasons and to personalise `communication_script.next_steps` with seasonal timing guidance.
 
 **Tool 5 — `get_patient_event_timeline`** _(UI-facing, not part of AI inference)_
 

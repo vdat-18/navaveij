@@ -1,0 +1,157 @@
+{
+  "overview_metrics": {
+    "total_revenue": {
+      "value": 8542000,
+      "format": "currency",
+      "currency": "฿",
+      "trend": "+12.5%",
+      "trend_direction": "up",
+      "description": "vs last month"
+    },
+    "uplift_revenue": {
+      "value": 1248000,
+      "format": "currency",
+      "currency": "฿",
+      "trend": "+18.2%",
+      "trend_direction": "up",
+      "description": "vs last month"
+    },
+    "recommended_items": {
+      "value": 3847,
+      "format": "number",
+      "trend": "+8.3%",
+      "trend_direction": "up",
+      "description": "vs last month"
+    },
+    "package_sold": {
+      "value": 2156,
+      "format": "number",
+      "trend": "+15.7%",
+      "trend_direction": "up",
+      "description": "vs last month"
+    },
+    "adoption_rate": {
+      "value": 76.4,
+      "format": "percentage",
+      "trend": "+5.2%",
+      "trend_direction": "up",
+      "description": "vs last month"
+    },
+    "conversion_rate": {
+      "value": 56.1,
+      "format": "percentage",
+      "trend": "-2.1%",
+      "trend_direction": "down",
+      "description": "vs last month"
+    }
+  },
+  "weekly_performance": {
+    "chart_data": [
+      { "week": "W1 Mar", "upliftRevenue": 1500, "recommendation": 800 },
+      { "week": "W2 Mar", "upliftRevenue": 2400, "recommendation": 3400 },
+      { "week": "W3 Mar", "upliftRevenue": 2500, "recommendation": 2800 },
+      { "week": "W4 Mar", "upliftRevenue": 2900, "recommendation": 3800 }
+    ],
+    "summary": {
+      "total_recommendations": 299,
+      "accepted": 220,
+      "avg_per_week": {
+        "value": 108900,
+        "currency": "฿"
+      }
+    }
+  },
+  "rejection_reasons": {
+    "data": [
+      { "reason": "Patient refusal", "count": 342, "percentage": 36, "color": "bg-red-500" },
+      { "reason": "Already examined", "count": 289, "percentage": 24, "color": "bg-amber-500" },
+      { "reason": "Cost concerns", "count": 198, "percentage": 18, "color": "bg-blue-600" },
+      { "reason": "Doctor decision", "count": 156, "percentage": 10, "color": "bg-indigo-500" },
+      { "reason": "Not relevant", "count": 139, "percentage": 8, "color": "bg-pink-500" },
+      { "reason": "Other", "count": 12, "percentage": 2, "color": "bg-slate-300" }
+    ],
+    "insight": {
+      "text": "36% patient refusals — consider adjusting AI confidence threshold for Cardiac tests.",
+      "type": "actionable"
+    }
+  },
+  "nurse_adoption_rates": {
+    "users": [
+      {
+        "id": "usr_01",
+        "name": "Somying Chancharoen",
+        "badge": "Top Adopter",
+        "adoption_rate": 87.3,
+        "accepted": 48,
+        "total": 55,
+        "rejected": 5,
+        "uplift_revenue": 201600,
+        "avg_ai_confidence": 92,
+        "trend": "+6.8%",
+        "trend_direction": "up",
+        "last_active": "2026-03-25"
+      },
+      {
+        "id": "usr_02",
+        "name": "Arunee Srisawat",
+        "badge": null,
+        "adoption_rate": 79.2,
+        "accepted": 38,
+        "total": 48,
+        "rejected": 8,
+        "uplift_revenue": 142800,
+        "avg_ai_confidence": 88,
+        "trend": "+4.1%",
+        "trend_direction": "up",
+        "last_active": "2026-03-25"
+      },
+      {
+        "id": "usr_03",
+        "name": "Wichai Boonmee",
+        "badge": null,
+        "adoption_rate": 68.3,
+        "accepted": 28,
+        "total": 41,
+        "rejected": 11,
+        "uplift_revenue": 98400,
+        "avg_ai_confidence": 84,
+        "trend": "Stable",
+        "trend_direction": "neutral",
+        "last_active": "2026-03-25"
+      },
+      {
+        "id": "usr_04",
+        "name": "Prapa Sangthong",
+        "badge": null,
+        "adoption_rate": 55.2,
+        "accepted": 16,
+        "total": 29,
+        "rejected": 12,
+        "uplift_revenue": 52000,
+        "avg_ai_confidence": 79,
+        "trend": "-3.2%",
+        "trend_direction": "down",
+        "last_active": "2026-03-24"
+      },
+      {
+        "id": "usr_05",
+        "name": "Napaporn Wongchai",
+        "badge": null,
+        "adoption_rate": 50.0,
+        "accepted": 11,
+        "total": 22,
+        "rejected": 9,
+        "uplift_revenue": 34200,
+        "avg_ai_confidence": 75,
+        "trend": "-7.5%",
+        "trend_direction": "down",
+        "last_active": "2026-03-23"
+      }
+    ],
+    "insight": {
+      "text": "Napaporn Wongchai and Prapa Sangthong have adoption rates below 60%. Consider 1:1 coaching sessions and reviewing which recommendation categories they reject most. Low adoption correlates with ฿86,200/mo in unrealized revenue.",
+      "type": "alert",
+      "highlight_users": ["Napaporn Wongchai", "Prapa Sangthong"]
+    }
+  }
+}

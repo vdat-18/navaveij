@@ -1,7 +1,7 @@
 # GAP-F13 — Admin Panel Updates
 
 **Title:** Rename BAML Client Registry → AI Gateway, add provider logo, remove Auth Configuration section
-**Status:** Not started
+**Status:** Implemented with deferred refactor note (2026-03-24)
 **Phase:** 1 (quick wins)
 
 ---
@@ -52,3 +52,15 @@ Make two targeted changes to the admin panel:
 
 `feedbacks.md` — "Add logo of provider to BAML Client Registry → renamed to AI Gateway"
 `feedbacks.md` — "Remove the Auth Configuration."
+
+---
+
+## Open Follow-up Note
+
+AI Gateway baseline updates are implemented for this phase, but a deeper refactor is still pending:
+
+- Improve information hierarchy (active model vs fallback chain readability)
+- Rebalance visual density in the registry table
+- Revisit provider branding strategy for production-consistent identity treatment
+
+This follow-up is intentionally deferred to a dedicated UI refinement pass.

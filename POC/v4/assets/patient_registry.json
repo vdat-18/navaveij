@@ -1,0 +1,68 @@
+[
+    {
+        "patient_id": "id_33cc44dd",
+        "patient_name": "Boon-Mee Siriwat (Healthy Routine Checkup)",
+        "patient_token": "tok_hmac_33cc44dd",
+        "age": 35,
+        "gender": "Male",
+        "ethnicity": "Asian",
+        "mrn": "MRN-33CC44DD",
+        "phone": "+66 33cc44dd",
+        "email": "33cc44dd@navavej.com",
+        "benefits": {
+            "memberships": {},
+            "corporate_affiliation": "PTT Public Company",
+            "has_navavej_app": true
+        }
+    },
+    {
+        "patient_id": "id_1a2b3c4d",
+        "patient_name": "Fai Siriwat (Metabolic Syndrome Risk)",
+        "patient_token": "tok_hmac_1a2b3c4d",
+        "age": 51,
+        "gender": "Female",
+        "ethnicity": "Asian",
+        "mrn": "MRN-1A2B3C4D",
+        "phone": "+66 1a2b3c4d",
+        "email": "1a2b3c4d@navavej.com",
+        "benefits": {
+            "memberships": {
+                "smart_life_card": {
+                    "active": true,
+                    "card_number": "NVJ-SL-00105",
+                    "expires": "2027-03-31",
+                    "used_checkup": false,
+                    "used_mri_ct": false,
+                    "room_coupons_remaining": 4
+                }
+            },
+            "corporate_affiliation": "Kasikorn Bank",
+            "has_navavej_app": true
+        }
+    },
+    {
+        "patient_id": "id_d4f2b7e6",
+        "patient_name": "Jarat Prasert (Uncontrolled Hypertension)",
+        "patient_token": "tok_hmac_d4f2b7e6",
+        "age": 57,
+        "gender": "Male",
+        "ethnicity": "Asian",
+        "mrn": "MRN-D4F2B7E6",
+        "phone": "+66 d4f2b7e6",
+        "email": "d4f2b7e6@navavej.com",
+        "benefits": {
+            "memberships": {
+                "smart_life_card": {
+                    "active": true,
+                    "card_number": "NVJ-SL-00119",
+                    "expires": "2026-08-31",
+                    "used_checkup": false,
+                    "used_mri_ct": false,
+                    "room_coupons_remaining": 4
+                }
+            },
+            "corporate_affiliation": "Charoen Pokphand Group",
+            "has_navavej_app": true
+        }
+    }
+]

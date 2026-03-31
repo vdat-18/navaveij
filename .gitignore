@@ -214,3 +214,6 @@ frontend/.yarn/
 **/backend/**/__pycache__/
 **/frontend/node_modules/
 **/frontend/.next/
+**/.DS_Store
+**/V6_deliverable_backup_20260330_180752/**
+**/V6_deliverable_sync_logs_20260330_180752/**

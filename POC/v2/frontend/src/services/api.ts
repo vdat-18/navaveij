@@ -14,7 +14,7 @@ interface AuthContext {
 
 export interface SystemConfig {
     active_client: string;
-    all_clients: { name: string; provider: string; model: string; status: string }[];
+    all_clients: { name: string; provider: string; model: string; status: string; provider_logo_url?: string }[];
     mcp_tools: { name: string; type: string; description: string }[];
     auth_mode: string;
     template_version: string;
@@ -185,6 +185,70 @@ export const clinicalService = {
             { headers }
         );
         return response.data;
+    },
+    getRecommendationStream: async (
+        patientToken: string,
+        forceRuleBased: boolean,
+        handlers: {
+            onStage?: (stage: number, label: string) => void;
+            onError?: (message: string) => void;
+        }
+    ): Promise<RecommendationResponse> => {
+        const headers = await buildAuthHeaders(undefined, "recommendation:read");
+        const response = await fetch(`${API_BASE_URL_V3}/recommend/stream`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                ...headers,
+            },
+            body: JSON.stringify({
+                patient_token: patientToken,
+                force_rule_based: forceRuleBased,
+            }),
+        });
+
+        if (!response.ok || !response.body) {
+            throw new Error(`Stream failed with status ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            const chunks = buffer.split("\n\n");
+            buffer = chunks.pop() || "";
+
+            for (const chunk of chunks) {
+                const lines = chunk.split("\n").filter((line) => line.startsWith("data:"));
+                for (const line of lines) {
+                    const raw = line.replace(/^data:\s*/, "");
+                    try {
+                        const event = JSON.parse(raw) as Record<string, unknown>;
+                        if (event.type === "stage") {
+                            const stage = typeof event.stage === "number" ? event.stage : 0;
+                            const label = typeof event.label === "string" ? event.label : "";
+                            handlers.onStage?.(stage, label);
+                        } else if (event.type === "result") {
+                            await reader.cancel();
+                            return event as unknown as RecommendationResponse;
+                        } else if (event.type === "error") {
+                            const message = typeof event.detail === "string" ? event.detail : "Recommendation stream failed";
+                            handlers.onError?.(message);
+                            throw new Error(message);
+                        }
+                    } catch {
+                        handlers.onError?.("Failed to parse stream event");
+                        throw new Error("Failed to parse stream event");
+                    }
+                }
+            }
+        }
+        throw new Error("Recommendation stream ended without result");
     },
     recordDecision: async (patientId: string, recommendationHash: string, decision: "Approve" | "Reject", notes: string = ""): Promise<Record<string, unknown>> => {
         const context = await getAuthContext();

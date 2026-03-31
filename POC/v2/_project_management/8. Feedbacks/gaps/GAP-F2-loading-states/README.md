@@ -1,7 +1,7 @@
 # GAP-F2 — Loading States (Colorful Step-by-Step Model Thinking)
 
 **Title:** Replace generic loading spinner with a colorful step-by-step AI workflow progress indicator
-**Status:** Not started
+**Status:** Implemented (2026-03-24)
 **Phase:** 1 (quick wins)
 
 ---
