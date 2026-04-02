@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { X } from "lucide-react";
-import { ClientPromptsResponse, SystemConfig } from "@/services/api";
+import { ClientPromptsResponse, HealthCheckResponse, SystemConfig } from "@/services/api";
 import { clinicalService } from "@/services/api";
 
 interface AIConfigsTabProps {
@@ -29,6 +29,8 @@ export function AIConfigsTab({ config, onActiveClientChange }: AIConfigsTabProps
   );
 
   const [settingActive, setSettingActive] = useState<string | null>(null);
+  const [testingClient, setTestingClient] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, HealthCheckResponse>>({});
   const [inspectData, setInspectData] = useState<ClientPromptsResponse | null>(null);
   const [loadingInspect, setLoadingInspect] = useState<string | null>(null);
 
@@ -36,9 +38,24 @@ export function AIConfigsTab({ config, onActiveClientChange }: AIConfigsTabProps
     setSettingActive(clientName);
     try {
       await clinicalService.setActiveClient(clientName);
+      setTestResults((current) => {
+        const next = { ...current };
+        delete next[clientName];
+        return next;
+      });
       onActiveClientChange();
     } finally {
       setSettingActive(null);
+    }
+  }
+
+  async function handleTest(clientName: string) {
+    setTestingClient(clientName);
+    try {
+      const result = await clinicalService.healthCheck(clientName);
+      setTestResults((current) => ({ ...current, [clientName]: result }));
+    } finally {
+      setTestingClient(null);
     }
   }
 
@@ -90,7 +107,11 @@ export function AIConfigsTab({ config, onActiveClientChange }: AIConfigsTabProps
               {registryClients.map((client) => {
                 const isActive = client.name === config.active_client;
                 const isSetting = settingActive === client.name;
+                const isTesting = testingClient === client.name;
                 const isInspecting = loadingInspect === client.name;
+                const testResult = testResults[client.name];
+                const hasPassingTest = testResult?.status === "ok";
+                const hasFailedTest = testResult?.status === "error";
                 return (
                   <tr key={client.name} className={isActive ? "bg-navavej-teal/5" : ""}>
                     <td className="py-2.5 pr-4 font-mono font-bold text-navavej-gray-dark">
@@ -98,36 +119,63 @@ export function AIConfigsTab({ config, onActiveClientChange }: AIConfigsTabProps
                       {client.name}
                     </td>
                     <td className="py-2.5 pr-4 text-navavej-gray-med">{client.provider}</td>
-                    <td className="py-2.5 pr-4 font-mono text-navavej-gray-med truncate max-w-[220px]" title={client.model}>{client.model}</td>
+                    <td className="py-2.5 pr-4 font-mono text-navavej-gray-med truncate max-w-[220px]" title={`${client.model} — configured via .env; restart required to change`}>
+                      {client.model}
+                    </td>
                     <td className="py-2.5 pr-4">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${STATUS_STYLES[client.status] ?? STATUS_STYLES.standby}`}>
                         {client.status}
                       </span>
                     </td>
                     <td className="py-2.5">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {/* Set Active button */}
                         {isActive ? (
                           <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider text-navavej-teal bg-navavej-teal/10 border border-navavej-teal/30 cursor-default">
                             Active
                           </span>
                         ) : (
-                          <button
-                            onClick={() => handleSetActive(client.name)}
-                            disabled={isSetting || settingActive !== null}
-                            className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-navavej-teal text-navavej-teal hover:bg-navavej-teal hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            {isSetting ? "Setting…" : "Set Active"}
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleTest(client.name)}
+                              disabled={isTesting || isSetting || settingActive !== null}
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                                hasPassingTest
+                                  ? "border-emerald-300 text-emerald-700 bg-emerald-50"
+                                  : hasFailedTest
+                                    ? "border-navavej-red/30 text-navavej-red hover:bg-navavej-red/5"
+                                    : "border-amber-300 text-amber-700 hover:bg-amber-50"
+                              }`}
+                            >
+                              {isTesting ? "Validating…" : hasPassingTest ? "Tested" : hasFailedTest ? "Retry" : "Test"}
+                            </button>
+                            <button
+                              onClick={() => handleSetActive(client.name)}
+                              disabled={!hasPassingTest || isTesting || isSetting || settingActive !== null}
+                              className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-navavej-teal text-navavej-teal hover:bg-navavej-teal hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              {isSetting ? "Setting…" : "Set Active"}
+                            </button>
+                          </>
                         )}
                         {/* Inspect Prompt button */}
                         <button
                           onClick={() => handleInspect(client.name)}
-                          disabled={isInspecting}
+                          disabled={isInspecting || isTesting || isSetting}
                           className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-navavej-border text-navavej-gray-med hover:border-navavej-gray-dark hover:text-navavej-gray-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           {isInspecting ? "Loading…" : "Inspect"}
                         </button>
+                        {hasPassingTest && testResult?.latency_ms !== null && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {testResult.latency_ms}ms
+                          </span>
+                        )}
+                        {hasFailedTest && testResult?.error_message && (
+                          <span className="text-[10px] font-bold text-navavej-red">
+                            {testResult.error_message}
+                          </span>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -136,6 +184,9 @@ export function AIConfigsTab({ config, onActiveClientChange }: AIConfigsTabProps
             </tbody>
           </table>
         </div>
+        <p className="mt-3 text-[10px] font-medium text-navavej-gray-med">
+          Models are configured via <span className="font-mono">.env</span> and remain read-only here. Run a test before switching active inference.
+        </p>
       </div>
 
       {/* Inspect Prompt Modal */}

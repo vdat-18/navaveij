@@ -22,6 +22,7 @@ from src.mcp_server.tools.program_ruleset import get_program_ruleset
 from src.mcp_server.utils import load_promotions, load_ruleset_add_on_items
 from src.services.active_client import resolve_active_client, set_runtime_active_client
 from src.services.cache import cache_service
+from src.services.health_check import run_health_check
 from src.services.orchestrator import OrchestrationManager
 from src.services.prompt_selector import get_prompt_selector
 from src.services.promotions import PromotionEngine
@@ -141,6 +142,20 @@ class SetActiveClientRequest(BaseModel):
 class SetActiveClientResponse(BaseModel):
     active_client: str
     template_version: str
+
+
+class HealthCheckRequest(BaseModel):
+    client_name: str
+
+
+class HealthCheckResponse(BaseModel):
+    client_name: str
+    status: str
+    provider: str | None = None
+    model_id: str | None = None
+    template_version: str | None = None
+    latency_ms: int | None = None
+    error_message: str | None = None
 
 
 class ClientPromptsResponse(BaseModel):
@@ -1183,6 +1198,14 @@ def set_active_client(body: SetActiveClientRequest, _auth: AuthContext = Depends
     resolved = resolve_active_client()
     sel = get_prompt_selector(resolved.client_name)
     return SetActiveClientResponse(active_client=resolved.client_name, template_version=sel.version)
+
+
+@router.post("/system-config/health-check", response_model=HealthCheckResponse)
+async def system_config_health_check(
+    body: HealthCheckRequest,
+    _auth: AuthContext = Depends(require_monitoring_access),
+):
+    return HealthCheckResponse(**await run_health_check(body.client_name))
 
 
 @router.get("/system-config/prompts/{client_name}", response_model=ClientPromptsResponse)

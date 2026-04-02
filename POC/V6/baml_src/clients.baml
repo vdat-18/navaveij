@@ -19,7 +19,6 @@ client<llm> GeminiClient {
   options {
     api_key env.GOOGLE_API_KEY
     model env.GEMINI_MODEL
-    timeout_ms env.LLM_TIMEOUT_MS
   }
 }
 

@@ -26,6 +26,16 @@ export interface ClientPromptsResponse {
     templates: Record<string, string>;
 }
 
+export interface HealthCheckResponse {
+    client_name: string;
+    status: "ok" | "error";
+    provider: string | null;
+    model_id: string | null;
+    template_version: string | null;
+    latency_ms: number | null;
+    error_message: string | null;
+}
+
 interface ScreeningGapsResponse {
     patient_token: string;
     screening_gaps: {
@@ -48,8 +58,8 @@ interface ScreeningGapsResponse {
     pipeline_run_id: string;
 }
 
-const API_BASE_URL_V1 = process.env.NEXT_PUBLIC_API_URL_V1 || "http://localhost:8000/api/v1";
-const API_BASE_URL_V3 = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+const API_BASE_URL_V1 = "/api/proxy/v1";
+const API_BASE_URL_V3 = "/api/proxy";
 const API_TIMEOUT_MS = 60000;
 
 /**
@@ -144,10 +154,10 @@ const buildAuthHeaders = async (roleOverride?: string, scopeOverride?: string): 
             const role = (roleOverride || payload.role).toLowerCase();
             const roleScopes: Record<string, string> = {
                 physician: "recommendation:read,recommendation:write",
-                nurse: "recommendation:read,recommendation:write",
+                sales: "recommendation:read,recommendation:write",
                 pharmacist: "recommendation:read",
-                dpo: "recommendation:read,monitoring:read",
-                admin: "recommendation:read,recommendation:write,monitoring:read",
+                executive: "recommendation:read,monitoring:read",
+                sysadmin: "recommendation:read,recommendation:write,monitoring:read",
             };
             return {
                 "Authorization": `Bearer ${token}`,
@@ -210,9 +220,7 @@ export const clinicalService = {
         promotionContext: Record<string, unknown> = {},
     ): Promise<RecommendationResponse> => {
         const headers = await buildAuthHeaders(undefined, "recommendation:read");
-        const baseUrl = API_BASE_URL_V3;
-
-        const response = await fetch(`${baseUrl}/recommend/stream`, {
+        const response = await fetch("/api/stream/recommend/stream", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -355,6 +363,11 @@ export const clinicalService = {
     setActiveClient: async (clientName: string, role: "sysadmin" | "executive" = "sysadmin"): Promise<{ active_client: string; template_version: string }> => {
         const headers = await buildAuthHeaders(role, "monitoring:read");
         const response = await apiV3.patch<{ active_client: string; template_version: string }>("/system-config/active-client", { client_name: clientName }, { headers });
+        return response.data;
+    },
+    healthCheck: async (clientName: string, role: "sysadmin" | "executive" = "sysadmin"): Promise<HealthCheckResponse> => {
+        const headers = await buildAuthHeaders(role, "monitoring:read");
+        const response = await apiV3.post<HealthCheckResponse>("/system-config/health-check", { client_name: clientName }, { headers });
         return response.data;
     },
     getClientPrompts: async (clientName: string, role: "sysadmin" | "executive" = "sysadmin"): Promise<ClientPromptsResponse> => {
