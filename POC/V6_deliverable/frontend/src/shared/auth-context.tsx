@@ -4,7 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { usePathname, useRouter } from "next/navigation";
 import { clearAuthCache } from "@/services/api";
 
-export type UserRole = "physician" | "nurse" | "dpo" | "admin";
+export type UserRole = "physician" | "sales" | "executive" | "sysadmin";
 
 export interface MockTokenPayload {
   sub: string;

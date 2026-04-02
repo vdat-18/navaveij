@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PatientDirectoryColumn } from "@/components/dashboard/PatientDirectoryColumn";
 import { PatientSearchEntry } from "@/components/dashboard/PatientSearchEntry";
 import { RecommendationPanel } from "@/components/dashboard/RecommendationPanel";
@@ -31,7 +32,7 @@ import { Patient } from "@/types/patient";
 import { RecommendationResponse } from "@/types/recommendation";
 
 /** Roles that use the new single-entry-point search flow. */
-const SEARCH_FLOW_ROLES = new Set(["physician", "nurse"]);
+const SEARCH_FLOW_ROLES = new Set(["physician", "sales"]);
 
 const NavavejBrand = () => (
   <div className="flex items-center gap-3">
@@ -69,6 +70,7 @@ export default function DashboardPage() {
   const { selectedPatient, setSelectedPatient } = usePatient();
   const { privacyMode, togglePrivacyMode } = usePrivacyMode();
   const { user, logout } = useAuth();
+  const router = useRouter();
   const [analysisTimestamp, setAnalysisTimestamp] = useState<string | null>(null);
   const [isRuleBasedForced, setIsRuleBasedForced] = useState(false);
   const [screeningGaps, setScreeningGaps] = useState<ScreeningGapRow[]>([]);
@@ -76,10 +78,18 @@ export default function DashboardPage() {
   const [screeningPanelOpen, setScreeningPanelOpen] = useState(false);
   const [securityMetadata, setSecurityMetadata] = useState<RecommendationResponse["security_metadata"] | null>(null);
 
-  // Task 4: Drawer state for Trend & Timeline (physician/nurse flow only)
+  // Drawer state for Trend & Timeline (physician/sales flow only)
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const isSearchFlowRole = user ? SEARCH_FLOW_ROLES.has(user.role) : false;
+
+  useEffect(() => {
+    if (!user) return;
+    if (user.role === "executive") { router.replace("/management"); return; }
+    if (user.role === "sysadmin")  { router.replace("/access-monitoring"); return; }
+  }, [user, router]);
+
+  if (user && (user.role === "executive" || user.role === "sysadmin")) return null;
 
   useEffect(() => {
     if (!selectedPatient?.patient_token) {
@@ -122,7 +132,7 @@ export default function DashboardPage() {
     setDrawerOpen(false);
   };
 
-  // Task 5: Back to search — clears selected patient for physician/nurse
+  // Back to search — clears selected patient for physician/sales
   const handleBackToSearch = () => {
     setSelectedPatient(null);
     setAnalysisTimestamp(null);

@@ -3,10 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 // Role → backend scopes mapping for smart_on_fhir_demo mode
 const ROLE_SCOPES: Record<string, string> = {
     physician: "recommendation:read,recommendation:write",
-    nurse: "recommendation:read,recommendation:write",
+    sales: "recommendation:read,recommendation:write",
     pharmacist: "recommendation:read",
-    dpo: "recommendation:read,monitoring:read",
-    admin: "recommendation:read,recommendation:write,monitoring:read",
+    executive: "recommendation:read,monitoring:read",
+    sysadmin: "recommendation:read,recommendation:write,monitoring:read",
 };
 
 interface MockTokenPayload {
@@ -43,8 +43,8 @@ export async function GET(request: NextRequest) {
 
     // Fallback: env-based values (poc_claims / disabled modes)
     return NextResponse.json({
-        user_id: process.env.AUTH_USER_ID || "dr-admin-001",
-        role: (process.env.AUTH_ROLE || "admin").toLowerCase(),
+        user_id: process.env.AUTH_USER_ID || "usr-sysadmin-00001",
+        role: (process.env.AUTH_ROLE || "sysadmin").toLowerCase(),
         scopes: process.env.AUTH_SCOPES || "recommendation:read,recommendation:write,monitoring:read",
     });
 }

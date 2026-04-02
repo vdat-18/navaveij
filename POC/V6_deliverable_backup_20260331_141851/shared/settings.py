@@ -1,0 +1,81 @@
+"""Project settings loaded from environment/.env via Pydantic Settings."""
+
+from abc import ABC
+from enum import Enum
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class ProjectBaseSettings(BaseSettings, ABC):
+    """Base settings with common Pydantic configuration."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_prefix="",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+
+class LogLevel(str, Enum):
+    """Supported log levels."""
+
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+
+
+class LLMSettings(ProjectBaseSettings):
+    """Configuration for the pluggable LLM client layer."""
+
+    llm_timeout_ms: int = 15000
+    google_api_key: str | None = None
+    gemini_model: str = "gemini-3-flash-preview"
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-5.4-mini"
+    anthropic_api_key: str | None = None
+    anthropic_model: str = "claude-haiku-4-5"
+    openrouter_api_key: str | None = None
+    openrouter_model: str = "openai/gpt-oss-120b"
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    localhosted_base_url: str = "http://localhost:11434/v1"
+    localhosted_api_key: str = "ollama"
+    localhosted_model: str = "llama-3.3-70b-instruct"
+    # Pluggable AI — TOR §4.3: active BAML client name (no code deploy required to switch)
+    # Valid values: GeminiClient | OpenAIClient | AnthropicClient | OpenRouterClient | LocalHostedClient
+    ai_active_client: str = "GeminiClient"
+
+
+class MCPSettings(ProjectBaseSettings):
+    """MCP Server connection settings."""
+
+    mcp_server_command: str = "uv"
+    mcp_server_args: list[str] = ["run", "python", "-m", "src.mcp_server.server"]
+
+
+class ProjectSettings(LLMSettings, MCPSettings):
+    """Aggregate project settings."""
+
+    environment: str = "dev"
+    log_level: LogLevel = LogLevel.INFO
+    audit_log_path: str = "logs/audit.jsonl"
+    patient_token_secret_salt: str = "navavej-clinical-recommendation-engine-secret-salt-2026"
+    cors_allowed_origins: str = "http://localhost:3000,http://localhost:3001"
+    api_auth_mode: str = "poc_claims"
+    api_auth_default_user_id: str = "usr-admin-00001"
+    api_auth_default_role: str = "admin"
+    api_auth_default_scopes: str = "recommendation:read,recommendation:write,monitoring:read"
+    recommendation_allowed_roles: str = "physician,nurse,pharmacist,admin,dpo"
+    recommendation_required_scopes: str = "recommendation:read"
+    monitoring_allowed_roles: str = "admin,dpo"
+    monitoring_required_scopes: str = "monitoring:read"
+    cache_enabled: bool = True
+    cache_ttl_seconds: int = 300
+    cache_registry_ttl_seconds: int = 300
+    cache_ruleset_ttl_seconds: int = 300
+    cache_signal_store_ttl_seconds: int = 120
+    cache_recommendation_ttl_seconds: int = 300
+
+
+settings = ProjectSettings()

@@ -20,7 +20,7 @@ from src.mcp_server.tools.clinical_signals import get_clinical_signals
 from src.mcp_server.tools.patient_event_timeline import get_patient_event_timeline
 from src.mcp_server.tools.program_ruleset import get_program_ruleset
 from src.mcp_server.utils import load_promotions, load_ruleset_add_on_items
-from src.services.active_client import resolve_active_client
+from src.services.active_client import resolve_active_client, set_runtime_active_client
 from src.services.cache import cache_service
 from src.services.orchestrator import OrchestrationManager
 from src.services.prompt_selector import get_prompt_selector
@@ -132,6 +132,21 @@ class SystemConfigResponse(BaseModel):
     mcp_tools: list[McpToolInfo]
     auth_mode: str
     template_version: str
+
+
+class SetActiveClientRequest(BaseModel):
+    client_name: str
+
+
+class SetActiveClientResponse(BaseModel):
+    active_client: str
+    template_version: str
+
+
+class ClientPromptsResponse(BaseModel):
+    client_name: str
+    template_version: str
+    templates: dict[str, str]
 
 
 MONITORING_FIXTURE_PATH = Path(__file__).resolve().parents[4] / "assets" / "monitoring.json"
@@ -1157,3 +1172,24 @@ def get_system_config(_auth: AuthContext = Depends(require_monitoring_access)):
         auth_mode=settings.api_auth_mode,
         template_version=selector.version,
     )
+
+
+@router.patch("/system-config/active-client", response_model=SetActiveClientResponse)
+def set_active_client(body: SetActiveClientRequest, _auth: AuthContext = Depends(require_monitoring_access)):
+    try:
+        set_runtime_active_client(body.client_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    resolved = resolve_active_client()
+    sel = get_prompt_selector(resolved.client_name)
+    return SetActiveClientResponse(active_client=resolved.client_name, template_version=sel.version)
+
+
+@router.get("/system-config/prompts/{client_name}", response_model=ClientPromptsResponse)
+def get_client_prompts(client_name: str, _auth: AuthContext = Depends(require_monitoring_access)):
+    try:
+        sel = get_prompt_selector(client_name)
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    templates = {k: v for k, v in sel._templates.items() if k != "version"}
+    return ClientPromptsResponse(client_name=client_name, template_version=sel.version, templates=templates)

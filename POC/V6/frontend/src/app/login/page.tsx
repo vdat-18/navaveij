@@ -7,10 +7,10 @@ import { encodeToken, MockTokenPayload, UserRole, useAuth } from "@/shared/auth-
 import { usePatient } from "@/shared/patient-context";
 
 const PERSONAS: { label: string; sub: string; name: string; role: UserRole }[] = [
-  { label: "Dr. Ananya Sharma (Physician)", sub: "usr-physician-00001", name: "Dr. Ananya Sharma", role: "physician" },
-  { label: "Nurse Somying Srisuk (Nurse)", sub: "usr-nurse-00001", name: "Nurse Somying Srisuk", role: "nurse" },
-  { label: "Wanchai Thongchai (DPO Officer)", sub: "usr-dpo-00001", name: "Wanchai Thongchai", role: "dpo" },
-  { label: "System Admin", sub: "usr-admin-00001", name: "System Admin", role: "admin" },
+  { label: "Dr. Ananya Sharma (Physician)", sub: "usr-physician-00001", name: "Dr. Ananya Sharma",  role: "physician" },
+  { label: "Somying Srisuk (Sales)",        sub: "usr-sales-00001",     name: "Somying Srisuk",     role: "sales" },
+  { label: "Wanchai Thongchai (Executive)", sub: "usr-executive-00001", name: "Wanchai Thongchai",  role: "executive" },
+  { label: "System Admin",                 sub: "usr-sysadmin-00001",  name: "System Admin",        role: "sysadmin" },
 ];
 
 const FHIR_SCOPES = [
@@ -25,7 +25,7 @@ export default function LoginPage() {
   const { setSelectedPatient } = usePatient();
   const [selectedPersona, setSelectedPersona] = useState(0);
 
-  const SEARCH_FLOW_ROLES = new Set(["physician", "nurse"]);
+  const SEARCH_FLOW_ROLES = new Set(["physician", "sales"]);
 
   const handleAuthorize = () => {
     const persona = PERSONAS[selectedPersona];
@@ -42,11 +42,13 @@ export default function LoginPage() {
     // signIn sets token in React state AND sessionStorage before navigation,
     // preventing the auth guard from seeing a null token mid-redirect.
     signIn(encodeToken(payload));
-    // Physician/nurse always start at the search screen — clear any previously
-    // selected patient so localStorage doesn't restore it on load.
+    // Physician/sales always start at the search screen — clear any previously
+    // selected patient so sessionStorage doesn't restore it on load.
     if (SEARCH_FLOW_ROLES.has(persona.role)) {
       setSelectedPatient(null);
       router.replace("/");
+    } else if (persona.role === "executive") {
+      router.replace("/management");
     } else {
       router.replace("/access-monitoring");
     }

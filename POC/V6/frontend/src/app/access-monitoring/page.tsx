@@ -11,7 +11,7 @@ export default function AccessMonitoringPage() {
   const role = user?.role ?? null;
   const { privacyMode, togglePrivacyMode } = usePrivacyMode();
 
-  if (role !== "admin" && role !== "dpo") {
+  if (role !== "executive" && role !== "sysadmin") {
     return (
       <main className="w-full px-8 lg:px-16 py-10 min-h-screen bg-white flex flex-col items-center justify-center space-y-4">
         <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center">
@@ -36,7 +36,7 @@ export default function AccessMonitoringPage() {
             Access Monitoring & Audit Log
           </h1>
           <p className="text-xs font-bold text-navavej-gray-med mt-2">
-            Admin / DPO workspace for monitoring, anomaly review, audit forensics, and governance evidence.
+            Live metrics, anomaly alerts, and audit log forensics.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -60,13 +60,10 @@ export default function AccessMonitoringPage() {
           <span className="border border-navavej-border rounded-lg px-3 py-2 text-xs font-black uppercase text-navavej-gray-dark">
             {role}
           </span>
-          <Link href="/" className="text-xs font-black text-navavej-teal uppercase tracking-widest hover:opacity-80 transition-opacity">
-            Back to Summary
-          </Link>
         </div>
       </div>
 
-      <AccessMonitoringScreen role={role as "admin" | "dpo"} />
+      <AccessMonitoringScreen role={role as "executive" | "sysadmin"} />
     </main>
   );
 }

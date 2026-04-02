@@ -1,0 +1,17 @@
+{
+  "name": "poc-navavej-health-checkup",
+  "private": true,
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "tailwindcss": "^4"
+  },
+  "scripts": {
+    "frontend:install": "npm --prefix frontend install",
+    "install:all": "npm install && npm --prefix frontend install",
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix frontend run start",
+    "lint": "npm --prefix frontend run lint",
+    "test:frontend": "npm --prefix frontend run test"
+  }
+}

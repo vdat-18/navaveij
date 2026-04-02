@@ -9,8 +9,10 @@ __pycache__/
 .pytest_cache/
 
 # Frontend build artifacts
-frontend/node_modules/
-frontend/.next/
-frontend/coverage/
-frontend/tsconfig.tsbuildinfo
+**/node_modules/
+**/.next/
+**/coverage/
+**/tsconfig.tsbuildinfo
+**/logs
 .vercel
+logs

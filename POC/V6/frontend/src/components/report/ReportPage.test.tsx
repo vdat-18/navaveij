@@ -1,7 +1,11 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ReportPage } from "./ReportPage";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: vi.fn(), back: vi.fn() }),
+}));
 import type { ReportExportData } from "@/app/report/page";
 import type { RecommendationResponse } from "@/types/recommendation";
 

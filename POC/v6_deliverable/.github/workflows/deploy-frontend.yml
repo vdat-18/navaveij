@@ -1,0 +1,59 @@
+name: Deploy Frontend to Vercel
+
+on:
+  workflow_dispatch:
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  deploy:
+    name: Deploy to Vercel (Production)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Setup Node.js ───────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # ── 3. Install Vercel CLI ──────────────────────────────────────────────
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      # ── 4. Pull Vercel environment ─────────────────────────────────────────
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }} --cwd frontend
+
+      # ── 5. Build ───────────────────────────────────────────────────────────
+      - name: Build project
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }} --cwd frontend
+
+      # ── 6. Deploy ──────────────────────────────────────────────────────────
+      - name: Deploy to Vercel
+        id: deploy
+        run: |
+          DEPLOY_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} --cwd frontend)
+          echo "url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
+          echo "🚀 Deployed to: $DEPLOY_URL"
+
+      # ── 7. Summary ─────────────────────────────────────────────────────────
+      - name: Deployment summary
+        run: |
+          echo "### 🚀 Frontend Deployed!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Key | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Environment** | \`production\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **URL** | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Branch** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY

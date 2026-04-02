@@ -1,6 +1,7 @@
 "use client";
 
 import { Printer, Mail } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { ReportExportData } from "@/app/report/page";
 import { getPackageUrl, getServiceUrl } from "@/data/hospital-urls";
@@ -101,6 +102,7 @@ function renderReasoningTrace(trace: string): React.ReactNode[] {
 
 export function ReportPage({ data }: { data: ReportExportData }) {
     const { patient, recommendation: rec, generatedAt } = data;
+    const router = useRouter();
 
     const riskColor = RISK_COLORS[rec.overall_risk_level] ?? "#666666";
 
@@ -150,6 +152,12 @@ export function ReportPage({ data }: { data: ReportExportData }) {
 
             {/* ── Action Bar (hidden in print) ── */}
             <div className="report-action-bar px-10 py-4 flex gap-3 border-b border-[#E9ECEF] bg-[#F8F9FA]">
+                <button
+                    onClick={() => router.back()}
+                    className="flex items-center gap-2 px-5 py-2 rounded-full border border-[#E9ECEF] bg-white text-[#333] font-bold text-xs hover:border-[#00ABC7] hover:text-[#00ABC7] transition-colors"
+                >
+                    ← Close
+                </button>
                 <button
                     onClick={() => window.print()}
                     className="flex items-center gap-2 px-5 py-2 rounded-full border border-[#E9ECEF] bg-white text-[#333] font-bold text-xs hover:border-[#00ABC7] hover:text-[#00ABC7] transition-colors"

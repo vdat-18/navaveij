@@ -20,6 +20,12 @@ export interface SystemConfig {
     template_version: string;
 }
 
+export interface ClientPromptsResponse {
+    client_name: string;
+    template_version: string;
+    templates: Record<string, string>;
+}
+
 interface ScreeningGapsResponse {
     patient_token: string;
     screening_gaps: {
@@ -122,8 +128,8 @@ export const getAuthContext = async (): Promise<AuthContext> => {
     } catch (e) {
         console.warn("Failed to fetch auth context, falling back to default");
         return {
-            user_id: "dr-admin-001",
-            role: "admin",
+            user_id: "usr-sysadmin-00001",
+            role: "sysadmin",
             scopes: "recommendation:read,recommendation:write,monitoring:read"
         };
     }
@@ -300,19 +306,19 @@ export const clinicalService = {
         const response = await apiV3.get<ScreeningGapsResponse>(`/screening-gaps/${patientToken}`, { headers });
         return response.data;
     },
-    getMonitoringSnapshot: async (role: "admin" | "dpo" = "admin"): Promise<MonitoringSnapshot> => {
+    getMonitoringSnapshot: async (role: "sysadmin" | "executive" = "sysadmin"): Promise<MonitoringSnapshot> => {
         const headers = await buildAuthHeaders(role, "monitoring:read");
         const response = await apiV3.get("/monitoring-snapshot", { headers });
         return response.data;
     },
-    getAnomalyAlerts: async (role: "admin" | "dpo" = "admin"): Promise<{ alerts: AnomalyAlert[] }> => {
+    getAnomalyAlerts: async (role: "sysadmin" | "executive" = "sysadmin"): Promise<{ alerts: AnomalyAlert[] }> => {
         const headers = await buildAuthHeaders(role, "monitoring:read");
         const response = await apiV3.get("/anomaly-alerts", { headers });
         return response.data;
     },
     searchAuditLogs: async (
         filters: AuditLogFilters,
-        role: "admin" | "dpo" = "admin"
+        role: "sysadmin" | "executive" = "sysadmin"
     ): Promise<{ total: number; entries: AuditLogEntry[] }> => {
         const headers = await buildAuthHeaders(role, "monitoring:read");
         const response = await apiV3.get("/audit-logs", {
@@ -321,29 +327,39 @@ export const clinicalService = {
         });
         return response.data;
     },
-    getRbac: async (role: "admin" | "dpo" = "admin"): Promise<{ roles: RbacRole[] }> => {
+    getRbac: async (role: "sysadmin" | "executive" = "sysadmin"): Promise<{ roles: RbacRole[] }> => {
         const headers = await buildAuthHeaders(role, "monitoring:read");
         const response = await apiV3.get("/rbac", { headers });
         return response.data;
     },
-    getMappingCodes: async (role: "admin" | "dpo" = "admin"): Promise<{ mappings: MappingCode[] }> => {
+    getMappingCodes: async (role: "sysadmin" | "executive" = "sysadmin"): Promise<{ mappings: MappingCode[] }> => {
         const headers = await buildAuthHeaders(role, "monitoring:read");
         const response = await apiV3.get("/mapping-codes", { headers });
         return response.data;
     },
-    getMasterPrograms: async (role: "admin" | "dpo" = "admin"): Promise<{ programs: MasterProgram[] }> => {
+    getMasterPrograms: async (role: "sysadmin" | "executive" = "sysadmin"): Promise<{ programs: MasterProgram[] }> => {
         const headers = await buildAuthHeaders(role, "monitoring:read");
         const response = await apiV3.get("/master-programs", { headers });
         return response.data;
     },
-    getMasterAddOns: async (role: "admin" | "dpo" = "admin"): Promise<{ add_ons: MasterAddOn[] }> => {
+    getMasterAddOns: async (role: "sysadmin" | "executive" = "sysadmin"): Promise<{ add_ons: MasterAddOn[] }> => {
         const headers = await buildAuthHeaders(role, "monitoring:read");
         const response = await apiV3.get<{ add_ons: MasterAddOn[] }>("/master-add-ons", { headers });
         return response.data;
     },
-    getSystemConfig: async (role: "admin" | "dpo" = "admin"): Promise<SystemConfig> => {
+    getSystemConfig: async (role: "sysadmin" | "executive" = "sysadmin"): Promise<SystemConfig> => {
         const headers = await buildAuthHeaders(role, "monitoring:read");
         const response = await apiV3.get<SystemConfig>("/system-config", { headers });
+        return response.data;
+    },
+    setActiveClient: async (clientName: string, role: "sysadmin" | "executive" = "sysadmin"): Promise<{ active_client: string; template_version: string }> => {
+        const headers = await buildAuthHeaders(role, "monitoring:read");
+        const response = await apiV3.patch<{ active_client: string; template_version: string }>("/system-config/active-client", { client_name: clientName }, { headers });
+        return response.data;
+    },
+    getClientPrompts: async (clientName: string, role: "sysadmin" | "executive" = "sysadmin"): Promise<ClientPromptsResponse> => {
+        const headers = await buildAuthHeaders(role, "monitoring:read");
+        const response = await apiV3.get<ClientPromptsResponse>(`/system-config/prompts/${clientName}`, { headers });
         return response.data;
     },
 };

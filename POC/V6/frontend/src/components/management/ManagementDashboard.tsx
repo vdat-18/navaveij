@@ -251,7 +251,7 @@ export function ManagementDashboard() {
         <motion.div variants={itemAnim} className="navavej-card bg-white p-8 flex flex-col overflow-hidden relative border-t-4 border-t-[#00ABC7] shadow-2xl">
            <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 px-4 gap-6">
               <div className="space-y-2">
-                 <h2 className="text-xl font-black text-[#333333] tracking-tighter uppercase italic">Nurse Adoption Rates</h2>
+                 <h2 className="text-xl font-black text-[#333333] tracking-tighter uppercase italic">Sales Adoption Rates</h2>
                  <p className="text-xs text-slate-400 font-bold tracking-[0.1em] uppercase opacity-60">Who trusts the AI recommendations key for change management</p>
               </div>
               

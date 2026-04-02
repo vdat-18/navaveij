@@ -5,31 +5,35 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-    LayoutDashboard,
-    LineChart,
     ShieldCheck,
     HelpCircle,
-    Activity
+    Activity,
+    Settings,
+    LogOut
 } from "lucide-react";
 import { cn } from "@/shared/utils";
 import { useAuth } from "@/shared/auth-context";
 
-const menuItems = [
-    { icon: LayoutDashboard, label: "Clinical Dashboard", id: "dashboard",  href: "/" },
-    { icon: LineChart,       label: "Trend & Timeline",   id: "timeline",   href: "/trend-timeline" },
-    // /audit remains available as an alias route and redirects to /access-monitoring.
-    { icon: ShieldCheck,     label: "Access Monitoring & Audit Log", id: "monitoring", href: "/access-monitoring" },
-    { icon: Activity,        label: "Management Metrics", id: "management", href: "/management" },
+/** Menu items for the Executive role. */
+const EXECUTIVE_MENU = [
+    { icon: Activity,    label: "Executive Dashboard", id: "management",    href: "/management" },
+    { icon: ShieldCheck, label: "Access Monitoring",   id: "monitoring",    href: "/access-monitoring" },
+];
+
+/** Menu items for the SysAdmin role. */
+const SYSADMIN_MENU = [
+    { icon: ShieldCheck, label: "Access Monitoring", id: "monitoring",     href: "/access-monitoring" },
+    { icon: Settings,    label: "Configuration",      id: "configuration",  href: "/configuration" },
 ];
 
 /** Roles that use the single-entry-point flow (no sidebar). */
-const SIDEBAR_HIDDEN_ROLES = new Set(["physician", "nurse"]);
+const SIDEBAR_HIDDEN_ROLES = new Set(["physician", "sales"]);
 
 export function Sidebar() {
     const pathname = usePathname();
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
 
-    // Physicians and nurses use the new single-entry-point search flow — no sidebar needed.
+    // Physician and sales use the single-entry-point search flow — no sidebar needed.
     // The /report page is standalone and also renders without sidebar for all roles.
     if (pathname === '/report' || (user && SIDEBAR_HIDDEN_ROLES.has(user.role))) {
         return null;
@@ -39,6 +43,8 @@ export function Sidebar() {
     if (!user) {
         return null;
     }
+
+    const menuItems = user.role === "executive" ? EXECUTIVE_MENU : SYSADMIN_MENU;
 
     return (
         <aside aria-label="Main navigation" className="w-[var(--sidebar-width)] glass-sidebar h-screen flex flex-col p-6 fixed left-0 top-0 z-50">
@@ -84,6 +90,10 @@ export function Sidebar() {
                 <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition-all">
                     <HelpCircle className="w-5 h-5 text-slate-500" />
                     <span className="font-medium">Support</span>
+                </button>
+                <button onClick={logout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition-all">
+                    <LogOut className="w-5 h-5 text-slate-500" />
+                    <span className="font-medium">Logout</span>
                 </button>
             </div>
         </aside>

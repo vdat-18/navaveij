@@ -153,5 +153,49 @@
       "type": "alert",
       "highlight_users": ["Napaporn Wongchai", "Prapa Sangthong"]
     }
+  },
+  "conversion_funnel": {
+    "time_ranges": {
+      "1W": {
+        "stages": [
+          { "name": "AI Recommendations", "value": 245 },
+          { "name": "Sales/Physician Accepted", "value": 187 },
+          { "name": "Patient Presented", "value": 142 },
+          { "name": "Purchased", "value": 98 }
+        ]
+      },
+      "2W": {
+        "stages": [
+          { "name": "AI Recommendations", "value": 512 },
+          { "name": "Sales/Physician Accepted", "value": 389 },
+          { "name": "Patient Presented", "value": 298 },
+          { "name": "Purchased", "value": 201 }
+        ]
+      },
+      "1M": {
+        "stages": [
+          { "name": "AI Recommendations", "value": 1024 },
+          { "name": "Sales/Physician Accepted", "value": 782 },
+          { "name": "Patient Presented", "value": 594 },
+          { "name": "Purchased", "value": 412 }
+        ]
+      },
+      "3M": {
+        "stages": [
+          { "name": "AI Recommendations", "value": 2876 },
+          { "name": "Sales/Physician Accepted", "value": 2198 },
+          { "name": "Patient Presented", "value": 1672 },
+          { "name": "Purchased", "value": 1156 }
+        ]
+      },
+      "ALL": {
+        "stages": [
+          { "name": "AI Recommendations", "value": 3847 },
+          { "name": "Sales/Physician Accepted", "value": 2940 },
+          { "name": "Patient Presented", "value": 2236 },
+          { "name": "Purchased", "value": 2156 }
+        ]
+      }
+    }
   }
 }

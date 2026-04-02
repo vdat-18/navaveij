@@ -83,15 +83,19 @@ PYTHONPATH=.:./backend uv run python -m src.api.main
 
 ### 2. Frontend Setup & Run
 ```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start development server
+# From the repo root
+npm run frontend:install
 npm run dev
 ```
 *Web dashboard will be available at `http://localhost:3000`*
+
+If you prefer working directly inside the app, the frontend lives in `frontend/` and the equivalent commands are:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
 ---
 

@@ -1,0 +1,95 @@
+{
+  "version": "metric_severity_rules_v1",
+  "metrics": {
+    "fbs": {
+      "label": "Fasting Blood Glucose",
+      "loinc": "1558-6",
+      "unit": "mg/dL",
+      "direction": "high_is_bad",
+      "thresholds": {
+        "normal_max": 99,
+        "borderline_max": 125
+      }
+    },
+    "hba1c": {
+      "label": "HbA1c",
+      "loinc": "4548-4",
+      "unit": "%",
+      "direction": "high_is_bad",
+      "thresholds": {
+        "normal_max": 5.6,
+        "borderline_max": 6.4
+      }
+    },
+    "ldl": {
+      "label": "LDL Cholesterol",
+      "loinc": "13457-7",
+      "unit": "mg/dL",
+      "direction": "high_is_bad",
+      "thresholds": {
+        "normal_max": 129,
+        "borderline_max": 159
+      }
+    },
+    "hdl": {
+      "label": "HDL Cholesterol",
+      "loinc": "2085-9",
+      "unit": "mg/dL",
+      "direction": "low_is_bad",
+      "thresholds": {
+        "normal_min": 60,
+        "borderline_min": 40
+      }
+    },
+    "triglycerides": {
+      "label": "Triglycerides",
+      "loinc": "2571-8",
+      "unit": "mg/dL",
+      "direction": "high_is_bad",
+      "thresholds": {
+        "normal_max": 149,
+        "borderline_max": 199
+      }
+    },
+    "total_cholesterol": {
+      "label": "Total Cholesterol",
+      "loinc": "2093-3",
+      "unit": "mg/dL",
+      "direction": "high_is_bad",
+      "thresholds": {
+        "normal_max": 199,
+        "borderline_max": 239
+      }
+    },
+    "bmi": {
+      "label": "BMI",
+      "loinc": "39156-5",
+      "unit": "kg/m2",
+      "direction": "high_is_bad",
+      "thresholds": {
+        "normal_max": 22.9,
+        "borderline_max": 24.9
+      }
+    },
+    "bp_systolic": {
+      "label": "Systolic Blood Pressure",
+      "loinc": "8480-6",
+      "unit": "mmHg",
+      "direction": "high_is_bad",
+      "thresholds": {
+        "normal_max": 119,
+        "borderline_max": 129
+      }
+    },
+    "egfr": {
+      "label": "eGFR",
+      "loinc": "62238-1",
+      "unit": "mL/min/1.73m2",
+      "direction": "low_is_bad",
+      "thresholds": {
+        "normal_min": 90,
+        "borderline_min": 60
+      }
+    }
+  }
+}

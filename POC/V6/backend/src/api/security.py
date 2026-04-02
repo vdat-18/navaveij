@@ -28,10 +28,10 @@ def _parse_scopes(raw: str | None) -> set[str]:
 # Role → backend scopes for smart_on_fhir_demo mode
 _ROLE_SCOPES: dict[str, str] = {
     "physician": "recommendation:read,recommendation:write",
-    "nurse": "recommendation:read,recommendation:write",
+    "sales": "recommendation:read,recommendation:write",
     "pharmacist": "recommendation:read",
-    "dpo": "recommendation:read,monitoring:read",
-    "admin": "recommendation:read,recommendation:write,monitoring:read",
+    "executive": "recommendation:read,monitoring:read",
+    "sysadmin": "recommendation:read,recommendation:write,monitoring:read",
 }
 
 
