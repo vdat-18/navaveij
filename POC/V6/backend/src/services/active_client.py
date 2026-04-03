@@ -50,6 +50,7 @@ _ACTIVE_CLIENTS: dict[str, ResolvedActiveClient] = {
         prompt_registry_key="local",
     ),
 }
+_SUPPORTED_CLIENT_NAMES: tuple[str, ...] = tuple(_ACTIVE_CLIENTS.keys())
 
 
 def set_runtime_active_client(client_name: str) -> None:
@@ -71,3 +72,8 @@ def resolve_active_client(active_client: str | None = None) -> ResolvedActiveCli
         raise ValueError(
             f"Unsupported AI_ACTIVE_CLIENT '{candidate}'. Expected one of: {valid}"
         ) from exc
+
+
+def get_supported_client_names() -> list[str]:
+    """Return the configured named client identifiers in stable order."""
+    return list(_SUPPORTED_CLIENT_NAMES)

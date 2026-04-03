@@ -75,7 +75,7 @@ Audit of how active client switching works end-to-end, how the existing subproce
 
 3. **Model ID is frozen at startup.** `_ACTIVE_CLIENTS` reads `settings.*_model` once at import. The model column in the UI is correctly read-only. "Changing the model" is achieved by switching between pre-configured clients.
 
-4. **The health check function in `test.baml` is hardcoded to GeminiClient.** It cannot be used for per-client validation. The subprocess approach calls `AnalyzeClinicalRisks` with dummy inputs instead — a more realistic validation.
+4. **The health check function in `test.baml` is hardcoded to GeminiClient.** It cannot be used for per-client validation. Initial implementation called `AnalyzeClinicalRisks` with dummy inputs instead. This was later replaced by a dedicated `HealthPing() -> HealthPingResult` function in `baml_src/health_check.baml` — a purpose-built minimal probe that returns `{"ok": true}` only, avoiding the overhead and fragility of producing a full `ClinicalRiskProfile` schema.
 
 5. **No existing health check API endpoint.** The subprocess validator is a CLI-only script, not exposed via the API.
 

@@ -360,4 +360,9 @@ export const clinicalService = {
         const response = await apiV3.get<ClientPromptsResponse>(`/system-config/prompts/${clientName}`, { headers });
         return response.data;
     },
+    validateClient: async (clientName: string, role: "sysadmin" | "executive" = "sysadmin"): Promise<{ client_name: string; valid: boolean; latency_ms: number | null; error: string | null }> => {
+        const headers = await buildAuthHeaders(role, "monitoring:read");
+        const response = await apiV3.post(`/system-config/validate/${clientName}`, {}, { headers });
+        return response.data;
+    },
 };

@@ -1,7 +1,7 @@
 # README — Client Health Check + Improved Active Client Switching
 
 **Workstream:** 13.2A
-**Date:** 2026-04-02
+**Date:** 2026-04-03
 **Status:** Implemented
 **Scope:** Add subprocess-based health check validation and a "Test before Set Active" flow to the Config screen's AI Configs tab
 
@@ -27,6 +27,10 @@ The model column stays **read-only** — model IDs are configured via `.env` and
 - Health-check failures are normalized into a `200` response payload with `status: "error"` so the UI can treat invalid client names and provider failures consistently.
 - The subprocess runner adds `backend` and project root paths into `PYTHONPATH` before launching `python -m src.services.health_check --child`.
 - AI Configs now uses an explicit `Test -> Set Active` flow for standby clients and shows inline retry/error or latency feedback per row.
+- A 404 or missing health-check route is treated as a feature-level availability problem, with a blocking UI message that explains `Set Active` stays disabled until validation is working.
+- Backend startup now logs the mounted `/api/system-config` routes to make stale runtime deployments easier to diagnose.
+- The child process calls `b.HealthPing()` (defined in `baml_src/health_check.baml`) rather than `AnalyzeClinicalRisks` — a dedicated minimal BAML function that returns `{"ok": true}` only, avoiding the overhead of producing a full `ClinicalRiskProfile`.
+- The Next.js proxy defaults to `http://localhost:8000` for local development. Set `BACKEND_URL` in `frontend/.env.local` to override.
 
 ---
 
@@ -45,7 +49,8 @@ The model column stays **read-only** — model IDs are configured via `.env` and
 ### Backend
 | File | Change |
 |---|---|
-| `backend/src/services/health_check.py` | **New** — subprocess health check service (child + parent pattern) |
+| `baml_src/health_check.baml` | **New** — `HealthPing() -> HealthPingResult` BAML function (minimal connectivity probe) |
+| `backend/src/services/health_check.py` | **New** — subprocess health check service (child + parent pattern); child calls `b.HealthPing()` |
 | `backend/src/api/routes/contracts.py` | 1 new endpoint: `POST /system-config/health-check` + Pydantic models |
 
 ### Frontend
@@ -53,6 +58,8 @@ The model column stays **read-only** — model IDs are configured via `.env` and
 |---|---|
 | `frontend/src/services/api.ts` | 1 new method: `healthCheck()` + `HealthCheckResponse` interface |
 | `frontend/src/components/access-monitoring/AIConfigsTab.tsx` | Test-before-activate UX: per-row test state, Test/Retry button, conditional Set Active enabling |
+| `frontend/src/app/api/proxy/[...path]/route.ts` | Default `BACKEND_URL` changed from hardcoded remote IP to `http://localhost:8000` |
+| `frontend/.env.local` | **New** — sets `BACKEND_URL=http://localhost:8000` for local development |
 
 ---
 

@@ -1,6 +1,6 @@
 # Plan — Client Health Check + Improved Active Client Switching
 
-> Use checkbox (`- [ ]`) syntax to track steps during implementation. Execute tasks in order.
+> Use checkbox (`- [x]`) syntax to track steps during implementation. Execute tasks in order.
 
 **Goal:** Add a subprocess-based health check service and API endpoint so the Config screen can validate a client before switching. Enhance the AI Configs tab with a "Test" → "Set Active" flow.
 
@@ -16,25 +16,25 @@
 
 **New file:** `backend/src/services/health_check.py`
 
-- [ ] **Step 1:** Create the child-process validation function (mirrors `validate_clients.py:50-73`):
+- [x] **Step 1:** Create the child-process validation function (mirrors `validate_clients.py:50-73`):
   - Sets `AI_ACTIVE_CLIENT={client_name}` in env copy
   - Imports BAML fresh, calls `b.AnalyzeClinicalRisks()` with dummy inputs
   - Returns JSON: `{client_name, ok, provider, model_id, template_version, latency_ms}` or `{client_name, ok: false, error: str}`
 
-- [ ] **Step 2:** Create the parent-process runner:
+- [x] **Step 2:** Create the parent-process runner:
   - `async def run_health_check(client_name: str) -> dict`
   - Validates `client_name` against `_ACTIVE_CLIENTS` registry
   - Spawns child via `asyncio.create_subprocess_exec()` with `--child --client {client_name}`
   - Parses JSON stdout, handles timeout (30s default), handles non-zero exit
   - Returns structured result dict
 
-- [ ] **Step 3:** Add CLI entry point (`if __name__ == "__main__"` + argparse with `--child` and `--client` flags) so the module can run as both a library and a subprocess target
+- [x] **Step 3:** Add CLI entry point (`if __name__ == "__main__"` + argparse with `--child` and `--client` flags) so the module can run as both a library and a subprocess target
 
 ### Task 2 — Add health check API endpoint
 
 **Modify file:** `backend/src/api/routes/contracts.py`
 
-- [ ] **Step 1:** Add Pydantic models:
+- [x] **Step 1:** Add Pydantic models:
   ```python
   class HealthCheckRequest(BaseModel):
       client_name: str
@@ -49,7 +49,7 @@
       error_message: str | None = None
   ```
 
-- [ ] **Step 2:** Add endpoint:
+- [x] **Step 2:** Add endpoint:
   ```python
   @router.post("/system-config/health-check", response_model=HealthCheckResponse)
   async def health_check(body: HealthCheckRequest, _auth=Depends(require_monitoring_access)):
@@ -66,47 +66,47 @@
 
 **Modify file:** `frontend/src/services/api.ts`
 
-- [ ] **Step 1:** Add `HealthCheckResponse` TypeScript interface
-- [ ] **Step 2:** Add `healthCheck(clientName: string): Promise<HealthCheckResponse>` to `clinicalService`
+- [x] **Step 1:** Add `HealthCheckResponse` TypeScript interface
+- [x] **Step 2:** Add `healthCheck(clientName: string): Promise<HealthCheckResponse>` to `clinicalService`
 
 ### Task 4 — Enhance AIConfigsTab with test flow
 
 **Modify file:** `frontend/src/components/access-monitoring/AIConfigsTab.tsx`
 
-- [ ] **Step 1:** Add state for per-row health check:
+- [x] **Step 1:** Add state for per-row health check:
   ```typescript
   const [testingClient, setTestingClient] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, HealthCheckResponse>>({});
   ```
 
-- [ ] **Step 2:** Add `handleTest(clientName)` function:
+- [x] **Step 2:** Add `handleTest(clientName)` function:
   - Sets `testingClient` state
   - Calls `clinicalService.healthCheck(clientName)`
   - Stores result in `testResults[clientName]`
   - Clears `testingClient`
 
-- [ ] **Step 3:** Update Actions column rendering per row:
+- [x] **Step 3:** Update Actions column rendering per row:
   - **If active:** "Active" badge (unchanged) + "Inspect"
   - **If not active, no test result:** "Test" button (amber outline) + "Set Active" (disabled, muted) + "Inspect"
   - **If testing:** Spinner + "Validating..." text + buttons disabled
   - **If test passed:** Green check + latency badge + "Set Active" (enabled, teal) + "Inspect"
   - **If test failed:** Red X + error tooltip + "Retry" button + "Set Active" (disabled) + "Inspect"
 
-- [ ] **Step 4:** Add info tooltip on Model column: "Configured via .env — restart required to change model"
+- [x] **Step 4:** Add info tooltip on Model column: "Configured via .env — restart required to change model"
 
-- [ ] **Step 5:** Update `handleSetActive()` to clear test result after successful switch
+- [x] **Step 5:** Update `handleSetActive()` to clear test result after successful switch
 
 ---
 
 ## Verification
 
-- [ ] Health check returns `ok` with latency for a valid configured client (run against backend)
-- [ ] Health check returns `error` for an invalid client name (422 or structured error)
-- [ ] Subprocess does not leak state into parent process (verify by checking `_runtime_active_client` unchanged after test)
-- [ ] "Set Active" button disabled until test passes
-- [ ] After successful test + set active, config refreshes and new client shows as active
-- [ ] Frontend builds without TypeScript errors
-- [ ] Existing test suite still passes
+- [x] Health check returns `ok` with latency for a valid configured client (run against backend)
+- [x] Health check returns `error` for an invalid client name (422 or structured error)
+- [x] Subprocess does not leak state into parent process (verify by checking `_runtime_active_client` unchanged after test)
+- [x] "Set Active" button disabled until test passes
+- [x] After successful test + set active, config refreshes and new client shows as active
+- [x] Frontend builds without TypeScript errors
+- [x] Existing test suite still passes
 
 ---
 
@@ -118,6 +118,20 @@
 | `backend/src/api/routes/contracts.py` | Modified — 1 new endpoint + 2 Pydantic models |
 | `frontend/src/services/api.ts` | Modified — 1 new method + 1 interface |
 | `frontend/src/components/access-monitoring/AIConfigsTab.tsx` | Modified — test-before-activate UX |
+
+## Post-Implementation Refinements
+
+### Task 5 — Dedicated BAML health-check function
+- [x] Created `baml_src/health_check.baml` with `HealthPingResult { ok bool }` and `function HealthPing() -> HealthPingResult`
+- [x] Updated `health_check.py` child process to call `await b.HealthPing()` instead of `b.AnalyzeClinicalRisks()` with dummy args
+- [x] Removed dummy input constants from `health_check.py` (no longer needed)
+- [ ] Run `baml-cli generate` and restart backend to activate
+
+### Task 6 — Proxy URL fix for local development
+- [x] Changed `frontend/src/app/api/proxy/[...path]/route.ts` default from hardcoded remote IP to `http://localhost:8000`
+- [x] Created `frontend/.env.local` with `BACKEND_URL=http://localhost:8000`
+
+---
 
 ## Out of Scope
 

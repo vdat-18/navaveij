@@ -17,13 +17,6 @@ from src.services.active_client import resolve_active_client
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_ROOT = PROJECT_ROOT / "backend"
 
-_DUMMY_SYSTEM_PROMPT = (
-    "You are a test assistant. Return a minimal valid JSON response matching the requested output schema."
-)
-_DUMMY_SIGNALS = '{"signals_fired": [], "risk_flags": []}'
-_DUMMY_TRENDS = '{"biomarkers": []}'
-_DUMMY_CONSTRAINTS = '{"patient_demographics": {"age": 40, "gender": "M"}, "hard_constraints": []}'
-_DUMMY_RULESET = '{"tier_selection_rules": [], "add_on_library": [], "package_resolution_map": {}}'
 _DEFAULT_TIMEOUT_SECONDS = 30
 
 
@@ -57,13 +50,7 @@ async def _run_child_health_check(client_name: str) -> dict[str, object]:
     resolved_client = resolve_active_client(client_name)
     selector = get_prompt_selector(client_name)
     started_at = time.monotonic()
-    await b.AnalyzeClinicalRisks(
-        system_prompt=_DUMMY_SYSTEM_PROMPT,
-        clinical_signals=_DUMMY_SIGNALS,
-        biomarker_trends=_DUMMY_TRENDS,
-        hard_constraints=_DUMMY_CONSTRAINTS,
-        program_ruleset=_DUMMY_RULESET,
-    )
+    await b.HealthPing()
     return {
         "client_name": client_name,
         "status": "ok",

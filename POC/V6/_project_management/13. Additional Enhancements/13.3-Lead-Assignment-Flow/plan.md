@@ -1,65 +1,49 @@
 # Plan — Lead Assignment Flow
 
-> Use checkbox (`- [ ]`) syntax to track steps during implementation. Execute tasks in order.
+**Goal:** Add a reach-out lane where executives assign pre-analyzed patients to sales as leads. Sales views pre-computed recommendations, adds notes, and updates lead status. Walk-in flow remains unchanged and uses a separate patient pool.
 
-**Goal:** Add a reach-out lane where executives assign pre-analyzed patients to sales as leads. Sales views pre-computed recommendations, adds notes (with voice mock), and updates lead status. Walk-in flow unchanged.
-
-**Architecture:** New backend route (`leads.py`) with in-memory store seeded from JSON fixtures. New executive screen at `/lead-assignment`. Sales tab toggle on existing `/` page. Separate `RecommendationReadOnlyView` component for pre-runned data display.
+**Architecture:** New backend route (`leads.py`) with in-memory store seeded from lead-only JSON fixtures. New executive screen at `/lead-assignment`. Sales tab toggle on existing `/` page. Separate `ReadOnlyRecommendationView` component for pre-runned data display.
 
 **Tech Stack:** Python (FastAPI, Pydantic), TypeScript (React, Next.js App Router), Tailwind, Lucide React, Framer Motion
 
+**Patient separation rule:** Lead fixtures use a distinct lead-only patient set. No walk-in patient ID, token, or name may appear in lead fixtures. Enforced by a non-overlap assertion in `test_leads_api.py`.
+
 ---
 
-## Phase 1 — Shared Fixtures
+## Phase 1 — Fixtures
 
 ### Task 1 — Create sales user registry
 
-**New file:** `assets/sales_users.json`
+**File:** `assets/sales_users.json`
 
-- [ ] **Step 1:** Create file with 2 canonical sales personas:
-  ```json
-  [
-    {"user_id": "usr-sales-00001", "name": "Somying Srisuk", "role": "sales"},
-    {"user_id": "usr-sales-00002", "name": "Arunee Srisawat", "role": "sales"}
-  ]
-  ```
+- Create 2 canonical sales personas: `usr-sales-00001` (Somying Srisuk), `usr-sales-00002` (Arunee Srisawat)
 
-### Task 2 — Capture pre-runned recommendation payloads
+### Task 2 — Create lead-only pre-runned recommendation payloads
 
-**New file:** `assets/pre_runned_recommendations.json`
+**File:** `assets/pre_runned_recommendations.json`
 
-- [ ] **Step 1:** Run the backend with a working AI client
-- [ ] **Step 2:** Call `POST /recommend` for each of the 3 existing demo patients, capture the full JSON response
-- [ ] **Step 3:** Optionally add 2-3 more patients to `assets/patient_registry.json` for the reach-out pool, run them too
-- [ ] **Step 4:** Wrap each captured response in the pre-runned envelope:
+- Create a lead-only patient set with new `patient_id`, `patient_token`, `patient_name`, profile fields, and scenario framing — **no overlap with the 3 walk-in patients** (`id_33cc44dd`, `id_1a2b3c4d`, `id_d4f2b7e6`)
+- Use real captured AI payloads where available and schema-valid curated payloads otherwise
+- Each entry:
   ```json
   {
-    "patient_id": "...",
-    "patient_token": "...",
+    "patient_id": "lead-<unique>",
+    "patient_token": "<unique-token>",
     "patient_name": "...",
-    "age": 45, "gender": "Female",
-    "scenario_label": "Metabolic Syndrome Risk",
-    "generated_at": "2026-03-28T10:00:00Z",
-    "ai_lead_summary": "Pre-written 1-2 paragraph AI-style sales summary",
-    "recommendation": { /* captured payload */ }
+    "age": ..., "gender": "...",
+    "scenario_label": "...",
+    "generated_at": "...",
+    "ai_lead_summary": "1-2 paragraph sales-oriented AI summary",
+    "recommendation": { /* PreRunnedRecommendationResponse payload */ }
   }
   ```
-- [ ] **Step 5:** Write `ai_lead_summary` for each patient — a 1-2 paragraph sales-oriented summary of the AI findings and recommended tier
 
 ### Task 3 — Create seed lead assignments
 
-**New file:** `assets/lead_assignments_seed.json`
+**File:** `assets/lead_assignments_seed.json`
 
-- [ ] **Step 1:** Create 2-3 seed assignments covering different statuses:
-  ```json
-  [
-    {"assignment_id": "lead_001", "patient_id": "...", "patient_token": "...",
-     "assigned_to_user_id": "usr-sales-00001", "assigned_to_name": "Somying Srisuk",
-     "assigned_by_user_id": "usr-executive-00001", "assigned_at": "2026-03-29T09:00:00Z",
-     "status": "assigned", "notes": "", "scenario_label": "Metabolic Syndrome Risk"},
-    {"assignment_id": "lead_002", ...}
-  ]
-  ```
+- 2-3 seed assignments covering different statuses (assigned, contacted, scheduled)
+- All `patient_id` values must reference lead-only patients from `pre_runned_recommendations.json`
 
 ---
 
@@ -67,53 +51,32 @@
 
 ### Task 4 — Create leads route module
 
-**New file:** `backend/src/api/routes/leads.py`
+**File:** `backend/src/api/routes/leads.py`
 
-- [ ] **Step 1:** Define Pydantic models:
-  - `LeadAssignment`: assignment_id, patient_id, patient_token, assigned_to_user_id, assigned_to_name, assigned_by_user_id, assigned_at, status, notes, scenario_label
-  - `CreateLeadRequest`: patient_id, assigned_to_user_id, assigned_to_name, notes?
-  - `UpdateLeadStatusRequest`: status, notes?
-  - `PreRunnedPatientSummary`: patient_id, patient_token, patient_name, age, gender, scenario_label, generated_at, ai_lead_summary, ai_recommended_tier, overall_risk_level, is_assigned
-  - `SalesUser`: user_id, name, role
+- Pydantic models: `LeadAssignment`, `CreateLeadRequest`, `UpdateLeadStatusRequest`, `PreRunnedPatientSummary`, `SalesUser`
+- Load fixtures at module level (same pattern as `patients.py` and `contracts.py`)
+- Auth header enforcement on every endpoint using the existing header-based auth pattern
+- 7 endpoints:
 
-- [ ] **Step 2:** Load fixture data at module level (same pattern as `patients.py`):
-  - Load `assets/pre_runned_recommendations.json` → `_pre_runned: list[dict]`
-  - Load `assets/lead_assignments_seed.json` → `_assignments: list[dict]`
-  - Load `assets/sales_users.json` → `_sales_users: list[dict]`
+  `GET /api/leads` — executive: all; sales: own only (filter by `assigned_to_user_id`)
 
-- [ ] **Step 3:** Implement 7 endpoints:
+  `GET /api/leads/{assignment_id}` — executive or owning sales user
 
-  `GET /api/leads` (executive, sales)
-  - Executive: return all assignments
-  - Sales: filter by `assigned_to_user_id == auth.user_id`
+  `POST /api/leads` — executive only; auto-generates ID, sets `assigned_at`, status → "assigned"
 
-  `GET /api/leads/{assignment_id}` (executive, sales)
-  - Return single assignment, with role-based access check
+  `PATCH /api/leads/{assignment_id}/status` — sales only; valid statuses: assigned / contacted / scheduled / converted / declined
 
-  `POST /api/leads` (executive only)
-  - Create new assignment from request body
-  - Auto-generate `assignment_id`, set `assigned_by_user_id` from auth, `assigned_at` to now, `status` to "assigned"
-  - Add to `_assignments` in-memory list
+  `GET /api/pre-runned-patients` — executive only; returns summaries (no full recommendation payload); includes `is_assigned` flag
 
-  `PATCH /api/leads/{assignment_id}/status` (sales only)
-  - Update status and notes for an existing assignment
-  - Validate status is one of: assigned, contacted, scheduled, converted, declined
+  `GET /api/pre-runned-patients/{patient_token}/recommendation` — executive or sales; returns full pre-computed recommendation
 
-  `GET /api/pre-runned-patients` (executive)
-  - Return list of pre-runned patient summaries (without full recommendation payload)
-  - Include `is_assigned: bool` flag (check if patient_id exists in `_assignments`)
-
-  `GET /api/pre-runned-patients/{patient_token}/recommendation` (executive, sales)
-  - Return the full pre-computed recommendation for a patient
-
-  `GET /api/sales-users` (executive)
-  - Return sales user registry
+  `GET /api/sales-users` — executive only
 
 ### Task 5 — Register leads router
 
-**Modify file:** `backend/src/api/main.py`
+**File:** `backend/src/api/main.py`
 
-- [ ] **Step 1:** Import and register: `from src.api.routes import leads` + `app.include_router(leads.router, prefix="/api", tags=["Lead Assignment"])`
+- `from src.api.routes import leads` + `app.include_router(leads.router, prefix="/api", tags=["Lead Assignment"])`
 
 ---
 
@@ -121,15 +84,15 @@
 
 ### Task 6 — Create TypeScript types
 
-**New file:** `frontend/src/types/leads.ts`
+**File:** `frontend/src/types/leads.ts`
 
-- [ ] **Step 1:** Define types: `LeadStatus`, `LeadAssignment`, `PreRunnedPatient`, `SalesUser`
+- `LeadStatus` union, `LeadAssignment`, `PreRunnedPatient`, `SalesUser`
 
 ### Task 7 — Add lead API service
 
-**Modify file:** `frontend/src/services/api.ts`
+**File:** `frontend/src/services/api.ts`
 
-- [ ] **Step 1:** Add `leadService` object with 6 methods:
+- Add `leadService` with 6 methods:
   - `getPreRunnedPatients(): Promise<PreRunnedPatient[]>`
   - `getPreRunnedRecommendation(token: string): Promise<RecommendationResponse>`
   - `getLeads(): Promise<LeadAssignment[]>`
@@ -141,24 +104,14 @@
 
 ## Phase 4 — Frontend: Read-Only Recommendation View
 
-### Task 8 — Extract RecommendationReadOnlyView
+### Task 8 — Create ReadOnlyRecommendationView
 
-**New file:** `frontend/src/components/shared/RecommendationReadOnlyView.tsx`
+**File:** `frontend/src/components/leads/ReadOnlyRecommendationView.tsx`
 
-- [ ] **Step 1:** Define props: `data: RecommendationResponse`, `patient?: Patient`, `privacyMode?: boolean`
-
-- [ ] **Step 2:** Extract rendering-only sections from `RecommendationPanel`:
-  - Tier recommendation card (package name + tier badge)
-  - Add-ons list with priority color badges (Red/Orange/Yellow/Green)
-  - Annotated reasoning trace (if `reasoning_trace_annotated` available, else plain `reasoning_trace`)
-  - Risk summary + patient high alert section
-  - Communication script (summary headline, top findings, next actions)
-  - Confidence badges (score, tier, signal coverage, data completeness)
-  - Resolved package details
-
-- [ ] **Step 3:** Ensure no fetch/stream logic, no client-side cache, no approval/reject, no email report, no deals drawer, no stage progress. Pure display only.
-
-- [ ] **Step 4:** Match the existing visual style (navavej design tokens, card layouts, badge colors)
+- Props: `data: PreRunnedRecommendation`
+- Render-only sections extracted from `RecommendationPanel`: package/tier summary, priority add-ons, reasoning trace, risk summary, and generated timestamp
+- **Strictly no:** fetch/stream logic, client-side cache, approval/reject actions, email/report actions, deals drawer, stage progress
+- Styling aligned with existing Navavej design tokens
 
 ---
 
@@ -166,121 +119,118 @@
 
 ### Task 9 — Add Lead Assignment to executive sidebar
 
-**Modify file:** `frontend/src/components/Sidebar.tsx`
+**File:** `frontend/src/components/Sidebar.tsx`
 
-- [ ] **Step 1:** Import `UserPlus` from lucide-react
-- [ ] **Step 2:** Add to `EXECUTIVE_MENU` (between Executive Dashboard and Access Monitoring):
-  ```typescript
-  { icon: UserPlus, label: "Lead Assignment", id: "lead-assignment", href: "/lead-assignment" },
-  ```
+- Add to `EXECUTIVE_MENU`: `{ icon: Users, label: "Lead Assignment", id: "lead-assignment", href: "/lead-assignment" }`
 
-### Task 10 — Create executive Lead Assignment screen
+### Task 10 — Create executive lead assignment screen
 
-**New file:** `frontend/src/app/lead-assignment/page.tsx`
+**Files:** `frontend/src/app/lead-assignment/page.tsx`, `frontend/src/components/leads/ExecutiveLeadAssignmentScreen.tsx`
 
-- [ ] **Step 1:** Role guard: redirect non-executive users
-
-**New file:** `frontend/src/components/lead-assignment/LeadAssignmentScreen.tsx`
-
-- [ ] **Step 2:** Data loading: fetch pre-runned patients, leads, and sales users on mount
-
-- [ ] **Step 3:** Left panel (~60%) — Pre-Runned Patient Pool:
-  - Table with columns: Patient Name, Scenario, Risk Level (badge), AI Tier, Generated Date
-  - Unassigned rows: "Assign" button
-  - Already-assigned rows: "Assigned to {name}" (muted text)
-
-- [ ] **Step 4:** Right panel (~40%) — Assignment Tracker:
-  - Table with columns: Patient, Assigned To, Status (color badge), Date
-  - Status badge colors: assigned=teal, contacted=blue, scheduled=amber, converted=green, declined=red
-  - Click row → expand to show AI lead summary snippet
-
-- [ ] **Step 5:** Assignment flow:
-  - "Assign" button → inline dropdown of sales users (from `/api/sales-users`)
-  - Optional notes field
-  - "Confirm" → calls `leadService.assignLead()`
-  - On success: refresh both panels
+- Role guard: redirect non-executive users
+- Left panel: Pre-runned patient cards with scenario, risk, tier, assigned state, and executive assignment controls
+- Right panel: selected recommendation preview plus assignment tracker cards
+- Assignment flow: select patient → choose sales user → add optional notes → assign → refresh lead state
 
 ---
 
-## Phase 6 — Sales Lead Development (tab on main page)
+## Phase 6 — Sales Lead Development
 
 ### Task 11 — Add tab toggle for sales on main page
 
-**Modify file:** `frontend/src/app/page.tsx`
+**File:** `frontend/src/app/page.tsx`
 
-- [ ] **Step 1:** Add state: `const [salesTab, setSalesTab] = useState<"walkin" | "leads">("walkin");`
+- Add `salesTab` state (`"walkin" | "leads"`)
+- Render tab toggle inside `isSearchFlowRole` block only when `user.role === "sales"`
+- Conditionally render existing walk-in flow or `<SalesLeadDevelopmentPanel />`
 
-- [ ] **Step 2:** Inside the `isSearchFlowRole` block, after `NavavejBrand` in the navbar (~line 179):
-  - If `user.role === "sales"`: render tab toggle ("Walk-in" | "My Leads")
-  - If `user.role === "physician"`: no tab (physicians don't have leads)
-  - Tab styling: matches the Navavej design system (teal active, gray inactive)
+### Task 12 — Create SalesLeadDevelopmentPanel
 
-- [ ] **Step 3:** Conditionally render content:
-  - `salesTab === "walkin"`: existing patient search + recommendation flow (unchanged)
-  - `salesTab === "leads"`: render `<LeadDevelopmentView />`
+**File:** `frontend/src/components/leads/SalesLeadDevelopmentPanel.tsx`
 
-### Task 12 — Create LeadDevelopmentView component
-
-**New file:** `frontend/src/components/leads/LeadDevelopmentView.tsx`
-
-- [ ] **Step 1:** Data loading: fetch leads on mount via `leadService.getLeads()`
-
-- [ ] **Step 2:** Filter tabs: All | Assigned | Contacted | Scheduled | Converted | Declined
-
-- [ ] **Step 3:** Lead cards (expandable):
-  - **Collapsed state:** Patient name, scenario label, risk level badge, AI tier badge, status badge, assigned date
-  - **Expanded state:**
-    - AI Lead Summary — pre-generated paragraph, styled as "AI-generated" callout (sparkle icon, light teal bg)
-    - Full recommendation via `<RecommendationReadOnlyView data={...} />`
-    - Voice notes mock: Mic button with recording animation (CSS pulse). Click toggles animation state. Text input field for actual note entry. Looks like voice input for demo.
-    - Status update: dropdown + notes textarea + "Update" button
-
-- [ ] **Step 4:** Update handler: calls `leadService.updateLeadStatus()`, refreshes lead list on success
+- Fetch the logged-in sales user's assigned leads on mount
+- Show a selected-lead list plus the full `<ReadOnlyRecommendationView />` for the active lead
+- Provide status update controls and note editing backed by `leadService.updateLeadStatus()`
 
 ### Task 13 — Add second sales persona to login
 
-**Modify file:** `frontend/src/app/login/page.tsx`
+**File:** `frontend/src/app/login/page.tsx`
 
-- [ ] **Step 1:** Add persona: `{ label: "Arunee Srisawat (Sales)", sub: "usr-sales-00002", name: "Arunee Srisawat", role: "sales" }`
+- Add: `{ label: "Arunee Srisawat (Sales)", sub: "usr-sales-00002", name: "Arunee Srisawat", role: "sales" }`
 
 ---
 
-## Verification
+## Phase 7 — Tests (first-class deliverable)
 
-- [ ] **Executive flow:** Login as executive → see "Lead Assignment" in sidebar → navigate → see pre-runned patients in left panel + assignments in right panel → assign a patient to a sales user → assignment appears in tracker
-- [ ] **Sales flow:** Login as sales → see "Walk-in" / "My Leads" tab toggle → switch to "My Leads" → see assigned leads → expand a lead → see AI summary + full recommendation (no AI fetch triggered) → add note via text field → update status to "contacted" → status badge updates
-- [ ] **Two sales users:** Login as first sales → see only own leads. Login as second sales → see only own leads (different from first).
-- [ ] **Physician unchanged:** Login as physician → no tab toggle visible → same flow as before
-- [ ] **No live AI fetch for leads:** Network tab shows no calls to `/recommend` or `/recommend/stream` when viewing lead details
-- [ ] **Frontend builds without TypeScript errors**
-- [ ] **Existing test suite still passes**
+### Backend tests
+
+**File:** `scripts/tests/test_leads_api.py`
+
+- Executive can list and create assignments
+- Sales sees only own leads
+- Sales can update own lead status; cannot update another sales user's lead
+- Unauthorized role and scope combinations are rejected (HTTP 403)
+- Pre-runned recommendation endpoint returns stored payload without triggering orchestration
+- **Non-overlap assertion:** no `patient_id` or `patient_token` in `pre_runned_recommendations.json` exists in `patient_registry.json`
+
+### Frontend tests (Vitest)
+
+- Sidebar shows "Lead Assignment" for executive only
+- Sales login persona list includes second sales user
+- Sales tab toggle renders on `/` for sales, not for physician
+- `SalesLeadDevelopmentPanel` renders leads from mocked service
+- `ReadOnlyRecommendationView` renders key sections without triggering any live fetch
+
+### Verification commands
+
+Run in `POC/V6` during and after implementation:
+```
+cd frontend && npm run test
+cd frontend && npm run lint
+cd frontend && npm run build
+python3 -m pytest scripts/tests/test_leads_api.py
+```
+
+---
+
+## Phase 8 — Docs Checkpoint
+
+After code and tests pass:
+- Update `README.md`, `_discover.md`, `plan.md` if any implementation diverged from plan
+- Fill in `_development_summary.md` with final architectural decisions and file inventory
+- Fill in `_latest_test_results.md` with actual test outputs
 
 ---
 
 ## Files Changed
 
-| File | Change type |
+| File | Change |
 |---|---|
-| `assets/sales_users.json` | **New** — shared sales persona registry |
-| `assets/pre_runned_recommendations.json` | **New** — captured recommendation payloads |
-| `assets/lead_assignments_seed.json` | **New** — seed assignments for demo |
-| `backend/src/api/routes/leads.py` | **New** — lead CRUD API (7 endpoints) |
+| `assets/sales_users.json` | **New** — sales persona registry |
+| `assets/pre_runned_recommendations.json` | **New** — lead-only patients + fixture-backed payloads |
+| `assets/lead_assignments_seed.json` | **New** — seed assignments (lead-only patient IDs) |
+| `assets/patient_registry.json` | **Unchanged** — walk-in only |
+| `backend/src/api/routes/leads.py` | **New** — 7 endpoints with auth enforcement |
 | `backend/src/api/main.py` | Modified — register leads router |
+| `scripts/tests/test_leads_api.py` | **New** — behavioral + non-overlap tests |
 | `frontend/src/types/leads.ts` | **New** — TypeScript types |
-| `frontend/src/services/api.ts` | Modified — `leadService` (6 methods) |
-| `frontend/src/components/shared/RecommendationReadOnlyView.tsx` | **New** — pure display component |
+| `frontend/src/services/api.ts` | Modified — `leadService` |
+| `frontend/src/components/leads/ReadOnlyRecommendationView.tsx` | **New** — pure display component |
+| `frontend/src/components/leads/ExecutiveLeadAssignmentScreen.tsx` | **New** — executive assignment UI |
+| `frontend/src/components/leads/SalesLeadDevelopmentPanel.tsx` | **New** — sales lead view |
 | `frontend/src/app/lead-assignment/page.tsx` | **New** — executive route |
-| `frontend/src/components/lead-assignment/LeadAssignmentScreen.tsx` | **New** — executive assignment UI |
-| `frontend/src/components/leads/LeadDevelopmentView.tsx` | **New** — sales lead view |
 | `frontend/src/app/page.tsx` | Modified — tab toggle for sales |
-| `frontend/src/components/Sidebar.tsx` | Modified — "Lead Assignment" in executive menu |
+| `frontend/src/components/Sidebar.tsx` | Modified — Lead Assignment in executive menu |
 | `frontend/src/app/login/page.tsx` | Modified — second sales persona |
+
+---
 
 ## Out of Scope
 
-- Reach-out patients appearing in the normal Patient Search (they are a separate pool)
-- Converting a reach-out lead into a walk-in flow (re-running AI)
-- Executive access to the Config screen (separate RBAC question, flagged in 13.2)
+- Reach-out patients in normal Patient Search (separate pool — by design)
+- Reusing walk-in patient identities in the lead lane (explicitly rejected)
+- Converting a reach-out lead to a walk-in flow (re-running AI)
+- Free-form model-name editing / config screen changes (separate follow-up)
 - Persistent lead storage (in-memory, resets on restart — POC appropriate)
-- Real voice-to-text (mock animation only, text input for actual notes)
-- Email/notification when a lead is assigned
+- Real voice-to-text (mock animation + text input only)
+- Email/notification on lead assignment

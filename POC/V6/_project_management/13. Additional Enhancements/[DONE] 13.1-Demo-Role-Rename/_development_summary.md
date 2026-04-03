@@ -1,13 +1,15 @@
 # Development Summary — Demo Role Rename & Navigation Restructure
 
-**Date:** 2026-03-31
-**Status:** ✅ Complete — 72 frontend tests passing, zero TypeScript errors in production code
+**Date:** 2026-04-03
+**Status:** ✅ Complete — implementation plus post-review cleanup verified
 
 ---
 
 ## What Was Implemented
 
 All 14 tasks from `plan.md` completed across two phases.
+
+On **2026-04-03**, a follow-up review also uncovered stale rename leftovers in tests, fixture IDs, comments, and one dashboard label/data key. Those were fixed as part of the same workstream so the recorded state now matches the actual repo.
 
 ---
 
@@ -80,6 +82,35 @@ All 14 tasks from `plan.md` completed across two phases.
 
 ---
 
+## Post-Review Cleanup — 2026-04-03
+
+### Backend and script test alignment
+- Updated stale role strings in:
+  - `backend/tests/test_master_add_ons.py`
+  - `scripts/tests/test_access_monitoring_contract.py`
+  - `scripts/tests/test_security_rbac_contract.py`
+  - `scripts/tests/test_api_contract_routes.py`
+  - `scripts/tests/test_gap9_verification_pack.py`
+- Fixed helper defaults so recommendation-contract tests now authenticate as `sysadmin` instead of the removed `admin` role.
+- Updated one lingering audit-context assertion from `admin` to `sysadmin`.
+
+### Fixture cleanup
+- Updated stale fixture user IDs in `assets/monitoring.json`:
+  - `usr-nurse-*` → `usr-sales-*`
+  - `usr-admin-*` → `usr-sysadmin-*`
+  - `usr-dpo-*` → `usr-executive-*`
+
+### UI text and naming cleanup
+- Updated stale comments in:
+  - `frontend/src/app/page.tsx`
+  - `frontend/src/app/RoleAwareMain.tsx`
+- Updated user-facing dashboard copy:
+  - `"Why nurses removed AI suggestions"` → `"Why sales removed AI suggestions"`
+- Renamed internal dashboard data key:
+  - `nurse_adoption_rates` → `sales_adoption_rates`
+
+---
+
 ## Deviations from Plan
 
 | Deviation | Reason |
@@ -89,6 +120,7 @@ All 14 tasks from `plan.md` completed across two phases.
 | Trend-timeline guard redirects ALL roles | No role has Trend & Timeline in sidebar; unreachable by design |
 | Backend restart required after Phase 1 | Pydantic Settings loads `.env` at module import time |
 | Added `next/navigation` mock to `page.test.tsx` + `ReportPage.test.tsx` | `useRouter` added to both components in Phase 2 |
+| Post-review cleanup updated script tests and fixture IDs | Verification report surfaced stale role strings outside the original core implementation path |
 
 ---
 
@@ -126,3 +158,15 @@ All 14 tasks from `plan.md` completed across two phases.
 - `frontend/src/components/report/ReportPage.tsx`
 - `frontend/src/app/page.test.tsx`
 - `frontend/src/components/report/ReportPage.test.tsx`
+
+### Modified Files — Post-Review Cleanup
+- `backend/tests/test_master_add_ons.py`
+- `scripts/tests/test_access_monitoring_contract.py`
+- `scripts/tests/test_security_rbac_contract.py`
+- `scripts/tests/test_api_contract_routes.py`
+- `scripts/tests/test_gap9_verification_pack.py`
+- `assets/monitoring.json`
+- `frontend/src/app/page.tsx`
+- `frontend/src/app/RoleAwareMain.tsx`
+- `frontend/src/components/management/ManagementDashboard.tsx`
+- `frontend/src/data/manage_stats.json`

@@ -1,0 +1,36 @@
+[
+  {
+    "assignment_id": "lead_001",
+    "patient_id": "id_24d93799",
+    "patient_token": "tok_hmac_24d93799",
+    "patient_name": "Siriporn Chantarak (Senior Cancer Screening Gap)",
+    "scenario_label": "Senior Cancer Screening Gap",
+    "overall_risk_level": "High",
+    "ai_recommended_tier": "Premium",
+    "generated_at": "2026-04-03T09:05:00Z",
+    "ai_lead_summary": "High-priority reach-out candidate with multiple overdue age-appropriate cancer screenings and a strong prevention narrative. Sales should position this as a convenience-led comprehensive checkup that closes important screening gaps in a single coordinated visit.",
+    "assigned_to_user_id": "usr-sales-00001",
+    "assigned_to_name": "Somying Srisuk",
+    "assigned_by_user_id": "usr-executive-00001",
+    "assigned_at": "2026-04-03T10:00:00Z",
+    "status": "assigned",
+    "notes": "Position this lead around convenience and same-visit screening completion."
+  },
+  {
+    "assignment_id": "lead_002",
+    "patient_id": "id_7f0c9a21",
+    "patient_token": "tok_hmac_7f0c9a21",
+    "patient_name": "Preecha Nimitr (Post-COVID Cardio Follow-up)",
+    "scenario_label": "Post-COVID Cardio Follow-up",
+    "overall_risk_level": "Medium",
+    "ai_recommended_tier": "Advanced",
+    "generated_at": "2026-04-03T09:18:00Z",
+    "ai_lead_summary": "Medium-priority outreach lead with a persuasive story around recovery reassurance and lingering cardiopulmonary symptoms. Sales should frame the package as a structured post-illness checkup that reduces uncertainty and accelerates physician review if symptoms persist.",
+    "assigned_to_user_id": "usr-sales-00002",
+    "assigned_to_name": "Arunee Srisawat",
+    "assigned_by_user_id": "usr-executive-00001",
+    "assigned_at": "2026-04-03T10:10:00Z",
+    "status": "contacted",
+    "notes": "Patient is interested in a recovery-focused package and asked for a callback tomorrow."
+  }
+]

@@ -9,37 +9,33 @@ import {
     HelpCircle,
     Activity,
     Settings,
+    Users,
     LogOut
 } from "lucide-react";
 import { cn } from "@/shared/utils";
 import { useAuth } from "@/shared/auth-context";
 
-/** Menu items for the Executive role. */
 const EXECUTIVE_MENU = [
-    { icon: Activity,    label: "Executive Dashboard", id: "management",    href: "/management" },
-    { icon: ShieldCheck, label: "Access Monitoring",   id: "monitoring",    href: "/access-monitoring" },
+    { icon: Activity, label: "Executive Dashboard", id: "management", href: "/management" },
+    { icon: Users, label: "Lead Assignment", id: "lead-assignment", href: "/lead-assignment" },
+    { icon: ShieldCheck, label: "Access Monitoring", id: "monitoring", href: "/access-monitoring" },
 ];
 
-/** Menu items for the SysAdmin role. */
 const SYSADMIN_MENU = [
-    { icon: ShieldCheck, label: "Access Monitoring", id: "monitoring",     href: "/access-monitoring" },
-    { icon: Settings,    label: "Configuration",      id: "configuration",  href: "/configuration" },
+    { icon: ShieldCheck, label: "Access Monitoring", id: "monitoring", href: "/access-monitoring" },
+    { icon: Settings, label: "Configuration", id: "configuration", href: "/configuration" },
 ];
 
-/** Roles that use the single-entry-point flow (no sidebar). */
 const SIDEBAR_HIDDEN_ROLES = new Set(["physician", "sales"]);
 
 export function Sidebar() {
     const pathname = usePathname();
     const { user, logout } = useAuth();
 
-    // Physician and sales use the single-entry-point search flow — no sidebar needed.
-    // The /report page is standalone and also renders without sidebar for all roles.
-    if (pathname === '/report' || (user && SIDEBAR_HIDDEN_ROLES.has(user.role))) {
+    if (pathname === "/report" || (user && SIDEBAR_HIDDEN_ROLES.has(user.role))) {
         return null;
     }
 
-    // While auth is loading (user === null on login page), also hide sidebar.
     if (!user) {
         return null;
     }

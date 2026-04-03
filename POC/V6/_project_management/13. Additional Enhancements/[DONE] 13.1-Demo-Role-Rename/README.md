@@ -1,8 +1,8 @@
 # README — Demo Role Rename & Navigation Restructure
 
 **Workstream:** 13.1
-**Date:** 2026-03-31
-**Status:** 🔲 Pending
+**Date:** 2026-04-03
+**Status:** ✅ Complete
 **Scope:** Rename demo personas (Nurse→Sales, DPO→Executive, Admin→SysAdmin) across all layers, split the Access Monitoring screen into monitoring-only + new Configuration page, and make each role's sidebar tightly scoped to what they actually need to see
 
 ---
@@ -49,6 +49,20 @@ Master sequence: [`plan.md`](./plan.md)
 - [`plan.md`](./plan.md) — implementation plan with tracked tasks
 - [`_development_summary.md`](./_development_summary.md) — filled after implementation
 - [`_latest_test_results.md`](./_latest_test_results.md) — filled after implementation
+
+---
+
+## Post-Review Cleanup
+
+A follow-up verification sweep on **2026-04-03** found and fixed a second wave of stale role-rename leftovers outside the main production-path implementation:
+
+- backend/script test helpers still defaulting to `admin`
+- fixture user IDs in `assets/monitoring.json` still using `usr-admin-*`, `usr-dpo-*`, and `usr-nurse-*`
+- stale role comments in `page.tsx` and `RoleAwareMain.tsx`
+- a remaining user-facing dashboard label mentioning `nurses`
+- the internal dashboard data key `nurse_adoption_rates`
+
+The workstream is now considered complete with those cleanup items folded in.
 
 ---
 

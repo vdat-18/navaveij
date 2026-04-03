@@ -95,10 +95,13 @@ def _llm_output_trace(function_name: str, result: Any) -> Any:
     return _json_safe_value(result)
 
 
-def _risk_profile_cache_key(masked_context: dict) -> str:
+def _risk_profile_cache_key(masked_context: dict, active_client: str, model_id: str, template_version: str) -> str:
     payload = {
         "signals": masked_context.get("get_clinical_signals"),
         "trends": masked_context.get("get_biomarker_trends"),
+        "active_client": active_client,
+        "model_id": model_id,
+        "template_version": template_version,
     }
     return "risk_profile:" + hashlib.sha256(
         json.dumps(payload, sort_keys=True).encode()
@@ -257,7 +260,12 @@ class ClinicalReasoningWorkflow(BaseWorkflow[WorkflowContext]):
         try:
             if on_stage: await on_stage(3, "Matching profile and composing recommendation")
             _ai_start = time.monotonic()
-            _cache_key = _risk_profile_cache_key(context.masked_context)
+            _cache_key = _risk_profile_cache_key(
+                context.masked_context,
+                active_client=resolved_client.client_name,
+                model_id=resolved_client.model_id,
+                template_version=selector.version,
+            )
             _found, risk_profile = cache_service.get(_cache_key)
             if not _found:
                 analyze_system_prompt = selector.get("analyze_clinical_risks")

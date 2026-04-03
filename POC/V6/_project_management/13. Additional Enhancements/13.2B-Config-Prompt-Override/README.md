@@ -2,7 +2,7 @@
 
 **Workstream:** 13.2B
 **Date:** 2026-04-02
-**Status:** Pending
+**Status:** Implemented
 **Scope:** Fix the risk-profile cache key, add runtime prompt overrides with auto-version stamping, and transform the inspect modal into an editable view with save/reset capabilities
 
 ---
@@ -21,6 +21,13 @@ This workstream also fixes a pre-existing bug: the workflow-level risk-profile c
 2. **Prompt overrides:** In-memory override store in `prompt_selector.py`. Auto-stamps version as `{base}-v1+runtime-{timestamp}` on edit. `get_prompt_selector()` already creates fresh instances per call — overrides take effect immediately.
 3. **API:** PATCH endpoint to update templates + POST endpoint to reset to YAML defaults
 4. **Frontend:** Transform read-only inspect modal to an inspect/edit modal with textarea inputs and save/reset actions
+
+## Implementation Notes
+
+- Runtime prompt overrides are in-memory only and are layered by prompt registry key, so they take effect immediately and reset on server restart.
+- Explicit prompt version edits are supported; otherwise prompt text edits auto-stamp a `+runtime-<timestamp>` suffix on top of the YAML base version.
+- The Config screen still treats model IDs as read-only, matching the scope boundary agreed for 13.2B.
+- The prompt modal now preserves raw whitespace in both view and edit mode; it no longer trims prompt bodies before rendering.
 
 ---
 

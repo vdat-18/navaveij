@@ -1,13 +1,22 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { ClientPromptsResponse, SystemConfig } from "@/services/api";
 import { clinicalService } from "@/services/api";
 
 interface AIConfigsTabProps {
   config: SystemConfig;
+  role?: "sysadmin" | "executive";
   onActiveClientChange: () => void;
+}
+
+type ValidationState = "pending" | "running" | "ok" | "error" | "service-unavailable";
+
+interface ClientValidation {
+  status: ValidationState;
+  latency_ms?: number;
+  error?: string;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -23,7 +32,7 @@ const PROMPT_KEY_LABELS: Record<string, string> = {
   annotate_reasoning_lines: "Annotate Reasoning Lines",
 };
 
-export function AIConfigsTab({ config, onActiveClientChange }: AIConfigsTabProps) {
+export function AIConfigsTab({ config, role = "sysadmin", onActiveClientChange }: AIConfigsTabProps) {
   const registryClients = config.all_clients.filter(
     (client) => client.name !== "ActiveModel" && client.status !== "fallback-chain"
   );
@@ -31,6 +40,36 @@ export function AIConfigsTab({ config, onActiveClientChange }: AIConfigsTabProps
   const [settingActive, setSettingActive] = useState<string | null>(null);
   const [inspectData, setInspectData] = useState<ClientPromptsResponse | null>(null);
   const [loadingInspect, setLoadingInspect] = useState<string | null>(null);
+  const [serviceAvailable, setServiceAvailable] = useState<boolean | null>(null);
+  const [clientValidation, setClientValidation] = useState<Record<string, ClientValidation>>({});
+
+  const standbyClients = registryClients.filter((c) => c.name !== config.active_client);
+
+  async function runValidation(clientName: string) {
+    setClientValidation((prev) => ({ ...prev, [clientName]: { status: "running" } }));
+    try {
+      const result = await clinicalService.validateClient(clientName, role);
+      setServiceAvailable(true);
+      setClientValidation((prev) => ({
+        ...prev,
+        [clientName]: result.valid
+          ? { status: "ok", latency_ms: result.latency_ms ?? undefined }
+          : { status: "error", error: result.error ?? "Validation failed" },
+      }));
+    } catch {
+      setServiceAvailable(false);
+      setClientValidation((prev) => ({ ...prev, [clientName]: { status: "service-unavailable" } }));
+    }
+  }
+
+  useEffect(() => {
+    if (standbyClients.length === 0) return;
+    const initial: Record<string, ClientValidation> = {};
+    for (const c of standbyClients) initial[c.name] = { status: "pending" };
+    setClientValidation(initial);
+    Promise.allSettled(standbyClients.map((c) => runValidation(c.name)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.active_client]);
 
   async function handleSetActive(clientName: string) {
     setSettingActive(clientName);
@@ -55,6 +94,18 @@ export function AIConfigsTab({ config, onActiveClientChange }: AIConfigsTabProps
   return (
     <div className="space-y-5">
 
+      {/* Validation check unavailable banner */}
+      {serviceAvailable === false && (
+        <div className="navavej-card bg-navavej-red/5 p-4 border border-navavej-red/30 rounded-lg">
+          <p className="text-[10px] font-black text-navavej-red uppercase tracking-widest">Validation Check Unavailable</p>
+          <p className="text-xs font-medium text-navavej-red/80 mt-1">
+            Health check service unavailable. Backend may be outdated or needs restart.
+            Switching still requires a successful validation check before{" "}
+            <span className="font-mono">Set Active</span> can be used.
+          </p>
+        </div>
+      )}
+
       {/* Active AI Model */}
       <div className="navavej-card bg-white border border-navavej-border rounded-lg p-5">
         <p className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3">Active AI Model</p>
@@ -67,13 +118,14 @@ export function AIConfigsTab({ config, onActiveClientChange }: AIConfigsTabProps
           </span>
         </div>
         <p className="mt-2 text-[10px] font-medium text-navavej-gray-med">
-          Set via <span className="font-mono">AI_ACTIVE_CLIENT</span> in <span className="font-mono">.env</span> — no code deployment required to switch models.
-          Valid values: <span className="font-mono">GeminiClient | OpenAIClient | AnthropicClient | OpenRouterClient | LocalHostedClient</span>
+          <span className="font-mono">AI_ACTIVE_CLIENT</span> in <span className="font-mono">.env</span> sets the initial active client on boot. All configured clients are initialized at startup, and switching active inference here still requires a successful validation check.{" "}
+          Valid values:{" "}
+          <span className="font-mono">GeminiClient | OpenAIClient | AnthropicClient | OpenRouterClient | LocalHostedClient</span>
         </p>
       </div>
 
       {/* BAML Client Registry */}
-      <div className="navavej-card bg-white border border-navavej-border rounded-lg p-5">
+      <div className="navavej-card bg-white border border-navavej-teal/30 rounded-lg p-5">
         <p className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-3">BAML Client Registry</p>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
@@ -91,6 +143,13 @@ export function AIConfigsTab({ config, onActiveClientChange }: AIConfigsTabProps
                 const isActive = client.name === config.active_client;
                 const isSetting = settingActive === client.name;
                 const isInspecting = loadingInspect === client.name;
+                const validation = clientValidation[client.name];
+                const isRunning = validation?.status === "running";
+                const canSetActive = validation?.status === "ok";
+                const showError =
+                  !isActive &&
+                  (validation?.status === "service-unavailable" || validation?.status === "error");
+
                 return (
                   <tr key={client.name} className={isActive ? "bg-navavej-teal/5" : ""}>
                     <td className="py-2.5 pr-4 font-mono font-bold text-navavej-gray-dark">
@@ -105,29 +164,49 @@ export function AIConfigsTab({ config, onActiveClientChange }: AIConfigsTabProps
                       </span>
                     </td>
                     <td className="py-2.5">
-                      <div className="flex items-center gap-2">
-                        {/* Set Active button */}
-                        {isActive ? (
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider text-navavej-teal bg-navavej-teal/10 border border-navavej-teal/30 cursor-default">
-                            Active
-                          </span>
-                        ) : (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          {/* Retry button (standby only) */}
+                          {!isActive && (
+                            <button
+                              onClick={() => runValidation(client.name)}
+                              disabled={isRunning}
+                              className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-navavej-red text-navavej-red hover:bg-navavej-red hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              {isRunning ? "Checking…" : "Retry"}
+                            </button>
+                          )}
+                          {/* Set Active / Active badge */}
+                          {isActive ? (
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider text-navavej-teal bg-navavej-teal/10 border border-navavej-teal/30 cursor-default">
+                              Active
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleSetActive(client.name)}
+                              disabled={isSetting || settingActive !== null || !canSetActive}
+                              className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-navavej-teal text-navavej-teal hover:bg-navavej-teal hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              {isSetting ? "Setting…" : "Set Active"}
+                            </button>
+                          )}
+                          {/* Inspect Prompt button */}
                           <button
-                            onClick={() => handleSetActive(client.name)}
-                            disabled={isSetting || settingActive !== null}
-                            className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-navavej-teal text-navavej-teal hover:bg-navavej-teal hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            onClick={() => handleInspect(client.name)}
+                            disabled={isInspecting}
+                            className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-navavej-border text-navavej-gray-med hover:border-navavej-gray-dark hover:text-navavej-gray-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                           >
-                            {isSetting ? "Setting…" : "Set Active"}
+                            {isInspecting ? "Loading…" : "Inspect"}
                           </button>
+                        </div>
+                        {/* Per-client validation error */}
+                        {showError && (
+                          <p className="text-[10px] font-bold text-navavej-red">
+                            {validation?.status === "service-unavailable"
+                              ? "Health check service unavailable. Backend may be outdated or needs restart."
+                              : validation?.error}
+                          </p>
                         )}
-                        {/* Inspect Prompt button */}
-                        <button
-                          onClick={() => handleInspect(client.name)}
-                          disabled={isInspecting}
-                          className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-navavej-border text-navavej-gray-med hover:border-navavej-gray-dark hover:text-navavej-gray-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          {isInspecting ? "Loading…" : "Inspect"}
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -136,6 +215,9 @@ export function AIConfigsTab({ config, onActiveClientChange }: AIConfigsTabProps
             </tbody>
           </table>
         </div>
+        <p className="mt-4 text-[10px] font-medium text-navavej-gray-med">
+          Models are configured per client in <span className="font-mono">.env</span>. All configured clients initialize at startup; switching active inference still requires a successful validation check.
+        </p>
       </div>
 
       {/* Inspect Prompt Modal */}

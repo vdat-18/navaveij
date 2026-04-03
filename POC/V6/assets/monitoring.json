@@ -22,7 +22,7 @@
   "anomaly_alerts": [
     {
       "alert_id": "anm-20260314-001",
-      "user_id": "usr-nurse-74920183",
+      "user_id": "usr-sales-74920183",
       "user_display_name": "Nurse Supawan K.",
       "department": "Health Checkup Center",
       "alert_type": "high_volume",
@@ -59,7 +59,7 @@
         "affected_patient_tokens_masked": ["tok_hmac_291****08"]
       },
       "status": "Acknowledged",
-      "acknowledged_by": "usr-admin-10029374",
+      "acknowledged_by": "usr-sysadmin-10029374",
       "acknowledged_at": "2026-03-14T01:05:00Z",
       "resolved_by": null,
       "resolved_at": null,
@@ -270,9 +270,9 @@
       "target_label": "Glucose [Mass/volume] in Serum or Plasma --Fasting",
       "mapping_type": "exact",
       "status": "active",
-      "validated_by_user_id": "usr-admin-00001",
+      "validated_by_user_id": "usr-sysadmin-00001",
       "validated_at": "2026-03-14T09:30:00Z",
-      "last_updated_by_user_id": "usr-admin-00001",
+      "last_updated_by_user_id": "usr-sysadmin-00001",
       "last_updated_at": "2026-03-14T09:30:00Z",
       "notes": "Verified with laboratory terminology committee"
     },
@@ -286,9 +286,9 @@
       "target_label": "Hemoglobin A1c/Hemoglobin.total in Blood",
       "mapping_type": "exact",
       "status": "active",
-      "validated_by_user_id": "usr-admin-00001",
+      "validated_by_user_id": "usr-sysadmin-00001",
       "validated_at": "2026-03-14T09:35:00Z",
-      "last_updated_by_user_id": "usr-admin-00001",
+      "last_updated_by_user_id": "usr-sysadmin-00001",
       "last_updated_at": "2026-03-14T09:35:00Z",
       "notes": "Core diabetes monitoring code"
     },
@@ -302,9 +302,9 @@
       "target_label": "Type 2 diabetes mellitus without complications",
       "mapping_type": "exact",
       "status": "active",
-      "validated_by_user_id": "usr-dpo-00001",
+      "validated_by_user_id": "usr-executive-00001",
       "validated_at": "2026-03-14T10:10:00Z",
-      "last_updated_by_user_id": "usr-dpo-00001",
+      "last_updated_by_user_id": "usr-executive-00001",
       "last_updated_at": "2026-03-14T10:10:00Z",
       "notes": "Diagnosis coding reference for chronic registry"
     },
@@ -318,9 +318,9 @@
       "target_label": "Essential hypertension (disorder)",
       "mapping_type": "narrow",
       "status": "active",
-      "validated_by_user_id": "usr-dpo-00001",
+      "validated_by_user_id": "usr-executive-00001",
       "validated_at": "2026-03-14T10:20:00Z",
-      "last_updated_by_user_id": "usr-admin-00001",
+      "last_updated_by_user_id": "usr-sysadmin-00001",
       "last_updated_at": "2026-03-14T10:20:00Z",
       "notes": "Preferred SNOMED term for interoperability exchange"
     },
@@ -334,9 +334,9 @@
       "target_label": "Diagnostic colonoscopy",
       "mapping_type": "exact",
       "status": "active",
-      "validated_by_user_id": "usr-admin-00001",
+      "validated_by_user_id": "usr-sysadmin-00001",
       "validated_at": "2026-03-14T10:45:00Z",
-      "last_updated_by_user_id": "usr-admin-00001",
+      "last_updated_by_user_id": "usr-sysadmin-00001",
       "last_updated_at": "2026-03-14T10:45:00Z",
       "notes": "Procedure mapping for screening workflow"
     }

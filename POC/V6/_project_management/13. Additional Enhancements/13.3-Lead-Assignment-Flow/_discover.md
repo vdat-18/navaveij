@@ -1,9 +1,9 @@
 # Discovery — Lead Assignment Flow
 
-**Date:** 2026-04-02
+**Date:** 2026-04-02 (updated 2026-04-03)
 **Investigator:** Claude Code
 **Trigger:** Client change request — executive assigns pre-runned patients to sales as leads
-**Resolution:** Pending implementation
+**Resolution:** Implemented with a corrected lead-only patient pool
 
 ---
 
@@ -74,13 +74,13 @@ Full audit of the patient flow, role-based navigation, recommendation rendering,
 
 | Finding |
 |---|
-| **None.** Searched for `lead`, `assignment`, `assign`, `reach-out` across entire codebase. Zero results. The system is fully stateless and session-based — no patient-to-user mapping exists. |
+| **At initial discovery there was no lead infrastructure.** The final implementation adds dedicated lead fixtures, a `leads.py` backend route, executive/sales lead UI, and lead-specific tests. |
 
 ---
 
 ## Key Findings
 
-1. **No existing lead infrastructure.** This is a net-new feature — new data model, new backend endpoints, new frontend screens, new fixture data.
+1. **At the time of initial discovery, no lead infrastructure existed.** This workstream therefore required net-new fixtures, backend endpoints, frontend screens, and tests.
 
 2. **Sales stays no-sidebar.** The plan uses a tab toggle ("Walk-in" / "My Leads") on the existing main page rather than adding a sidebar. This avoids changes to `Sidebar.tsx` and `RoleAwareMain.tsx` for sales, and preserves the current walk-in UX.
 
@@ -103,3 +103,13 @@ Full audit of the patient flow, role-based navigation, recommendation rendering,
 3. Extract `RecommendationReadOnlyView` from `RecommendationPanel` rendering logic
 4. Build executive Lead Assignment screen + sidebar item
 5. Add sales tab toggle on main page + `LeadDevelopmentView` component
+
+---
+
+## Post-Implementation Finding (2026-04-03)
+
+The initial fixture implementation incorrectly reused the 3 walk-in patient identities (`id_33cc44dd`, `id_1a2b3c4d`, `id_d4f2b7e6`) in `pre_runned_recommendations.json` and `lead_assignments_seed.json`. This was identified as a structural error: the two lanes must have entirely separate patient pools so that walk-in search never surfaces lead patients and the lead flow never references walk-in profiles.
+
+**Correction applied:** `pre_runned_recommendations.json` was replaced with a lead-only patient set — new `patient_id`, `patient_token`, `patient_name`, and profile fields with no overlap against `patient_registry.json`. `lead_assignments_seed.json` was updated to reference only those new lead patient IDs.
+
+**Regression guard:** A non-overlap assertion was added to `scripts/tests/test_leads_api.py` that explicitly verifies no `patient_id` or `patient_token` in the lead fixture exists in the walk-in registry. This assertion runs as part of the standard backend test suite.

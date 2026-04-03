@@ -81,6 +81,7 @@ export function ConfigurationScreen({ role }: ConfigurationScreenProps) {
           {tab === "ai_config"  && sysConfig && (
             <AIConfigsTab
               config={sysConfig}
+              role={role}
               onActiveClientChange={() => clinicalService.getSystemConfig(role).then(setSysConfig)}
             />
           )}

@@ -85,7 +85,7 @@ export function ManagementDashboard() {
     overview_metrics: metrics,
     weekly_performance: weekly,
     rejection_reasons: rejections,
-    nurse_adoption_rates: nurses,
+    sales_adoption_rates: nurses,
     conversion_funnel: funnel,
   } = dashboardData as any;
 
@@ -236,7 +236,7 @@ export function ManagementDashboard() {
           <motion.div variants={itemAnim} className="lg:col-span-4 navavej-card bg-white p-6 flex flex-col">
              <div className="mb-6">
                 <h2 className="text-base font-black text-[#333333] tracking-tight uppercase italic">Rejection Reasons</h2>
-                <p className="text-xs text-slate-400 font-bold tracking-[0.1em] uppercase mt-1">Why nurses removed AI suggestions</p>
+                <p className="text-xs text-slate-400 font-bold tracking-[0.1em] uppercase mt-1">Why sales removed AI suggestions</p>
              </div>
              <div className="flex-1 space-y-5">
                 {rejections.data.map((item: any, idx: number) => (

@@ -10,7 +10,7 @@ from src.api.routes import contracts
 client = TestClient(app)
 
 
-def _auth_headers(role: str = "admin", scopes: str = "monitoring:read") -> dict[str, str]:
+def _auth_headers(role: str = "sysadmin", scopes: str = "monitoring:read") -> dict[str, str]:
     return {
         "X-Auth-User-Id": "usr-test-0001",
         "X-Auth-Role": role,
@@ -32,9 +32,9 @@ def _hash_from_entry(entry: dict) -> str:
     return hashlib.sha256(payload_json.encode("utf-8")).hexdigest()
 
 
-def test_screen3_endpoints_allow_admin_and_dpo_roles():
-    admin_headers = _auth_headers(role="admin")
-    dpo_headers = _auth_headers(role="dpo")
+def test_screen3_endpoints_allow_sysadmin_and_executive_roles():
+    admin_headers = _auth_headers(role="sysadmin")
+    dpo_headers = _auth_headers(role="executive")
     for endpoint in [
         "/api/monitoring-snapshot",
         "/api/anomaly-alerts",
@@ -48,7 +48,7 @@ def test_screen3_endpoints_allow_admin_and_dpo_roles():
 
 
 def test_screen3_endpoints_reject_non_admin_roles():
-    headers = _auth_headers(role="nurse")
+    headers = _auth_headers(role="sales")
     response = client.get("/api/monitoring-snapshot", headers=headers)
     assert response.status_code == 403
 
@@ -59,12 +59,12 @@ def test_screen3_endpoints_reject_missing_auth_context():
 
 
 def test_screen3_endpoints_reject_missing_scope():
-    response = client.get("/api/monitoring-snapshot", headers=_auth_headers(role="admin", scopes="recommendation:read"))
+    response = client.get("/api/monitoring-snapshot", headers=_auth_headers(role="sysadmin", scopes="recommendation:read"))
     assert response.status_code == 403
 
 
 def test_audit_entry_hash_matches_recomputed_value():
-    response = client.get("/api/audit-logs", headers=_auth_headers(role="admin"))
+    response = client.get("/api/audit-logs", headers=_auth_headers(role="sysadmin"))
     assert response.status_code == 200
     payload = response.json()
     assert "entries" in payload
@@ -75,7 +75,7 @@ def test_audit_entry_hash_matches_recomputed_value():
 
 
 def test_admin_alias_routes_exist():
-    headers = _auth_headers(role="admin")
+    headers = _auth_headers(role="sysadmin")
     assert client.get("/api/admin/monitoring/snapshot", headers=headers).status_code == 200
     assert client.get("/api/admin/audit-logs/search", headers=headers).status_code == 200
     assert client.get("/api/admin/anomaly-alerts", headers=headers).status_code == 200
@@ -85,7 +85,7 @@ def test_admin_alias_routes_exist():
 
 
 def test_mapping_codes_include_core_terminology_systems():
-    response = client.get("/api/mapping-codes", headers=_auth_headers(role="admin"))
+    response = client.get("/api/mapping-codes", headers=_auth_headers(role="sysadmin"))
     assert response.status_code == 200
     payload = response.json()
     systems = {entry["target_system"] for entry in payload["mappings"]}
@@ -99,7 +99,7 @@ def test_mapping_codes_include_core_terminology_systems():
 def test_audit_logs_preserve_llm_request_runtime_identity(monkeypatch):
     raw_entry = {
         "timestamp": "2026-03-30T08:00:00+00:00",
-        "who": {"user_id": "usr-test-0001", "user_role": "admin"},
+        "who": {"user_id": "usr-test-0001", "user_role": "sysadmin"},
         "where": {
             "service_id": "recommendation-engine-api",
             "client_ip": "sha256_client_ip",
@@ -135,7 +135,7 @@ def test_audit_logs_preserve_llm_request_runtime_identity(monkeypatch):
     }
     monkeypatch.setattr(contracts, "_read_audit_logs", lambda: [raw_entry])
 
-    response = client.get("/api/audit-logs", headers=_auth_headers(role="admin"))
+    response = client.get("/api/audit-logs", headers=_auth_headers(role="sysadmin"))
 
     assert response.status_code == 200
     payload = response.json()
@@ -157,7 +157,7 @@ def test_audit_logs_preserve_llm_request_runtime_identity(monkeypatch):
 
 
 def test_system_config_contract_exposes_only_resolved_client_registry():
-    response = client.get("/api/system-config", headers=_auth_headers(role="admin"))
+    response = client.get("/api/system-config", headers=_auth_headers(role="sysadmin"))
 
     assert response.status_code == 200
     payload = response.json()

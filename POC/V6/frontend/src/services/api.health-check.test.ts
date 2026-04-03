@@ -69,4 +69,24 @@ describe("clinicalService.healthCheck", () => {
     );
     expect(response.status).toBe("ok");
   });
+
+  it("surfaces a specific message when the health-check route is unavailable", async () => {
+    const payload: MockTokenPayload = {
+      sub: "usr-sysadmin-00001",
+      name: "System Admin",
+      role: "sysadmin",
+      fhir_scopes: [],
+      iat: 1,
+      exp: 9999999999,
+      iss: "test",
+    };
+    sessionStorage.setItem(AUTH_STORAGE_KEY, encodeToken(payload));
+    postMock.mockRejectedValue(new Error("Not Found"));
+
+    const { clinicalService } = await import("./api");
+
+    await expect(clinicalService.healthCheck("OpenAIClient")).rejects.toThrow(
+      "Health check service unavailable. Backend may be outdated or needs restart."
+    );
+  });
 });

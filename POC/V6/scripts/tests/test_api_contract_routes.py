@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from unittest.mock import ANY, AsyncMock
+from unittest.mock import ANY, AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -10,7 +10,7 @@ from src.api.routes import clinical, contracts
 client = TestClient(app)
 
 
-def _auth_headers(role: str = "admin", scopes: str = "recommendation:read,monitoring:read") -> dict[str, str]:
+def _auth_headers(role: str = "sysadmin", scopes: str = "recommendation:read,monitoring:read") -> dict[str, str]:
     return {
         "X-Auth-User-Id": "usr-test-0001",
         "X-Auth-Role": role,
@@ -534,7 +534,7 @@ def test_screening_gaps_route_exists():
 
 
 def test_monitoring_snapshot_contract_route_exists():
-    response = client.get("/api/monitoring-snapshot", headers=_auth_headers(role="admin", scopes="monitoring:read"))
+    response = client.get("/api/monitoring-snapshot", headers=_auth_headers(role="sysadmin", scopes="monitoring:read"))
 
     assert response.status_code == 200
     payload = response.json()
@@ -551,7 +551,7 @@ def test_audit_logs_contract_route_filters():
     response = client.get(
         "/api/audit-logs",
         params={"action_type": "View"},
-        headers=_auth_headers(role="admin", scopes="monitoring:read"),
+        headers=_auth_headers(role="sysadmin", scopes="monitoring:read"),
     )
 
     assert response.status_code == 200
@@ -563,7 +563,7 @@ def test_audit_logs_contract_route_filters():
 
 
 def test_access_monitoring_support_routes_exist():
-    monitoring_headers = _auth_headers(role="admin", scopes="monitoring:read")
+    monitoring_headers = _auth_headers(role="sysadmin", scopes="monitoring:read")
     assert client.get("/api/anomaly-alerts", headers=monitoring_headers).status_code == 200
     assert client.get("/api/rbac", headers=monitoring_headers).status_code == 200
     mapping_response = client.get("/api/mapping-codes", headers=monitoring_headers)
@@ -1039,7 +1039,7 @@ def test_gap_r7_recommend_route_passes_audit_context_to_orchestrator():
     kwargs = contracts.orchestrator.generate_recommendation.await_args.kwargs
     assert "audit_context" in kwargs
     assert kwargs["audit_context"]["user_id"] == "usr-test-0001"
-    assert kwargs["audit_context"]["user_role"] == "admin"
+    assert kwargs["audit_context"]["user_role"] == "sysadmin"
     assert kwargs["audit_context"]["action_type"] == "GenerateRecommendation"
 
 
@@ -1199,3 +1199,65 @@ def test_gap_r10_system_config_uses_resolved_identity_without_fallback_chain():
         "LocalHostedClient",
     }
     assert sum(1 for item in payload["all_clients"] if item["status"] == "active") == 1
+
+
+def test_get_client_prompts_returns_prompt_registry_payload():
+    response = client.get("/api/system-config/prompts/OpenAIClient", headers=_auth_headers(scopes="monitoring:read"))
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["client_name"] == "OpenAIClient"
+    assert payload["template_version"] == "openai-v1"
+    assert "analyze_clinical_risks" in payload["templates"]
+
+
+def test_patch_client_prompts_returns_updated_templates_and_version():
+    from src.services.prompt_selector import reset_runtime_prompt_overrides
+
+    reset_runtime_prompt_overrides("openai")
+    try:
+        response = client.patch(
+            "/api/system-config/prompts/OpenAIClient",
+            json={
+                "version": "demo-v2",
+                "templates": {
+                    "analyze_clinical_risks": "runtime analyze",
+                    "match_policy": "runtime match",
+                },
+            },
+            headers=_auth_headers(scopes="monitoring:read"),
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["client_name"] == "OpenAIClient"
+        assert payload["template_version"] == "demo-v2"
+        assert payload["templates"]["analyze_clinical_risks"] == "runtime analyze"
+        assert payload["templates"]["match_policy"] == "runtime match"
+    finally:
+        reset_runtime_prompt_overrides("openai")
+
+
+def test_patch_client_prompts_returns_404_for_invalid_client():
+    response = client.patch(
+        "/api/system-config/prompts/UnknownClient",
+        json={"templates": {"analyze_clinical_risks": "runtime analyze"}},
+        headers=_auth_headers(scopes="monitoring:read"),
+    )
+
+    assert response.status_code == 404
+
+
+def test_reset_client_prompts_restores_registry_payload():
+    with patch("src.api.routes.contracts.reset_runtime_prompt_overrides") as reset_overrides:
+        response = client.post(
+            "/api/system-config/prompts/OpenAIClient/reset",
+            headers=_auth_headers(scopes="monitoring:read"),
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["client_name"] == "OpenAIClient"
+    assert payload["template_version"] == "openai-v1"
+    assert "analyze_clinical_risks" in payload["templates"]
+    reset_overrides.assert_called_once_with("openai")

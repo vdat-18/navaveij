@@ -4,15 +4,20 @@ import userEvent from "@testing-library/user-event";
 import DashboardPage from "./page";
 import { PatientProvider } from "@/shared/patient-context";
 
+let mockPrivacyMode = true;
+let mockUser = { name: "Dr. Test", role: "physician", fhir_scopes: [] as string[] };
+const mockLogout = vi.fn();
+const mockReplace = vi.fn();
+
 vi.mock("@/shared/privacy-mode", () => ({
   usePrivacyMode: () => ({
-    privacyMode: true,
+    privacyMode: mockPrivacyMode,
     togglePrivacyMode: vi.fn(),
   }),
 }));
 
 vi.mock("@/shared/auth-context", () => ({
-  useAuth: () => ({ user: { name: "Dr. Test", role: "consultant", fhir_scopes: [] }, logout: vi.fn() }),
+  useAuth: () => ({ user: mockUser, logout: mockLogout }),
 }));
 
 vi.mock("framer-motion", () => ({
@@ -22,7 +27,7 @@ vi.mock("framer-motion", () => ({
 }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: vi.fn(), back: vi.fn() }),
+  useRouter: () => ({ replace: mockReplace, back: vi.fn() }),
 }));
 
 vi.mock("next/link", () => ({
@@ -33,20 +38,32 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-vi.mock("@/components/dashboard/PatientDirectoryColumn", () => ({
-  PatientDirectoryColumn: ({ onSelectPatient }: { onSelectPatient: (patient: unknown) => void }) => (
+vi.mock("@/components/dashboard/PatientSearchEntry", () => ({
+  PatientSearchEntry: ({ onSelectPatient }: { onSelectPatient: (patient: unknown) => void }) => (
     <button
-      data-testid="patient-directory-column"
+      type="button"
       onClick={() =>
         onSelectPatient({
-          patient_id: "id_1aa1b504",
+          patient_id: "id_privacy_001",
           patient_name: "Jane Privacy",
-          patient_token: "tok_hmac_1aa1b504",
+          patient_token: "tok_hmac_privacy_001",
+          age: 52,
+          gender: "Female",
+          ethnicity: "Thai",
+          mrn: "MRN-12345",
+          phone: "081-234-5678",
+          email: "jane@example.com",
         })
       }
     >
-      Select Patient
+      Load walk-in patient
     </button>
+  ),
+}));
+
+vi.mock("@/components/dashboard/PatientDirectoryColumn", () => ({
+  PatientDirectoryColumn: ({ selectedId }: { selectedId?: string }) => (
+    <div data-testid="patient-directory-column">{selectedId ?? "no-selection"}</div>
   ),
 }));
 
@@ -70,20 +87,58 @@ vi.mock("@/components/dashboard/RecommendationPanel", () => ({
 }));
 
 describe("DashboardPage privacy display", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPrivacyMode = true;
+    mockUser = { name: "Dr. Test", role: "physician", fhir_scopes: [] };
+    window.localStorage.clear();
+  });
+
   it("shows '-' for all PII fields in privacy mode", async () => {
     render(<PatientProvider><DashboardPage /></PatientProvider>);
 
-    expect(screen.getByTestId("patient-directory-column")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Select Patient" }));
+    await userEvent.click(screen.getByRole("button", { name: "Load walk-in patient" }));
 
     const dashValues = await screen.findAllByText("-");
     expect(dashValues.length).toBeGreaterThan(0);
 
     // Medical ID remains visible even in privacy mode
-    expect(screen.getByText("id_1aa1b504")).toBeInTheDocument();
+    expect(screen.getAllByText("id_privacy_001")).toHaveLength(2);
 
     // All other PII fields are hidden; no tokens exposed
     expect(screen.queryByText(/^tok_/)).not.toBeInTheDocument();
     expect(screen.queryByText("Jane Privacy")).not.toBeInTheDocument();
+    expect(screen.getByText("Recommendation Panel Mock")).toBeInTheDocument();
+  });
+
+  it("lets sales users switch between walk-in and my leads views", async () => {
+    mockPrivacyMode = false;
+    mockUser = { name: "Somying Srisuk", role: "sales", fhir_scopes: [] };
+
+    render(<PatientProvider><DashboardPage /></PatientProvider>);
+
+    expect(screen.getByRole("button", { name: "Walk-in" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "My Leads" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Load walk-in patient" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "My Leads" }));
+
+    expect(screen.getByText("Sales Lead Development Panel Mock")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Walk-in" }));
+
+    expect(screen.getByRole("button", { name: "Load walk-in patient" })).toBeInTheDocument();
   });
 });
+
+vi.mock("@/components/leads/SalesLeadDevelopmentPanel", () => ({
+  SalesLeadDevelopmentPanel: () => <div>Sales Lead Development Panel Mock</div>,
+}));
+
+vi.mock("@/components/trend-timeline/ScreeningGapStatus", () => ({
+  ScreeningGapStatus: () => <div>Screening Gap Status Mock</div>,
+}));
+
+vi.mock("@/components/ClinicalDrawer", () => ({
+  ClinicalDrawer: () => null,
+}));

@@ -120,6 +120,13 @@ class BamlClientInfo(BaseModel):
     status: str
 
 
+class ClientValidationResponse(BaseModel):
+    client_name: str
+    valid: bool
+    latency_ms: int | None = None
+    error: str | None = None
+
+
 class McpToolInfo(BaseModel):
     name: str
     type: str
@@ -1193,3 +1200,29 @@ def get_client_prompts(client_name: str, _auth: AuthContext = Depends(require_mo
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     templates = {k: v for k, v in sel._templates.items() if k != "version"}
     return ClientPromptsResponse(client_name=client_name, template_version=sel.version, templates=templates)
+
+
+@router.post("/system-config/validate/{client_name}", response_model=ClientValidationResponse)
+async def validate_client(client_name: str, _auth: AuthContext = Depends(require_monitoring_access)):
+    import time
+    from baml_client.async_client import b
+    try:
+        resolve_active_client(client_name)
+        handle = b if client_name == "GeminiClient" else b.with_options(client=client_name)
+        started = time.monotonic()
+        await handle.AnalyzeClinicalRisks(
+            system_prompt="You are a test assistant. Return a minimal valid JSON response matching the requested output schema.",
+            clinical_signals='{"signals_fired":[],"risk_flags":[]}',
+            biomarker_trends='{"biomarkers":[]}',
+            hard_constraints='{"patient_demographics":{"age":40,"gender":"M"},"hard_constraints":[]}',
+            program_ruleset='{"tier_selection_rules":[],"add_on_library":[],"package_resolution_map":{}}',
+        )
+        return ClientValidationResponse(
+            client_name=client_name,
+            valid=True,
+            latency_ms=int((time.monotonic() - started) * 1000),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        return ClientValidationResponse(client_name=client_name, valid=False, error=str(exc))

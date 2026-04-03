@@ -1,6 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { AuditLogEntry, AuditLogFilters, AnomalyAlert, MappingCode, MasterAddOn, MasterProgram, MonitoringSnapshot, RbacRole } from "@/types/access-monitoring";
 import { BiomarkerTrendsResponse } from "@/types/biomarker-trends";
+import { LeadAssignment, LeadStatus, PreRunnedPatient, PreRunnedRecommendation, SalesUser } from "@/types/leads";
 import { Patient } from "@/types/patient";
 import { RecommendationResponse } from "@/types/recommendation";
 import { TimelinePayload } from "@/types/timeline";
@@ -23,6 +24,11 @@ export interface SystemConfig {
 export interface ClientPromptsResponse {
     client_name: string;
     template_version: string;
+    templates: Record<string, string>;
+}
+
+export interface UpdateClientPromptsRequest {
+    version?: string;
     templates: Record<string, string>;
 }
 
@@ -61,6 +67,8 @@ interface ScreeningGapsResponse {
 const API_BASE_URL_V1 = "/api/proxy/v1";
 const API_BASE_URL_V3 = "/api/proxy";
 const API_TIMEOUT_MS = 60000;
+export const HEALTH_CHECK_UNAVAILABLE_MESSAGE =
+    "Health check service unavailable. Backend may be outdated or needs restart.";
 
 /**
  * apiV1 serves legacy routes under /api/v1/*
@@ -97,6 +105,14 @@ const handleResponseError = (error: AxiosError<{ detail?: string; message?: stri
         (status ? `Request failed with status ${status}.` : "Network error. Please check backend connectivity.");
 
     return Promise.reject(new Error(normalizedMessage));
+};
+
+const normalizeHealthCheckError = (error: unknown): Error => {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message === "Not Found" || message === "Request failed with status 404." || /\b404\b/.test(message)) {
+        return new Error(HEALTH_CHECK_UNAVAILABLE_MESSAGE);
+    }
+    return error instanceof Error ? error : new Error(message);
 };
 
 [apiV1, apiV3].forEach((client) => {
@@ -147,7 +163,6 @@ export const getAuthContext = async (): Promise<AuthContext> => {
 
 const buildAuthHeaders = async (roleOverride?: string, scopeOverride?: string): Promise<Record<string, string>> => {
     const token = getSmartTokenFromStorage();
-    // If a SMART token is present, derive context directly from it (avoids extra round-trip)
     if (token) {
         const payload = decodeToken(token);
         if (payload) {
@@ -209,10 +224,6 @@ export const clinicalService = {
         return response.data;
     },
 
-    /**
-     * Stream recommendation progress via SSE.
-     * Calls onStage() for each pipeline step, then resolves with the final result.
-     */
     streamRecommendation: async (
         patientToken: string,
         onStage: (update: StageUpdate) => void,
@@ -250,7 +261,6 @@ export const clinicalService = {
 
             buffer += decoder.decode(value, { stream: true });
 
-            // SSE messages are separated by double newlines
             const parts = buffer.split("\n\n");
             buffer = parts.pop() ?? "";
 
@@ -367,12 +377,88 @@ export const clinicalService = {
     },
     healthCheck: async (clientName: string, role: "sysadmin" | "executive" = "sysadmin"): Promise<HealthCheckResponse> => {
         const headers = await buildAuthHeaders(role, "monitoring:read");
-        const response = await apiV3.post<HealthCheckResponse>("/system-config/health-check", { client_name: clientName }, { headers });
-        return response.data;
+        try {
+            const response = await apiV3.post<HealthCheckResponse>("/system-config/health-check", { client_name: clientName }, { headers });
+            return response.data;
+        } catch (error) {
+            throw normalizeHealthCheckError(error);
+        }
     },
     getClientPrompts: async (clientName: string, role: "sysadmin" | "executive" = "sysadmin"): Promise<ClientPromptsResponse> => {
         const headers = await buildAuthHeaders(role, "monitoring:read");
         const response = await apiV3.get<ClientPromptsResponse>(`/system-config/prompts/${clientName}`, { headers });
+        return response.data;
+    },
+    updateClientPrompts: async (
+        clientName: string,
+        data: UpdateClientPromptsRequest,
+        role: "sysadmin" | "executive" = "sysadmin"
+    ): Promise<ClientPromptsResponse> => {
+        const headers = await buildAuthHeaders(role, "monitoring:read");
+        const response = await apiV3.patch<ClientPromptsResponse>(`/system-config/prompts/${clientName}`, data, { headers });
+        return response.data;
+    },
+    resetClientPrompts: async (
+        clientName: string,
+        role: "sysadmin" | "executive" = "sysadmin"
+    ): Promise<ClientPromptsResponse> => {
+        const headers = await buildAuthHeaders(role, "monitoring:read");
+        const response = await apiV3.post<ClientPromptsResponse>(`/system-config/prompts/${clientName}/reset`, undefined, { headers });
+        return response.data;
+    },
+};
+
+export const leadService = {
+    getPreRunnedPatients: async (): Promise<PreRunnedPatient[]> => {
+        const headers = await buildAuthHeaders("executive", "monitoring:read");
+        const response = await apiV3.get<PreRunnedPatient[]>("/pre-runned-patients", { headers });
+        return response.data;
+    },
+    getPreRunnedRecommendation: async (patientToken: string): Promise<PreRunnedRecommendation> => {
+        const headers = await buildAuthHeaders(undefined, "recommendation:read");
+        const response = await apiV3.get<PreRunnedRecommendation>(`/pre-runned-patients/${patientToken}/recommendation`, { headers });
+        return response.data;
+    },
+    getLeads: async (): Promise<LeadAssignment[]> => {
+        const headers = await buildAuthHeaders(undefined, "recommendation:read");
+        const response = await apiV3.get<LeadAssignment[]>("/leads", { headers });
+        return response.data;
+    },
+    assignLead: async (
+        patientId: string,
+        assignedToUserId: string,
+        assignedToName: string,
+        notes: string = ""
+    ): Promise<LeadAssignment> => {
+        const headers = await buildAuthHeaders("executive", "monitoring:read");
+        const response = await apiV3.post<LeadAssignment>(
+            "/leads",
+            {
+                patient_id: patientId,
+                assigned_to_user_id: assignedToUserId,
+                assigned_to_name: assignedToName,
+                notes,
+            },
+            { headers }
+        );
+        return response.data;
+    },
+    updateLeadStatus: async (
+        assignmentId: string,
+        status: LeadStatus,
+        notes: string = ""
+    ): Promise<LeadAssignment> => {
+        const headers = await buildAuthHeaders("sales", "recommendation:write");
+        const response = await apiV3.patch<LeadAssignment>(
+            `/leads/${assignmentId}/status`,
+            { status, notes },
+            { headers }
+        );
+        return response.data;
+    },
+    getSalesUsers: async (): Promise<SalesUser[]> => {
+        const headers = await buildAuthHeaders("executive", "monitoring:read");
+        const response = await apiV3.get<SalesUser[]>("/sales-users", { headers });
         return response.data;
     },
 };

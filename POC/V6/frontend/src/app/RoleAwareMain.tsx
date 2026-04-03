@@ -9,8 +9,8 @@ const NO_SIDEBAR_ROLES = new Set(["physician", "sales"]);
 
 /**
  * Wraps the main content area.
- * - Admin / DPO: keeps the sidebar-width left padding (old behaviour).
- * - Physician / Nurse: no left padding (sidebar is hidden for these roles).
+ * - Executive / SysAdmin: keeps the sidebar-width left padding (old behaviour).
+ * - Physician / Sales: no left padding (sidebar is hidden for these roles).
  */
 export function RoleAwareMain({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
