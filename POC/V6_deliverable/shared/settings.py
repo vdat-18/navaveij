@@ -63,12 +63,12 @@ class ProjectSettings(LLMSettings, MCPSettings):
     patient_token_secret_salt: str = "navavej-clinical-recommendation-engine-secret-salt-2026"
     cors_allowed_origins: str = "http://localhost:3000,http://localhost:3001"
     api_auth_mode: str = "poc_claims"
-    api_auth_default_user_id: str = "usr-admin-00001"
-    api_auth_default_role: str = "admin"
+    api_auth_default_user_id: str = "usr-sysadmin-00001"
+    api_auth_default_role: str = "sysadmin"
     api_auth_default_scopes: str = "recommendation:read,recommendation:write,monitoring:read"
-    recommendation_allowed_roles: str = "physician,nurse,pharmacist,admin,dpo"
+    recommendation_allowed_roles: str = "physician,sales,pharmacist,sysadmin,executive"
     recommendation_required_scopes: str = "recommendation:read"
-    monitoring_allowed_roles: str = "admin,dpo"
+    monitoring_allowed_roles: str = "sysadmin,executive"
     monitoring_required_scopes: str = "monitoring:read"
     cache_enabled: bool = True
     cache_ttl_seconds: int = 300

@@ -12,7 +12,7 @@ const entry: AuditLogEntry = {
   entry_id: "e1",
   prev_entry_hash: "prev",
   sha256_hash: "hash",
-  who: { user_id: "u1", user_role: "admin", user_display_name: "Dr. One", department: "Ops" },
+  who: { user_id: "u1", user_role: "sysadmin", user_display_name: "System Admin", department: "Ops" },
   when: { iso_timestamp_utc: new Date().toISOString(), local_timestamp_ict: new Date().toISOString() },
   where: { service_id: "svc", source_ip_hash: "10.0.x.x", request_id: "req-1", user_agent_class: "web" },
   what: {

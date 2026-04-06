@@ -79,3 +79,41 @@ def test_recommendation_cache_key_partitions_by_resolved_runtime_identity():
     assert gemini_key != openai_key
     assert gemini_key != template_bump_key
     assert gemini_key == repeated_key
+
+
+def test_risk_profile_cache_key_partitions_by_resolved_runtime_identity():
+    from src.services.workflows import clinical
+
+    masked_context = {
+        "get_clinical_signals": {"signals_fired": ["signal_1"]},
+        "get_biomarker_trends": {"panels": []},
+    }
+
+    gemini_key = clinical._risk_profile_cache_key(
+        masked_context,
+        active_client="GeminiClient",
+        model_id="gemini-3-flash-preview",
+        template_version="gemini-v1",
+    )
+    openai_key = clinical._risk_profile_cache_key(
+        masked_context,
+        active_client="OpenAIClient",
+        model_id="gpt-5.4-mini",
+        template_version="openai-v1",
+    )
+    template_bump_key = clinical._risk_profile_cache_key(
+        masked_context,
+        active_client="GeminiClient",
+        model_id="gemini-3-flash-preview",
+        template_version="gemini-v2",
+    )
+    repeated_key = clinical._risk_profile_cache_key(
+        masked_context,
+        active_client="GeminiClient",
+        model_id="gemini-3-flash-preview",
+        template_version="gemini-v1",
+    )
+
+    assert gemini_key != openai_key
+    assert gemini_key != template_bump_key
+    assert gemini_key == repeated_key

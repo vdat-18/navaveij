@@ -15,6 +15,9 @@ class ResolvedActiveClient:
     prompt_registry_key: str
 
 
+# In-memory override — set via PATCH /system-config/active-client, resets on server restart.
+_runtime_active_client: str | None = None
+
 _ACTIVE_CLIENTS: dict[str, ResolvedActiveClient] = {
     "GeminiClient": ResolvedActiveClient(
         client_name="GeminiClient",
@@ -47,11 +50,21 @@ _ACTIVE_CLIENTS: dict[str, ResolvedActiveClient] = {
         prompt_registry_key="local",
     ),
 }
+_SUPPORTED_CLIENT_NAMES: tuple[str, ...] = tuple(_ACTIVE_CLIENTS.keys())
+
+
+def set_runtime_active_client(client_name: str) -> None:
+    """Override the active client in-memory (no .env write, resets on server restart)."""
+    global _runtime_active_client
+    if client_name not in _ACTIVE_CLIENTS:
+        valid = " | ".join(_ACTIVE_CLIENTS)
+        raise ValueError(f"Unsupported client '{client_name}'. Expected one of: {valid}")
+    _runtime_active_client = client_name
 
 
 def resolve_active_client(active_client: str | None = None) -> ResolvedActiveClient:
     """Return the validated runtime client identity for clinical inference."""
-    candidate = active_client or settings.ai_active_client
+    candidate = active_client or _runtime_active_client or settings.ai_active_client
     try:
         return _ACTIVE_CLIENTS[candidate]
     except KeyError as exc:
@@ -59,3 +72,8 @@ def resolve_active_client(active_client: str | None = None) -> ResolvedActiveCli
         raise ValueError(
             f"Unsupported AI_ACTIVE_CLIENT '{candidate}'. Expected one of: {valid}"
         ) from exc
+
+
+def get_supported_client_names() -> list[str]:
+    """Return the configured named client identifiers in stable order."""
+    return list(_SUPPORTED_CLIENT_NAMES)

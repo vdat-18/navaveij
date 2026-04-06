@@ -1,0 +1,616 @@
+[
+  {
+    "patient_id": "id_24d93799",
+    "patient_token": "tok_hmac_24d93799",
+    "patient_name": "Siriporn Chantarak",
+    "age": 68,
+    "gender": "Female",
+    "scenario_label": "Senior Cancer Screening Gap",
+    "generated_at": "2026-04-03T09:05:00Z",
+    "ai_lead_summary": "High-priority reach-out candidate with multiple overdue age-appropriate cancer screenings and a strong prevention narrative. Position this as a convenience-led comprehensive checkup that closes important screening gaps in a single coordinated visit.",
+    "recommendation": {
+      "overall_risk_level": "High",
+      "ai_recommended_tier": "Premium",
+      "tier_deviation_justification": "Multiple overdue screening opportunities and age-related preventive value justify a premium package with coordinated diagnostics.",
+      "add_ons": [
+        {
+          "item_code": "ADD-COLON-001",
+          "item_id": "addon_colonoscopy",
+          "priority_level": "high",
+          "priority": "Red",
+          "rationale": "Addresses a major overdue colorectal screening opportunity.",
+          "label": "Colonoscopy",
+          "category": "Screening"
+        },
+        {
+          "item_code": "ADD-MAMMO-001",
+          "item_id": "addon_mammogram",
+          "priority_level": "medium",
+          "priority": "Orange",
+          "rationale": "Supports overdue breast screening completion in the same visit.",
+          "label": "Mammogram",
+          "category": "Imaging"
+        }
+      ],
+      "reasoning_trace": "The patient profile is defined by accumulated preventive gaps rather than acute instability. A premium screening bundle improves the chance of completing multiple age-sensitive investigations during one visit.",
+      "reasoning_trace_annotated": [
+        {
+          "text": "Accumulated preventive gaps increase the urgency of coordinated outreach.",
+          "scope": "clinical_reasoning",
+          "sentiment": "risk",
+          "highlight_terms": ["preventive gaps", "coordinated outreach"]
+        },
+        {
+          "text": "A premium screening bundle is appropriate for completing multiple age-sensitive investigations.",
+          "scope": "policy_reasoning",
+          "sentiment": "informational",
+          "highlight_terms": ["premium screening bundle", "age-sensitive investigations"]
+        }
+      ],
+      "supporting_signals": ["overdue colon screening", "overdue breast screening", "senior preventive gap cluster"],
+      "missing_signals": [],
+      "communication_script": {
+        "summary_headline": "Multiple overdue cancer screenings support premium preventive follow-up",
+        "summary_headline_highlights": ["overdue cancer screenings", "premium preventive follow-up"],
+        "top_findings": [
+          {
+            "text": "The current profile suggests meaningful missed screening opportunities that should be consolidated into one visit.",
+            "highlight_terms": ["missed screening opportunities", "one visit"]
+          }
+        ],
+        "program_justification": "Frame the visit around convenience, completion, and physician-reviewed screening closure. A premium package supports this positioning.",
+        "program_justification_highlights": ["convenience", "screening closure"],
+        "priority_add_ons": [
+          {
+            "label": "Colonoscopy",
+            "severity": "critical"
+          },
+          {
+            "label": "Mammogram",
+            "severity": "caution"
+          }
+        ],
+        "next_actions": [
+          {
+            "text": "Offer a bundled senior screening visit with emphasis on convenience and fast scheduling.",
+            "highlight_terms": ["bundled senior screening visit", "fast scheduling"]
+          }
+        ]
+      },
+      "rule_preliminary_tier": "Advanced",
+      "resolved_package": {
+        "tier": "Premium",
+        "package_name": "Navavej Premium Preventive Plus",
+        "name": "Navavej Premium Preventive Plus",
+        "price_thb": 17900
+      },
+      "resolved_package_status": "matched",
+      "confidence_score": 0.89,
+      "confidence_tier": "High",
+      "signal_coverage": 0.87,
+      "data_completeness": 0.9,
+      "rule_agreement": 0.94,
+      "review_required": false,
+      "recommendation_source": "precomputed",
+      "recommendation_hash": "lead-hash-24d93799",
+      "risk_summary": {
+        "source": "precomputed-fixture",
+        "is_fallback": false,
+        "description": "High preventive risk from accumulated screening gaps. Multiple overdue screenings warrant coordinated follow-up."
+      },
+      "patient_high_alert": {
+        "critical_signals": [
+          {
+            "signal_id": "screening_gap_cluster",
+            "label": "Multiple overdue cancer screenings",
+            "severity": "high",
+            "clinical_note": "Preventive closure should not be delayed further."
+          }
+        ]
+      },
+      "security_metadata": {},
+      "metadata": {
+        "generated_at": "2026-04-03T09:05:00Z"
+      }
+    }
+  },
+  {
+    "patient_id": "id_7f0c9a21",
+    "patient_token": "tok_hmac_7f0c9a21",
+    "patient_name": "Preecha Nimitr",
+    "age": 44,
+    "gender": "Male",
+    "scenario_label": "Post-COVID Cardio Follow-up",
+    "generated_at": "2026-04-03T09:18:00Z",
+    "ai_lead_summary": "Medium-priority outreach lead with a persuasive story around recovery reassurance and lingering cardiopulmonary symptoms. Frame the package as a structured post-illness checkup that reduces uncertainty and accelerates physician review if symptoms persist.",
+    "recommendation": {
+      "overall_risk_level": "Medium",
+      "ai_recommended_tier": "Advanced",
+      "tier_deviation_justification": "Persistent post-infectious symptoms justify broader cardiopulmonary evaluation beyond a standard wellness package.",
+      "add_ons": [
+        {
+          "item_code": "ADD-CXR-001",
+          "item_id": "addon_chest_xray",
+          "priority_level": "medium",
+          "priority": "Orange",
+          "rationale": "Useful for lingering respiratory complaints and recovery reassurance.",
+          "label": "Chest X-ray",
+          "category": "Imaging"
+        },
+        {
+          "item_code": "ADD-ECG-001",
+          "item_id": "addon_ecg",
+          "priority_level": "medium",
+          "priority": "Yellow",
+          "rationale": "Supports basic cardiac evaluation for ongoing palpitations or exertional symptoms.",
+          "label": "ECG",
+          "category": "Cardiac"
+        }
+      ],
+      "reasoning_trace": "The profile suggests unresolved post-COVID symptoms without immediate instability. An advanced package balances reassurance, symptom clarification, and practical follow-up planning.",
+      "reasoning_trace_annotated": [
+        {
+          "text": "Lingering post-COVID symptoms justify further clarification even without acute instability.",
+          "scope": "clinical_reasoning",
+          "sentiment": "neutral",
+          "highlight_terms": ["post-COVID symptoms", "without acute instability"]
+        },
+        {
+          "text": "An advanced package is the best fit for reassurance plus structured cardiopulmonary review.",
+          "scope": "policy_reasoning",
+          "sentiment": "informational",
+          "highlight_terms": ["advanced package", "structured cardiopulmonary review"]
+        }
+      ],
+      "supporting_signals": ["persistent fatigue", "exertional shortness of breath", "intermittent palpitations"],
+      "missing_signals": ["recent ECG comparison"],
+      "communication_script": {
+        "summary_headline": "Structured post-COVID follow-up supports an advanced package",
+        "summary_headline_highlights": ["post-COVID follow-up", "advanced package"],
+        "top_findings": [
+          {
+            "text": "The current profile benefits from a recovery-focused evaluation designed to reduce uncertainty and guide follow-up.",
+            "highlight_terms": ["recovery-focused evaluation", "reduce uncertainty"]
+          }
+        ],
+        "program_justification": "Position the visit around reassurance, lingering symptoms, and efficient physician escalation if needed.",
+        "program_justification_highlights": ["reassurance", "efficient physician escalation"],
+        "priority_add_ons": [
+          {
+            "label": "Chest X-ray",
+            "severity": "caution"
+          },
+          {
+            "label": "ECG",
+            "severity": "moderate"
+          }
+        ],
+        "next_actions": [
+          {
+            "text": "Offer an advanced recovery checkup with emphasis on reassurance and faster specialist visibility.",
+            "highlight_terms": ["advanced recovery checkup", "faster specialist visibility"]
+          }
+        ]
+      },
+      "rule_preliminary_tier": "Advanced",
+      "resolved_package": {
+        "tier": "Advanced",
+        "package_name": "Navavej Advanced Recovery Review",
+        "name": "Navavej Advanced Recovery Review",
+        "price_thb": 12900
+      },
+      "resolved_package_status": "matched",
+      "confidence_score": 0.84,
+      "confidence_tier": "High",
+      "signal_coverage": 0.81,
+      "data_completeness": 0.83,
+      "rule_agreement": 0.91,
+      "review_required": false,
+      "recommendation_source": "precomputed",
+      "recommendation_hash": "lead-hash-7f0c9a21",
+      "risk_summary": {
+        "source": "precomputed-fixture",
+        "is_fallback": false,
+        "description": "Moderate post-infectious risk with lingering cardiopulmonary symptoms. Structured follow-up recommended."
+      },
+      "patient_high_alert": {
+        "critical_signals": []
+      },
+      "security_metadata": {},
+      "metadata": {
+        "generated_at": "2026-04-03T09:18:00Z"
+      }
+    }
+  },
+  {
+    "patient_id": "id_c1d2e3f4",
+    "patient_token": "tok_hmac_c1d2e3f4",
+    "patient_name": "Arthit Wattanakul",
+    "age": 52,
+    "gender": "Male",
+    "scenario_label": "Diabetes Risk Outreach",
+    "generated_at": "2026-04-03T09:44:00Z",
+    "ai_lead_summary": "Steady outreach candidate with metabolic risk factors trending upward. Frame this as a structured assessment that clarifies risk, sets a baseline, and creates a concrete follow-up plan in one visit.",
+    "recommendation": {
+      "overall_risk_level": "Medium",
+      "ai_recommended_tier": "Advanced",
+      "tier_deviation_justification": "Metabolic risk assessment benefits from coordinated labs plus physician review to establish a baseline and target follow-up.",
+      "add_ons": [
+        {
+          "item_code": "ADD-HBA1C-001",
+          "item_id": "addon_hba1c",
+          "priority_level": "medium",
+          "priority": "Yellow",
+          "rationale": "Improves clarity on glycemic status for diabetes risk stratification.",
+          "label": "HbA1c",
+          "category": "Laboratory"
+        },
+        {
+          "item_code": "ADD-LIPID-001",
+          "item_id": "addon_lipid_panel",
+          "priority_level": "medium",
+          "priority": "Yellow",
+          "rationale": "Supports cardiometabolic risk profiling alongside glycemic evaluation.",
+          "label": "Lipid Panel",
+          "category": "Laboratory"
+        }
+      ],
+      "reasoning_trace": "The profile suggests elevated cardiometabolic risk without acute instability. An advanced package supports a complete lab baseline and a clear physician-reviewed plan for next steps.",
+      "reasoning_trace_annotated": [
+        {
+          "text": "Metabolic risk factors support timely outreach even without acute symptoms.",
+          "scope": "clinical_reasoning",
+          "sentiment": "neutral",
+          "highlight_terms": ["Metabolic risk factors", "timely outreach"]
+        },
+        {
+          "text": "An advanced package supports one-visit labs plus a structured physician review.",
+          "scope": "policy_reasoning",
+          "sentiment": "informational",
+          "highlight_terms": ["advanced package", "one-visit labs", "structured physician review"]
+        }
+      ],
+      "supporting_signals": ["elevated fasting glucose history", "family history of diabetes", "central adiposity risk flag"],
+      "missing_signals": ["recent HbA1c trend"],
+      "communication_script": {
+        "summary_headline": "Metabolic risk profile supports an advanced baseline assessment",
+        "summary_headline_highlights": ["Metabolic risk profile", "advanced baseline assessment"],
+        "top_findings": [
+          {
+            "text": "The visit works best when positioned around clear baseline labs and an actionable follow-up plan.",
+            "highlight_terms": ["baseline labs", "actionable follow-up plan"]
+          }
+        ],
+        "program_justification": "Position the visit around baseline clarity, early intervention options, and a plan the patient can follow immediately.",
+        "program_justification_highlights": ["baseline clarity", "early intervention", "plan"],
+        "priority_add_ons": [
+          {
+            "label": "HbA1c",
+            "severity": "moderate"
+          },
+          {
+            "label": "Lipid Panel",
+            "severity": "moderate"
+          }
+        ],
+        "next_actions": [
+          {
+            "text": "Offer a baseline lab + physician review visit and schedule follow-up based on HbA1c results.",
+            "highlight_terms": ["baseline lab", "physician review", "follow-up"]
+          }
+        ]
+      },
+      "rule_preliminary_tier": "Advanced",
+      "resolved_package": {
+        "tier": "Advanced",
+        "package_name": "Navavej Advanced Metabolic Baseline",
+        "name": "Navavej Advanced Metabolic Baseline",
+        "price_thb": 12900
+      },
+      "resolved_package_status": "matched",
+      "confidence_score": 0.83,
+      "confidence_tier": "High",
+      "signal_coverage": 0.8,
+      "data_completeness": 0.82,
+      "rule_agreement": 0.9,
+      "review_required": false,
+      "recommendation_source": "precomputed",
+      "recommendation_hash": "lead-hash-c1d2e3f4",
+      "risk_summary": {
+        "source": "precomputed-fixture",
+        "is_fallback": false,
+        "description": "Moderate cardiometabolic risk with indicators warranting baseline assessment and structured follow-up."
+      },
+      "patient_high_alert": {
+        "critical_signals": []
+      },
+      "security_metadata": {},
+      "metadata": {
+        "generated_at": "2026-04-03T09:44:00Z"
+      }
+    }
+  },
+  {
+    "patient_id": "id_9f8e7d6c",
+    "patient_token": "tok_hmac_9f8e7d6c",
+    "patient_name": "Kanya Sombat",
+    "age": 33,
+    "gender": "Female",
+    "scenario_label": "Vaccination Catch-up",
+    "generated_at": "2026-04-03T09:51:00Z",
+    "ai_lead_summary": "Low-friction outreach lead with preventive gaps that are easy to close. Position this as a quick, convenient catch-up visit that reduces future risk without a long workup.",
+    "recommendation": {
+      "overall_risk_level": "Low",
+      "ai_recommended_tier": "Advanced",
+      "tier_deviation_justification": "A coordinated preventive visit supports vaccination review plus baseline health screening in a single appointment.",
+      "add_ons": [],
+      "reasoning_trace": "The primary opportunity is preventive closure rather than acute instability. A structured visit improves completion and creates a clear preventive baseline.",
+      "reasoning_trace_annotated": [
+        {
+          "text": "Preventive gaps can be closed efficiently with a short, well-structured visit.",
+          "scope": "clinical_reasoning",
+          "sentiment": "reassuring",
+          "highlight_terms": ["Preventive gaps", "closed efficiently"]
+        },
+        {
+          "text": "An advanced package supports a comprehensive preventive baseline without unnecessary escalation.",
+          "scope": "policy_reasoning",
+          "sentiment": "informational",
+          "highlight_terms": ["advanced package", "preventive baseline"]
+        }
+      ],
+      "supporting_signals": ["vaccination record incomplete", "no recent preventive review"],
+      "missing_signals": [],
+      "communication_script": {
+        "summary_headline": "Preventive catch-up visit supports an organized baseline plan",
+        "summary_headline_highlights": ["Preventive catch-up visit", "baseline plan"],
+        "top_findings": [
+          {
+            "text": "The key is convenience: close vaccination gaps and confirm baseline health in one appointment.",
+            "highlight_terms": ["convenience", "vaccination gaps", "one appointment"]
+          }
+        ],
+        "program_justification": "Frame this as a quick catch-up visit focused on prevention, convenience, and getting the patient up to date.",
+        "program_justification_highlights": ["quick catch-up", "prevention", "up to date"],
+        "priority_add_ons": [],
+        "next_actions": [
+          {
+            "text": "Offer a fast appointment slot and confirm which vaccines can be administered the same day.",
+            "highlight_terms": ["fast appointment slot", "same day"]
+          }
+        ]
+      },
+      "rule_preliminary_tier": "Advanced",
+      "resolved_package": {
+        "tier": "Advanced",
+        "package_name": "Navavej Advanced Preventive Catch-up",
+        "name": "Navavej Advanced Preventive Catch-up",
+        "price_thb": 9900
+      },
+      "resolved_package_status": "matched",
+      "confidence_score": 0.8,
+      "confidence_tier": "High",
+      "signal_coverage": 0.76,
+      "data_completeness": 0.84,
+      "rule_agreement": 0.89,
+      "review_required": false,
+      "recommendation_source": "precomputed",
+      "recommendation_hash": "lead-hash-9f8e7d6c",
+      "risk_summary": {
+        "source": "precomputed-fixture",
+        "is_fallback": false,
+        "description": "Low immediate clinical risk. Preventive gaps should be closed to reduce future risk."
+      },
+      "patient_high_alert": {
+        "critical_signals": []
+      },
+      "security_metadata": {},
+      "metadata": {
+        "generated_at": "2026-04-03T09:51:00Z"
+      }
+    }
+  },
+  {
+    "patient_id": "id_5a4b3c2d",
+    "patient_token": "tok_hmac_5a4b3c2d",
+    "patient_name": "Chaiyaporn Rattan",
+    "age": 41,
+    "gender": "Male",
+    "scenario_label": "Smoking Cessation Follow-up",
+    "generated_at": "2026-04-03T10:02:00Z",
+    "ai_lead_summary": "High-leverage outreach opportunity to reduce long-term risk. Frame the visit around practical support, baseline assessment, and a clear step-by-step cessation plan.",
+    "recommendation": {
+      "overall_risk_level": "Medium",
+      "ai_recommended_tier": "Advanced",
+      "tier_deviation_justification": "Follow-up benefits from baseline cardiopulmonary assessment and physician-guided planning.",
+      "add_ons": [
+        {
+          "item_code": "ADD-SPIRO-001",
+          "item_id": "addon_spirometry",
+          "priority_level": "medium",
+          "priority": "Orange",
+          "rationale": "Establishes a baseline for respiratory function and supports targeted counseling.",
+          "label": "Spirometry",
+          "category": "Pulmonary"
+        }
+      ],
+      "reasoning_trace": "The profile supports structured counseling and baseline assessment. An advanced package enables practical next steps with appropriate physician review.",
+      "reasoning_trace_annotated": [
+        {
+          "text": "Smoking history supports proactive outreach to reduce future cardiopulmonary risk.",
+          "scope": "clinical_reasoning",
+          "sentiment": "risk",
+          "highlight_terms": ["proactive outreach", "cardiopulmonary risk"]
+        },
+        {
+          "text": "A structured visit improves follow-through by combining baseline assessment with an actionable plan.",
+          "scope": "policy_reasoning",
+          "sentiment": "informational",
+          "highlight_terms": ["baseline assessment", "actionable plan"]
+        }
+      ],
+      "supporting_signals": ["smoking exposure history", "intermittent cough", "no recent baseline pulmonary assessment"],
+      "missing_signals": [],
+      "communication_script": {
+        "summary_headline": "Cessation support visit benefits from an advanced structured plan",
+        "summary_headline_highlights": ["Cessation support", "advanced structured plan"],
+        "top_findings": [
+          {
+            "text": "A baseline respiratory check plus a concrete cessation plan increases follow-through.",
+            "highlight_terms": ["baseline respiratory check", "cessation plan", "follow-through"]
+          }
+        ],
+        "program_justification": "Position this as practical support: baseline assessment, physician guidance, and a clear plan the patient can follow.",
+        "program_justification_highlights": ["baseline assessment", "physician guidance", "clear plan"],
+        "priority_add_ons": [
+          {
+            "label": "Spirometry",
+            "severity": "caution"
+          }
+        ],
+        "next_actions": [
+          {
+            "text": "Offer an appointment focused on baseline breathing assessment and a step-by-step quit plan with follow-up scheduling.",
+            "highlight_terms": ["baseline breathing assessment", "quit plan", "follow-up scheduling"]
+          }
+        ]
+      },
+      "rule_preliminary_tier": "Advanced",
+      "resolved_package": {
+        "tier": "Advanced",
+        "package_name": "Navavej Advanced Cessation Support",
+        "name": "Navavej Advanced Cessation Support",
+        "price_thb": 11900
+      },
+      "resolved_package_status": "matched",
+      "confidence_score": 0.82,
+      "confidence_tier": "High",
+      "signal_coverage": 0.79,
+      "data_completeness": 0.81,
+      "rule_agreement": 0.9,
+      "review_required": false,
+      "recommendation_source": "precomputed",
+      "recommendation_hash": "lead-hash-5a4b3c2d",
+      "risk_summary": {
+        "source": "precomputed-fixture",
+        "is_fallback": false,
+        "description": "Moderate cardiopulmonary risk factors. A structured cessation plan and baseline assessment are recommended."
+      },
+      "patient_high_alert": {
+        "critical_signals": []
+      },
+      "security_metadata": {},
+      "metadata": {
+        "generated_at": "2026-04-03T10:02:00Z"
+      }
+    }
+  },
+  {
+    "patient_id": "id_a83de442",
+    "patient_token": "tok_hmac_a83de442",
+    "patient_name": "Nalinee Kittipong",
+    "age": 47,
+    "gender": "Female",
+    "scenario_label": "Thyroid Nodule Follow-up",
+    "generated_at": "2026-04-03T09:32:00Z",
+    "ai_lead_summary": "Thoughtful outreach opportunity centered on follow-up continuity rather than urgency. Emphasize convenience, endocrine review access, and completing the recommended imaging and lab bundle in one coordinated encounter.",
+    "recommendation": {
+      "overall_risk_level": "Medium",
+      "ai_recommended_tier": "Advanced",
+      "tier_deviation_justification": "Follow-up for a known thyroid finding benefits from combined imaging and endocrine-focused laboratory review.",
+      "add_ons": [
+        {
+          "item_code": "ADD-THYUS-001",
+          "item_id": "addon_thyroid_ultrasound",
+          "priority_level": "medium",
+          "priority": "Orange",
+          "rationale": "Supports interval structural reassessment of the known nodule.",
+          "label": "Thyroid Ultrasound",
+          "category": "Imaging"
+        },
+        {
+          "item_code": "ADD-TSH-001",
+          "item_id": "addon_thyroid_panel",
+          "priority_level": "medium",
+          "priority": "Yellow",
+          "rationale": "Adds endocrine context to support physician discussion during follow-up.",
+          "label": "Thyroid Function Panel",
+          "category": "Laboratory"
+        }
+      ],
+      "reasoning_trace": "The patient requires continuity follow-up for a known thyroid finding with enough complexity to justify a structured advanced package. The value proposition is centered on convenience and complete reassessment rather than immediate escalation.",
+      "reasoning_trace_annotated": [
+        {
+          "text": "Known thyroid findings require continuity follow-up and interval reassessment.",
+          "scope": "clinical_reasoning",
+          "sentiment": "neutral",
+          "highlight_terms": ["continuity follow-up", "interval reassessment"]
+        },
+        {
+          "text": "An advanced package supports one-visit imaging and endocrine review.",
+          "scope": "policy_reasoning",
+          "sentiment": "informational",
+          "highlight_terms": ["advanced package", "one-visit imaging"]
+        }
+      ],
+      "supporting_signals": ["known thyroid nodule", "follow-up imaging due", "endocrine review recommended"],
+      "missing_signals": ["recent thyroid function panel"],
+      "communication_script": {
+        "summary_headline": "Continuity-focused thyroid follow-up supports an advanced package",
+        "summary_headline_highlights": ["thyroid follow-up", "advanced package"],
+        "top_findings": [
+          {
+            "text": "The lead is strongest when positioned around completing imaging and endocrine review efficiently.",
+            "highlight_terms": ["completing imaging", "endocrine review efficiently"]
+          }
+        ],
+        "program_justification": "Your continuity message: one coordinated visit for reassessment, explanation, and next-step clarity.",
+        "program_justification_highlights": ["one coordinated visit", "next-step clarity"],
+        "priority_add_ons": [
+          {
+            "label": "Thyroid Ultrasound",
+            "severity": "caution"
+          },
+          {
+            "label": "Thyroid Function Panel",
+            "severity": "moderate"
+          }
+        ],
+        "next_actions": [
+          {
+            "text": "Offer a follow-up visit framed around convenience, continuity, and specialist review access.",
+            "highlight_terms": ["convenience", "continuity", "specialist review access"]
+          }
+        ]
+      },
+      "rule_preliminary_tier": "Advanced",
+      "resolved_package": {
+        "tier": "Advanced",
+        "package_name": "Navavej Advanced Endocrine Follow-up",
+        "name": "Navavej Advanced Endocrine Follow-up",
+        "price_thb": 11900
+      },
+      "resolved_package_status": "matched",
+      "confidence_score": 0.86,
+      "confidence_tier": "High",
+      "signal_coverage": 0.82,
+      "data_completeness": 0.85,
+      "rule_agreement": 0.93,
+      "review_required": false,
+      "recommendation_source": "precomputed",
+      "recommendation_hash": "lead-hash-a83de442",
+      "risk_summary": {
+        "source": "precomputed-fixture",
+        "is_fallback": false,
+        "description": "Medium continuity risk for a known thyroid finding. Interval reassessment and endocrine review recommended."
+      },
+      "patient_high_alert": {
+        "critical_signals": []
+      },
+      "security_metadata": {},
+      "metadata": {
+        "generated_at": "2026-04-03T09:32:00Z"
+      }
+    }
+  }
+]

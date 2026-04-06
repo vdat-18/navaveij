@@ -8,9 +8,10 @@ import { usePatient } from "@/shared/patient-context";
 
 const PERSONAS: { label: string; sub: string; name: string; role: UserRole }[] = [
   { label: "Dr. Ananya Sharma (Physician)", sub: "usr-physician-00001", name: "Dr. Ananya Sharma", role: "physician" },
-  { label: "Nurse Somying Srisuk (Nurse)", sub: "usr-nurse-00001", name: "Nurse Somying Srisuk", role: "nurse" },
-  { label: "Wanchai Thongchai (DPO Officer)", sub: "usr-dpo-00001", name: "Wanchai Thongchai", role: "dpo" },
-  { label: "System Admin", sub: "usr-admin-00001", name: "System Admin", role: "admin" },
+  { label: "Somying Srisuk (Sales)", sub: "usr-sales-00001", name: "Somying Srisuk", role: "sales" },
+  { label: "Arunee Srisawat (Sales)", sub: "usr-sales-00002", name: "Arunee Srisawat", role: "sales" },
+  { label: "Wanchai Thongchai (Executive)", sub: "usr-executive-00001", name: "Wanchai Thongchai", role: "executive" },
+  { label: "System Admin", sub: "usr-sysadmin-00001", name: "System Admin", role: "sysadmin" },
 ];
 
 const FHIR_SCOPES = [
@@ -25,7 +26,7 @@ export default function LoginPage() {
   const { setSelectedPatient } = usePatient();
   const [selectedPersona, setSelectedPersona] = useState(0);
 
-  const SEARCH_FLOW_ROLES = new Set(["physician", "nurse"]);
+  const SEARCH_FLOW_ROLES = new Set(["physician", "sales"]);
 
   const handleAuthorize = () => {
     const persona = PERSONAS[selectedPersona];
@@ -39,30 +40,24 @@ export default function LoginPage() {
       exp: now + 3600,
       iss: "https://auth.navavej.demo/realms/hospital",
     };
-    // signIn sets token in React state AND sessionStorage before navigation,
-    // preventing the auth guard from seeing a null token mid-redirect.
     signIn(encodeToken(payload));
-    // Physician/nurse always start at the search screen — clear any previously
-    // selected patient so localStorage doesn't restore it on load.
     if (SEARCH_FLOW_ROLES.has(persona.role)) {
       setSelectedPatient(null);
       router.replace("/");
+    } else if (persona.role === "executive") {
+      router.replace("/management");
     } else {
       router.replace("/access-monitoring");
     }
   };
 
   const handleDeny = () => {
-    // Stay on login page — no token issued
     setSelectedPersona(0);
   };
 
   return (
     <div className="fixed inset-0 z-[9999] bg-[#f0f2f5] flex items-center justify-center">
-      {/* Keycloak-style card */}
       <div className="w-full max-w-md bg-white rounded-lg shadow-xl overflow-hidden">
-
-        {/* Header bar */}
         <div className="bg-[#00ABC7] px-6 py-4 flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
             <Lock className="w-4 h-4 text-white" />
@@ -74,7 +69,6 @@ export default function LoginPage() {
         </div>
 
         <div className="px-8 py-6">
-          {/* App requesting access */}
           <div className="mb-6">
             <h1 className="text-lg font-black text-gray-800 mb-1">Authorization</h1>
             <p className="text-sm text-gray-500">
@@ -82,7 +76,6 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Role selector */}
           <div className="mb-5">
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
               Login as
@@ -98,7 +91,6 @@ export default function LoginPage() {
             </select>
           </div>
 
-          {/* FHIR scopes */}
           <div className="mb-6">
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
               Requested FHIR Scopes
@@ -120,7 +112,6 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Security note */}
           <div className="flex items-start gap-2 mb-6 bg-blue-50 rounded-md px-4 py-3">
             <ShieldCheck className="w-4 h-4 text-[#00ABC7] flex-shrink-0 mt-0.5" />
             <p className="text-[10px] text-gray-500 leading-relaxed">
@@ -129,7 +120,6 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Action buttons */}
           <div className="flex gap-3">
             <button
               onClick={handleDeny}

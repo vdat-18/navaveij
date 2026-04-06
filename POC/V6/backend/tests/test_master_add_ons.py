@@ -50,7 +50,7 @@ async def test_master_add_ons_normalises_items():
     from src.api.routes.contracts import master_add_ons
     from src.api.security import AuthContext
 
-    auth = AuthContext(user_id="test", role="admin", scopes={"monitoring:read"})
+    auth = AuthContext(user_id="test", role="sysadmin", scopes={"monitoring:read"})
 
     with patch("src.api.routes.contracts.load_ruleset_add_on_items", return_value=SAMPLE_RAW):
         result = await master_add_ons(_auth=auth)
@@ -78,7 +78,7 @@ async def test_master_add_ons_empty_when_no_ruleset():
     from src.api.routes.contracts import master_add_ons
     from src.api.security import AuthContext
 
-    auth = AuthContext(user_id="test", role="admin", scopes={"monitoring:read"})
+    auth = AuthContext(user_id="test", role="sysadmin", scopes={"monitoring:read"})
 
     with patch("src.api.routes.contracts.load_ruleset_add_on_items", return_value=[]):
         result = await master_add_ons(_auth=auth)

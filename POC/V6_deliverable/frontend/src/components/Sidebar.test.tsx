@@ -9,7 +9,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/shared/auth-context", () => ({
-  useAuth: () => ({ user: { name: "Dr. Test", role: "admin", fhir_scopes: [] }, logout: vi.fn() }),
+  useAuth: () => ({ user: { name: "System Admin", role: "sysadmin", fhir_scopes: [] }, logout: vi.fn() }),
 }));
 
 vi.mock("next/link", () => ({
@@ -29,21 +29,21 @@ describe("Sidebar", () => {
     vi.clearAllMocks();
   });
 
-  it("renders the management metrics nav link for admin users", () => {
-    mockPathname.mockReturnValue("/");
+  it("renders the Configuration nav link for sysadmin users", () => {
+    mockPathname.mockReturnValue("/access-monitoring");
 
     render(<Sidebar />);
 
-    const link = screen.getByRole("link", { name: "Management Metrics" });
-    expect(link).toHaveAttribute("href", "/management");
+    const link = screen.getByRole("link", { name: "Configuration" });
+    expect(link).toHaveAttribute("href", "/configuration");
   });
 
   it("marks the active link with aria-current page", () => {
-    mockPathname.mockReturnValue("/trend-timeline");
+    mockPathname.mockReturnValue("/access-monitoring");
 
     render(<Sidebar />);
 
-    const link = screen.getByRole("link", { name: "Trend & Timeline" });
+    const link = screen.getByRole("link", { name: "Access Monitoring" });
     expect(link).toHaveAttribute("aria-current", "page");
   });
 });

@@ -10,7 +10,7 @@ from src.api.routes import contracts
 client = TestClient(app)
 
 
-def _auth_headers(role: str = "admin", scopes: str = "recommendation:read,monitoring:read") -> dict[str, str]:
+def _auth_headers(role: str = "sysadmin", scopes: str = "recommendation:read,monitoring:read") -> dict[str, str]:
     return {
         "X-Auth-User-Id": "usr-test-0001",
         "X-Auth-Role": role,
@@ -103,7 +103,7 @@ def test_gap9_api_smoke_for_screen_contracts():
     )
     monitoring = client.get(
         "/api/monitoring-snapshot",
-        headers=_auth_headers(role="admin", scopes="monitoring:read"),
+        headers=_auth_headers(role="sysadmin", scopes="monitoring:read"),
     )
     assert recommend.status_code == 200
     assert timeline.status_code == 200
@@ -114,7 +114,7 @@ def test_gap9_api_smoke_for_screen_contracts():
 
 
 def test_gap9_admin_aliases_and_mapping_contract_smoke():
-    headers = _auth_headers(role="admin", scopes="monitoring:read")
+    headers = _auth_headers(role="sysadmin", scopes="monitoring:read")
     mapping_response = client.get("/api/admin/mapping-codes", headers=headers)
     assert client.get("/api/admin/monitoring/snapshot", headers=headers).status_code == 200
     assert client.get("/api/admin/audit-logs/search", headers=headers).status_code == 200

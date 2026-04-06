@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/shared/auth-context";
 
 /** Roles that hide the sidebar and should have no left padding offset. */
-const NO_SIDEBAR_ROLES = new Set(["physician", "nurse"]);
+const NO_SIDEBAR_ROLES = new Set(["physician", "sales"]);
 
 /**
  * Wraps the main content area.

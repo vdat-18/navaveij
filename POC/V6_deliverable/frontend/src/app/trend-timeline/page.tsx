@@ -15,12 +15,19 @@ export default function TrendTimelinePage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (user && (user.role === "physician" || user.role === "nurse")) {
-      router.replace("/");
+    if (user) {
+      // No role has Trend & Timeline in their sidebar — redirect everyone to their home screen.
+      if (user.role === "executive") {
+        router.replace("/management");
+      } else if (user.role === "sysadmin") {
+        router.replace("/access-monitoring");
+      } else {
+        router.replace("/");
+      }
     }
   }, [user, router]);
 
-  if (user && (user.role === "physician" || user.role === "nurse")) {
+  if (user) {
     return null;
   }
 

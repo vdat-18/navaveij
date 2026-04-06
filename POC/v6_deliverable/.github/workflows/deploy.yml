@@ -1,0 +1,90 @@
+name: Deploy Backend to EC2
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to deploy"
+        required: true
+        default: "main"
+        type: string
+
+env:
+  APP_DIR: /home/ec2-user/poc-navavej-health-checkup
+  APP_MODULE: src.api.main
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # ── 1. Deploy to EC2 via SSH ──────────────────────────────────────────────
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_SSH_PORT || '22' }}
+          script: |
+            set -e
+
+            APP_DIR="${{ env.APP_DIR }}"
+            APP_MODULE="${{ env.APP_MODULE }}"
+
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "  1/5 — Sync files via git pull"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            cd "$APP_DIR"
+            git fetch origin "${{ inputs.branch }}"
+            git checkout "${{ inputs.branch }}"
+            git pull origin "${{ inputs.branch }}"
+
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "  2/5 — Sync Python dependencies"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            cd "$APP_DIR"
+            uv sync --frozen
+
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "  3/5 — Stop existing server"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            pm2 stop backend 2>/dev/null || true
+            pm2 delete backend 2>/dev/null || true
+            pm2 stop mcp-server 2>/dev/null || true
+            pm2 delete mcp-server 2>/dev/null || true
+
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "  4/5 — Start server with PM2"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            # Write a small shell wrapper so PM2 can run `uv run` cleanly.
+            # MCP server starts as a subprocess inside src.api.main.
+            cat > /tmp/backend_run.sh << 'WRAPPER'
+            #!/bin/bash
+            cd /home/ec2-user/poc-navavej-health-checkup
+            exec uv run python -m src.api.main
+            WRAPPER
+            chmod +x /tmp/backend_run.sh
+
+            pm2 start /tmp/backend_run.sh --name backend
+
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "  5/5 — Health check"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            sleep 5
+
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health || echo "000")
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ]; then
+              echo "✅ Server is UP (HTTP $HTTP_CODE)"
+            else
+              echo "❌ Health check failed (HTTP $HTTP_CODE)"
+              pm2 logs backend --lines 30
+              exit 1
+            fi
+
+            pm2 save
+            echo ""
+            echo "🚀 Deploy complete!"
+            pm2 status

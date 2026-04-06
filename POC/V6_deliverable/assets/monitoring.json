@@ -128,9 +128,9 @@
       "entry_id": "alog-20260311-003291",
       "prev_entry_hash": "placeholder",
       "who": {
-        "user_id": "usr-nurse-74920183",
-        "user_display_name": "Nurse Supawan K.",
-        "user_role": "nurse",
+        "user_id": "usr-sales-74920183",
+        "user_display_name": "Supawan K. (Sales)",
+        "user_role": "sales",
         "department": "Health Checkup Center"
       },
       "when": {
@@ -211,8 +211,8 @@
       }
     },
     {
-      "role_id": "nurse",
-      "label": "Nurse",
+      "role_id": "sales",
+      "label": "Sales",
       "permissions": {
         "RecommendationOutput": ["read", "export"],
         "PatientTrend": ["read"],
@@ -235,7 +235,7 @@
       }
     },
     {
-      "role_id": "admin",
+      "role_id": "sysadmin",
       "label": "System Admin",
       "permissions": {
         "RecommendationOutput": [],
@@ -247,8 +247,8 @@
       }
     },
     {
-      "role_id": "dpo",
-      "label": "Data Protection Officer",
+      "role_id": "executive",
+      "label": "Executive",
       "permissions": {
         "RecommendationOutput": [],
         "PatientTrend": [],

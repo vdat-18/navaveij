@@ -20,10 +20,16 @@ from src.mcp_server.tools.clinical_signals import get_clinical_signals
 from src.mcp_server.tools.patient_event_timeline import get_patient_event_timeline
 from src.mcp_server.tools.program_ruleset import get_program_ruleset
 from src.mcp_server.utils import load_promotions, load_ruleset_add_on_items
-from src.services.active_client import resolve_active_client
+from src.services.active_client import get_supported_client_names, resolve_active_client, set_runtime_active_client
 from src.services.cache import cache_service
+from src.services.health_check import run_health_check
 from src.services.orchestrator import OrchestrationManager
-from src.services.prompt_selector import get_prompt_selector
+from src.services.prompt_selector import (
+    get_prompt_selector,
+    reset_runtime_prompt_overrides,
+    set_runtime_prompt_override,
+    set_runtime_prompt_version,
+)
 from src.services.promotions import PromotionEngine
 
 router = APIRouter()
@@ -132,6 +138,40 @@ class SystemConfigResponse(BaseModel):
     mcp_tools: list[McpToolInfo]
     auth_mode: str
     template_version: str
+
+
+class SetActiveClientRequest(BaseModel):
+    client_name: str
+
+
+class SetActiveClientResponse(BaseModel):
+    active_client: str
+    template_version: str
+
+
+class HealthCheckRequest(BaseModel):
+    client_name: str
+
+
+class HealthCheckResponse(BaseModel):
+    client_name: str
+    status: str
+    provider: str | None = None
+    model_id: str | None = None
+    template_version: str | None = None
+    latency_ms: int | None = None
+    error_message: str | None = None
+
+
+class ClientPromptsResponse(BaseModel):
+    client_name: str
+    template_version: str
+    templates: dict[str, str]
+
+
+class UpdatePromptsRequest(BaseModel):
+    version: str | None = None
+    templates: dict[str, str]
 
 
 MONITORING_FIXTURE_PATH = Path(__file__).resolve().parents[4] / "assets" / "monitoring.json"
@@ -1122,13 +1162,7 @@ def get_system_config(_auth: AuthContext = Depends(require_monitoring_access)):
     resolved_client = resolve_active_client()
     selector = get_prompt_selector(resolved_client.client_name)
     active = resolved_client.client_name
-    supported_clients = [
-        "GeminiClient",
-        "OpenAIClient",
-        "AnthropicClient",
-        "LocalHostedClient",
-        "OpenRouterClient",
-    ]
+    supported_clients = get_supported_client_names()
     clients = [
         BamlClientInfo(
             name=client_name,
@@ -1157,3 +1191,66 @@ def get_system_config(_auth: AuthContext = Depends(require_monitoring_access)):
         auth_mode=settings.api_auth_mode,
         template_version=selector.version,
     )
+
+
+@router.patch("/system-config/active-client", response_model=SetActiveClientResponse)
+def set_active_client(body: SetActiveClientRequest, _auth: AuthContext = Depends(require_monitoring_access)):
+    try:
+        set_runtime_active_client(body.client_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    resolved = resolve_active_client()
+    sel = get_prompt_selector(resolved.client_name)
+    return SetActiveClientResponse(active_client=resolved.client_name, template_version=sel.version)
+
+
+@router.post("/system-config/health-check", response_model=HealthCheckResponse)
+async def system_config_health_check(
+    body: HealthCheckRequest,
+    _auth: AuthContext = Depends(require_monitoring_access),
+):
+    return HealthCheckResponse(**await run_health_check(body.client_name))
+
+
+@router.get("/system-config/prompts/{client_name}", response_model=ClientPromptsResponse)
+def get_client_prompts(client_name: str, _auth: AuthContext = Depends(require_monitoring_access)):
+    try:
+        sel = get_prompt_selector(client_name)
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    templates = {k: v for k, v in sel._templates.items() if k != "version"}
+    return ClientPromptsResponse(client_name=client_name, template_version=sel.version, templates=templates)
+
+
+@router.patch("/system-config/prompts/{client_name}", response_model=ClientPromptsResponse)
+def update_client_prompts(
+    client_name: str,
+    body: UpdatePromptsRequest,
+    _auth: AuthContext = Depends(require_monitoring_access),
+):
+    try:
+        resolved = resolve_active_client(client_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    for template_key, text in body.templates.items():
+        set_runtime_prompt_override(resolved.prompt_registry_key, template_key, text)
+    if body.version:
+        set_runtime_prompt_version(resolved.prompt_registry_key, body.version)
+
+    sel = get_prompt_selector(client_name)
+    templates = {k: v for k, v in sel._templates.items() if k != "version"}
+    return ClientPromptsResponse(client_name=client_name, template_version=sel.version, templates=templates)
+
+
+@router.post("/system-config/prompts/{client_name}/reset", response_model=ClientPromptsResponse)
+def reset_client_prompts(client_name: str, _auth: AuthContext = Depends(require_monitoring_access)):
+    try:
+        resolved = resolve_active_client(client_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    reset_runtime_prompt_overrides(resolved.prompt_registry_key)
+    sel = get_prompt_selector(client_name)
+    templates = {k: v for k, v in sel._templates.items() if k != "version"}
+    return ClientPromptsResponse(client_name=client_name, template_version=sel.version, templates=templates)

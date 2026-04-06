@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import { useAuth } from "@/shared/auth-context";
 import {
   BarChart,
   Bar,
@@ -26,7 +27,9 @@ import {
   LayoutDashboard,
   DollarSign,
   Star,
-  Users
+  Users,
+  Filter,
+  ArrowDown
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/shared/utils";
@@ -65,13 +68,26 @@ const itemAnim = {
   }
 };
 
+const FUNNEL_COLORS = ["#00ABC7", "#0EA5E9", "#34D399", "#52C41A"];
+const TIME_RANGES = ["1W", "2W", "1M", "3M", "ALL"] as const;
+const TIME_RANGE_LABELS: Record<string, string> = {
+  "1W": "1 Week",
+  "2W": "2 Weeks",
+  "1M": "1 Month",
+  "3M": "3 Months",
+  "ALL": "All Time",
+};
+
 export function ManagementDashboard() {
+  const { user } = useAuth();
+  const [funnelRange, setFunnelRange] = useState<string>("ALL");
   const {
     overview_metrics: metrics,
     weekly_performance: weekly,
     rejection_reasons: rejections,
-    nurse_adoption_rates: nurses,
-  } = dashboardData;
+    sales_adoption_rates: nurses,
+    conversion_funnel: funnel,
+  } = dashboardData as any;
 
   const getTrendIcon = (direction: string) => {
     if (direction === "up") return <TrendingUp className="w-2.5 h-2.5" />;
@@ -93,11 +109,16 @@ export function ManagementDashboard() {
             </div>
             <p className="text-[11px] text-slate-500 font-bold tracking-[0.2em] uppercase opacity-60">Performance & Patient Outcome Adoption Metrics</p>
           </div>
-          <div className="flex items-center gap-4 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2">
-               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-               <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Live Sync: Active</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-200 shadow-sm">
+              <div className="flex items-center gap-2">
+                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                 <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Live Sync: Active</span>
+              </div>
             </div>
+            <span className="border border-slate-200 rounded-lg px-3 py-2 text-xs font-black uppercase text-[#333333]">
+              {user?.role ?? "executive"}
+            </span>
           </div>
         </div>
       </div>
@@ -215,7 +236,7 @@ export function ManagementDashboard() {
           <motion.div variants={itemAnim} className="lg:col-span-4 navavej-card bg-white p-6 flex flex-col">
              <div className="mb-6">
                 <h2 className="text-base font-black text-[#333333] tracking-tight uppercase italic">Rejection Reasons</h2>
-                <p className="text-xs text-slate-400 font-bold tracking-[0.1em] uppercase mt-1">Why nurses removed AI suggestions</p>
+                <p className="text-xs text-slate-400 font-bold tracking-[0.1em] uppercase mt-1">Why sales removed AI suggestions</p>
              </div>
              <div className="flex-1 space-y-5">
                 {rejections.data.map((item: any, idx: number) => (
@@ -247,11 +268,136 @@ export function ManagementDashboard() {
           </motion.div>
         </div>
 
-        {/* 3. Global Practice Adoption Table - MAX PREMIUM */}
+        {/* 3. AI-to-Purchase Conversion Pipeline */}
+        <motion.div variants={itemAnim} className="navavej-card bg-white p-8 flex flex-col overflow-hidden relative">
+           {/* Header + Time Range Selector */}
+           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+              <div className="space-y-1">
+                 <h2 className="text-xl font-black text-[#333333] tracking-tighter uppercase italic">AI-to-Purchase Conversion Pipeline</h2>
+                 <p className="text-xs text-slate-400 font-bold tracking-[0.1em] uppercase opacity-60">Recommendation-to-Revenue Funnel Analysis</p>
+              </div>
+              <div className="flex items-center gap-1.5 bg-slate-100 rounded-2xl p-1">
+                 {TIME_RANGES.map((range) => (
+                    <button
+                       key={range}
+                       onClick={() => setFunnelRange(range)}
+                       className={cn(
+                          "px-4 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all duration-300",
+                          funnelRange === range
+                             ? "bg-[#00ABC7] text-white shadow-lg shadow-[#00ABC7]/25"
+                             : "text-slate-500 hover:text-slate-700 hover:bg-white/60"
+                       )}
+                    >
+                       {range}
+                    </button>
+                 ))}
+              </div>
+           </div>
+
+           {/* Funnel Visualization */}
+           {(() => {
+              const stages = funnel.time_ranges[funnelRange]?.stages ?? [];
+              const maxValue = stages.length > 0 ? stages[0].value : 1;
+              const lastValue = stages.length > 0 ? stages[stages.length - 1].value : 0;
+              const conversionRate = maxValue > 0 ? ((lastValue / maxValue) * 100).toFixed(1) : "0.0";
+
+              return (
+                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    {/* Funnel bars */}
+                    <div className="lg:col-span-9 space-y-1">
+                       {stages.map((stage: any, idx: number) => {
+                          const widthPct = (stage.value / maxValue) * 100;
+                          const pctOfTotal = ((stage.value / maxValue) * 100).toFixed(1);
+                          const dropOff = idx > 0
+                             ? (((stages[idx - 1].value - stage.value) / stages[idx - 1].value) * 100).toFixed(1)
+                             : null;
+
+                          return (
+                             <div key={stage.name}>
+                                {/* Drop-off indicator */}
+                                {dropOff && (
+                                   <div className="flex items-center gap-2 pl-4 py-1.5">
+                                      <ArrowDown className="w-3 h-3 text-red-400" />
+                                      <span className="text-[11px] font-black text-red-400 tracking-widest">
+                                         −{dropOff}% drop-off
+                                      </span>
+                                      <span className="text-[11px] text-slate-300 font-medium">
+                                         ({formatNumber(stages[idx - 1].value - stage.value)} lost)
+                                      </span>
+                                   </div>
+                                )}
+                                {/* Bar row */}
+                                <div className="flex items-center gap-4">
+                                   <div className="w-[180px] shrink-0 text-right">
+                                      <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest leading-tight">
+                                         {stage.name}
+                                      </span>
+                                   </div>
+                                   <div className="flex-1 flex items-center gap-4">
+                                      <div className="flex-1 h-11 bg-slate-50 rounded-xl overflow-hidden relative">
+                                         <motion.div
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${widthPct}%` }}
+                                            transition={{ delay: 0.5 + idx * 0.15, duration: 1.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+                                            className="h-full rounded-xl flex items-center justify-end pr-4 relative overflow-hidden"
+                                            style={{
+                                               background: `linear-gradient(135deg, ${FUNNEL_COLORS[idx]}CC, ${FUNNEL_COLORS[idx]})`,
+                                               boxShadow: `0 4px 15px ${FUNNEL_COLORS[idx]}30`,
+                                            }}
+                                         >
+                                            <span className="text-white font-black text-sm drop-shadow-sm tracking-tight">
+                                               {formatNumber(stage.value)}
+                                            </span>
+                                         </motion.div>
+                                      </div>
+                                      <div className="w-[60px] shrink-0">
+                                         <span className="text-xs font-black text-slate-400">{pctOfTotal}%</span>
+                                      </div>
+                                   </div>
+                                </div>
+                             </div>
+                          );
+                       })}
+                    </div>
+
+                    {/* Conversion Rate Callout */}
+                    <div className="lg:col-span-3 flex items-center justify-center">
+                       <div className="w-full p-6 rounded-2xl border-2 border-[#00ABC7]/20 bg-gradient-to-br from-[#00ABC7]/5 to-transparent flex flex-col items-center gap-4 text-center">
+                          <div className="p-3 bg-[#00ABC7]/10 rounded-2xl">
+                             <Target className="w-6 h-6 text-[#00ABC7]" />
+                          </div>
+                          <div>
+                             <div className="text-4xl font-black text-[#333333] tracking-tighter">
+                                {conversionRate}%
+                             </div>
+                             <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                                Conversion Rate
+                             </div>
+                          </div>
+                          <div className="w-full h-px bg-slate-100" />
+                          <div className="space-y-1">
+                             <div className="text-sm font-black text-[#333333] tracking-tight">
+                                {formatNumber(lastValue)} <span className="text-slate-300 font-medium">/</span> {formatNumber(maxValue)}
+                             </div>
+                             <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                Purchased ÷ AI Recs
+                             </div>
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-xl">
+                             {TIME_RANGE_LABELS[funnelRange]}
+                          </div>
+                       </div>
+                    </div>
+                 </div>
+              );
+           })()}
+        </motion.div>
+
+        {/* 4. Global Practice Adoption Table - MAX PREMIUM */}
         <motion.div variants={itemAnim} className="navavej-card bg-white p-8 flex flex-col overflow-hidden relative border-t-4 border-t-[#00ABC7] shadow-2xl">
            <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 px-4 gap-6">
               <div className="space-y-2">
-                 <h2 className="text-xl font-black text-[#333333] tracking-tighter uppercase italic">Nurse Adoption Rates</h2>
+                 <h2 className="text-xl font-black text-[#333333] tracking-tighter uppercase italic">Sales Adoption Rates</h2>
                  <p className="text-xs text-slate-400 font-bold tracking-[0.1em] uppercase opacity-60">Who trusts the AI recommendations key for change management</p>
               </div>
               
