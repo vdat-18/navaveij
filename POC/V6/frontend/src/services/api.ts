@@ -456,6 +456,11 @@ export const leadService = {
         );
         return response.data;
     },
+    unassignLead: async (assignmentId: string): Promise<LeadAssignment> => {
+        const headers = await buildAuthHeaders("executive", "monitoring:read");
+        const response = await apiV3.delete<LeadAssignment>(`/leads/${assignmentId}`, { headers });
+        return response.data;
+    },
     getSalesUsers: async (): Promise<SalesUser[]> => {
         const headers = await buildAuthHeaders("executive", "monitoring:read");
         const response = await apiV3.get<SalesUser[]>("/sales-users", { headers });

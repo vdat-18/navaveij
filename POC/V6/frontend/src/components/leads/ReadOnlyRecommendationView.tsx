@@ -2,6 +2,7 @@
 
 import { PreRunnedRecommendation } from "@/types/leads";
 import { renderHighlightedText, severityToStyles } from "@/shared/recommendationTextFormatting";
+import { RiskBadge } from "@/components/leads/LeadBadges";
 
 interface ReadOnlyRecommendationViewProps {
   data: PreRunnedRecommendation;
@@ -22,32 +23,48 @@ export function ReadOnlyRecommendationView({ data }: ReadOnlyRecommendationViewP
   const recommendation = data.recommendation;
   const communicationScript = recommendation.communication_script;
   const priorityAddOns = communicationScript?.priority_add_ons ?? [];
+  const topFindings = communicationScript?.top_findings ?? [];
+  const nextActions = communicationScript?.next_actions ?? [];
   const reasoningLines = recommendation.reasoning_trace_annotated ?? [];
   const criticalSignals = Array.isArray(recommendation.patient_high_alert)
     ? recommendation.patient_high_alert
     : recommendation.patient_high_alert?.critical_signals ?? [];
   const packageName = recommendation.resolved_package?.name || recommendation.resolved_package?.package_name || recommendation.ai_recommended_tier;
   const packagePrice = recommendation.resolved_package?.price_thb;
+  const confidencePct = typeof recommendation.confidence_score === "number"
+    ? Math.round(recommendation.confidence_score * 100)
+    : null;
+
+  const getSentimentBorder = (sentiment: string) => {
+    if (sentiment === "risk") return "border-l-red-400";
+    if (sentiment === "reassuring") return "border-l-green-400";
+    if (sentiment === "informational") return "border-l-sky-400";
+    return "border-l-gray-300";
+  };
 
   return (
     <div className="space-y-4 rounded-2xl border border-navavej-border bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-3 rounded-2xl border border-navavej-teal/10 bg-navavej-teal/[0.03] p-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-2">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-navavej-teal">Pre-runned recommendation</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-navavej-teal">Pre-run recommendation</p>
           <h3 className="text-xl font-black text-navavej-navy">{data.patient_name}</h3>
           <p className="text-sm text-navavej-gray-dark">{data.scenario_label}</p>
           <p className="text-sm leading-6 text-navavej-gray-dark">{data.ai_lead_summary}</p>
         </div>
-        <div className="grid min-w-[220px] grid-cols-2 gap-3 text-sm">
-          <div className="rounded-xl border border-navavej-border bg-white p-3">
-            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-navavej-gray">Risk</p>
-            <p className="mt-1 text-base font-black text-navavej-navy">{recommendation.overall_risk_level}</p>
+        <div className="min-w-[240px]">
+          <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
+            <RiskBadge riskLevel={recommendation.overall_risk_level} />
+            <span className="inline-flex items-center rounded-full border border-navavej-border bg-white px-3 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-navavej-gray-dark">
+              {recommendation.ai_recommended_tier}
+            </span>
+            {typeof confidencePct === "number" ? (
+              <span className="inline-flex items-center rounded-full border border-navavej-border bg-white px-3 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-navavej-gray-dark">
+                {confidencePct}% confidence
+              </span>
+            ) : null}
           </div>
-          <div className="rounded-xl border border-navavej-border bg-white p-3">
-            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-navavej-gray">Tier</p>
-            <p className="mt-1 text-base font-black text-navavej-navy">{recommendation.ai_recommended_tier}</p>
-          </div>
-          <div className="rounded-xl border border-navavej-border bg-white p-3 col-span-2">
+
+          <div className="mt-3 rounded-xl border border-navavej-border bg-white p-3">
             <p className="text-[11px] font-black uppercase tracking-[0.14em] text-navavej-gray">Generated</p>
             <p className="mt-1 text-sm font-semibold text-navavej-navy">{formatDateTime(data.generated_at)}</p>
           </div>
@@ -68,6 +85,20 @@ export function ReadOnlyRecommendationView({ data }: ReadOnlyRecommendationViewP
                 )}
               </p>
             </div>
+
+            {topFindings.length > 0 ? (
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-navavej-gray">Key Findings</p>
+                <div className="mt-2 space-y-2">
+                  {topFindings.map((finding, index) => (
+                    <div key={`${finding.text}-${index}`} className="rounded-xl border border-navavej-border bg-navavej-background p-3">
+                      {renderHighlightedText(finding.text, "informational", finding.highlight_terms ?? [])}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.14em] text-navavej-gray">Program justification</p>
               <p className="mt-1">
@@ -82,7 +113,10 @@ export function ReadOnlyRecommendationView({ data }: ReadOnlyRecommendationViewP
               <p className="text-[11px] font-black uppercase tracking-[0.14em] text-navavej-gray">Reasoning trace</p>
               <div className="mt-2 space-y-2">
                 {reasoningLines.length > 0 ? reasoningLines.map((line, index) => (
-                  <div key={`${line.text}-${index}`} className="rounded-xl border border-navavej-border bg-navavej-background p-3 text-sm text-navavej-gray-dark">
+                  <div
+                    key={`${line.text}-${index}`}
+                    className={`rounded-xl border border-navavej-border border-l-4 bg-navavej-background p-3 text-sm text-navavej-gray-dark ${getSentimentBorder(line.sentiment)}`}
+                  >
                     {renderHighlightedText(line.text, line.sentiment, line.highlight_terms ?? [])}
                   </div>
                 )) : (
@@ -92,6 +126,19 @@ export function ReadOnlyRecommendationView({ data }: ReadOnlyRecommendationViewP
                 )}
               </div>
             </div>
+
+            {nextActions.length > 0 ? (
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-navavej-gray">Suggested Next Steps</p>
+                <div className="mt-2 space-y-2">
+                  {nextActions.map((action, index) => (
+                    <div key={`${action.text}-${index}`} className="rounded-xl border border-navavej-border bg-navavej-background p-3">
+                      {renderHighlightedText(action.text, "informational", action.highlight_terms ?? [])}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -122,7 +169,7 @@ export function ReadOnlyRecommendationView({ data }: ReadOnlyRecommendationViewP
                   </div>
                 );
               }) : (
-                <p className="text-sm text-navavej-gray-dark">No priority add-ons were flagged for this pre-runned patient.</p>
+                <p className="text-sm text-navavej-gray-dark">No priority add-ons were flagged for this pre-run patient.</p>
               )}
             </div>
           </div>

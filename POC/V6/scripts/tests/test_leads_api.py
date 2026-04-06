@@ -70,6 +70,26 @@ def test_sales_can_update_allowed_lead():
     assert updated["notes"] == "Consult booked for Friday."
 
 
+def test_executive_can_unassign_lead_assignment():
+    executive_headers = _headers("usr-executive-00001", "executive", "recommendation:read,monitoring:read")
+
+    list_response = client.get("/api/leads", headers=executive_headers)
+    assert list_response.status_code == 200
+    existing = list_response.json()
+    assert len(existing) >= 1
+    target_assignment = existing[0]["assignment_id"]
+
+    delete_response = client.delete(f"/api/leads/{target_assignment}", headers=executive_headers)
+    assert delete_response.status_code == 200
+    deleted = delete_response.json()
+    assert deleted["assignment_id"] == target_assignment
+
+    list_after = client.get("/api/leads", headers=executive_headers)
+    assert list_after.status_code == 200
+    remaining = list_after.json()
+    assert all(item["assignment_id"] != target_assignment for item in remaining)
+
+
 def test_unauthorized_role_scope_combinations_are_rejected():
     sales_headers = _headers("usr-sales-00001", "sales", "recommendation:read,recommendation:write")
     executive_headers = _headers("usr-executive-00001", "executive", "recommendation:read,monitoring:read")
@@ -92,6 +112,9 @@ def test_unauthorized_role_scope_combinations_are_rejected():
         json={"status": "declined", "notes": "Should fail"},
     )
     assert update_response.status_code == 403
+
+    delete_response = client.delete("/api/leads/lead_001", headers=sales_headers)
+    assert delete_response.status_code == 403
 
     sales_user_response = client.get("/api/sales-users", headers=executive_headers)
     assert sales_user_response.status_code == 200

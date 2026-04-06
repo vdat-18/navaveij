@@ -33,7 +33,7 @@ export default function LeadAssignmentPage() {
           Lead Assignment Flow
         </h1>
         <p className="text-xs font-bold text-navavej-gray-med mt-2">
-          Executive workspace for assigning pre-runned outreach leads to sales.
+          Executive workspace for assigning pre-run outreach leads to sales.
         </p>
       </div>
       <ExecutiveLeadAssignmentScreen />

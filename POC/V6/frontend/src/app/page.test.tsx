@@ -117,22 +117,27 @@ describe("DashboardPage privacy display", () => {
 
     render(<PatientProvider><DashboardPage /></PatientProvider>);
 
-    expect(screen.getByRole("button", { name: "Walk-in" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "My Leads" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Walk-in/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /My Leads/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Load walk-in patient" })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "My Leads" }));
+    await userEvent.click(screen.getByRole("button", { name: /My Leads/ }));
 
     expect(screen.getByText("Sales Lead Development Panel Mock")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Walk-in" }));
+    await userEvent.click(screen.getByRole("button", { name: /Walk-in/ }));
 
     expect(screen.getByRole("button", { name: "Load walk-in patient" })).toBeInTheDocument();
   });
 });
 
 vi.mock("@/components/leads/SalesLeadDevelopmentPanel", () => ({
-  SalesLeadDevelopmentPanel: () => <div>Sales Lead Development Panel Mock</div>,
+  SalesLeadDevelopmentPanel: ({ onLeadCountChange }: { onLeadCountChange?: (count: number) => void }) => {
+    React.useEffect(() => {
+      onLeadCountChange?.(3);
+    }, []);
+    return <div>Sales Lead Development Panel Mock</div>;
+  },
 }));
 
 vi.mock("@/components/trend-timeline/ScreeningGapStatus", () => ({

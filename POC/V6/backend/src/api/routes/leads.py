@@ -225,6 +225,25 @@ def update_lead_status(
     return _serialize_assignment(assignment)
 
 
+@router.delete("/leads/{assignment_id}", response_model=LeadAssignment)
+def unassign_lead(assignment_id: str, auth: AuthContext = Depends(require_executive_access)):
+    # Executive-only: removing an assignment returns the patient to the unassigned pool.
+    assignment = _find_assignment(assignment_id)
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Lead assignment not found")
+
+    removed: dict[str, Any] | None = None
+    for idx, item in enumerate(_assignments):
+        if item.get("assignment_id") == assignment_id:
+            removed = _assignments.pop(idx)
+            break
+
+    if not removed:
+        raise HTTPException(status_code=404, detail="Lead assignment not found")
+
+    return _serialize_assignment(removed)
+
+
 @router.get("/pre-runned-patients", response_model=list[PreRunnedPatientSummary])
 def list_pre_runned_patients(_auth: AuthContext = Depends(require_executive_access)):
     return [_serialize_pre_runned_summary(item) for item in _pre_runned]

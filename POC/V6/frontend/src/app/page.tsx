@@ -76,6 +76,7 @@ export default function DashboardPage() {
   const [screeningPanelOpen, setScreeningPanelOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [salesView, setSalesView] = useState<"walk-in" | "my-leads">("walk-in");
+  const [myLeadsCount, setMyLeadsCount] = useState<number | null>(null);
 
   const isSearchFlowRole = user ? SEARCH_FLOW_ROLES.has(user.role) : false;
   const isSalesRole = user?.role === "sales";
@@ -260,13 +261,25 @@ export default function DashboardPage() {
                     : "bg-navavej-background text-navavej-gray-dark hover:bg-navavej-border"
                 )}
               >
-                My Leads
+                <span className="inline-flex items-center gap-2">
+                  My Leads
+                  {typeof myLeadsCount === "number" ? (
+                    <span className={cn(
+                      "rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em]",
+                      salesView === "my-leads"
+                        ? "bg-white/20 text-white border-white/20"
+                        : "bg-white text-navavej-gray-dark border-navavej-border"
+                    )}>
+                      {myLeadsCount}
+                    </span>
+                  ) : null}
+                </span>
               </button>
             </div>
           ) : null}
 
           {isSalesRole && salesView === "my-leads" ? (
-            <SalesLeadDevelopmentPanel />
+            <SalesLeadDevelopmentPanel onLeadCountChange={setMyLeadsCount} />
           ) : !selectedPatient ? (
             <div className="w-full py-4">
               <PatientSearchEntry

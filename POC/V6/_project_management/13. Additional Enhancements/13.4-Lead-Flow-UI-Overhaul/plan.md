@@ -6,7 +6,34 @@
 
 **No backend changes required.** Existing routes in `backend/src/api/routes/leads.py` are sufficient.
 
-**Implementation gating:** Do not start implementation until the requester explicitly gives the go-ahead.
+**Status:** Implementation in progress (checkpoint-driven; pause after each checkpoint when requested).
+
+## Progress (checkpoint log)
+
+**Checkpoint 1 — Completed**
+- ✅ Task 0: Preflight copy audit (located all UI-facing “Pre-runned” strings)
+- ✅ Task 1: Fixture content updates (patient_name, direct voice, clinical-only risk summaries)
+- ✅ Task 2: UI label updates (“Pre-runned” → “Pre-run”)
+- ✅ Task 3: Shared visual system (risk/status maps + reusable badges)
+- ✅ Task 4: ReadOnlyRecommendationView upgrades (confidence, key findings, next steps, sentiment borders)
+- ✅ Task 5: Executive screen refactor (Assignment + Tracker sections + selection rules)
+
+**Checkpoint 2 — Completed**
+- ✅ Task 6: Sales Kanban refactor (Kanban board + detail panel workflow)
+
+**Checkpoint 3 — Completed**
+- ✅ Task 7: “My Leads” count badge wiring
+- ✅ Task 8: Tests + verification runs
+
+**Checkpoint 4 — Completed**
+- ✅ Enhancement: Full-screen focus mode for recommendation panels (Sales + Executive)
+
+**Checkpoint 5 — Completed**
+- ✅ Enhancement: Additional unassigned pre-run leads for a livelier executive pool
+- ✅ Enhancement: Executive can unassign leads (returns lead to unassigned pool)
+
+**Next up**
+- ✅ All planned implementation tasks complete; awaiting any additional QA requests.
 
 ---
 
@@ -18,14 +45,14 @@
 - `frontend/src/components/leads/**`
 - `frontend/src/app/lead-assignment/page.tsx`
 
-- [ ] Grep for `Pre-runned|pre-runned` and list every UI-facing occurrence to update.
-- [ ] Confirm we will **not** rename API routes, JSON filenames, types, or variables named `pre_runned` (minimize churn).
+- [x] Grep for `Pre-runned|pre-runned` and list every UI-facing occurrence to update.
+- [x] Confirm we will **not** rename API routes, JSON filenames, types, or variables named `pre_runned` (minimize churn).
 
 ---
 
 ## Phase 1 — Content Fixes (fixtures)
 
-### Task 1 — Fix recommendation voice and data
+### Task 1 — Fix recommendation voice and data ✅ (completed)
 
 **File:** `assets/pre_runned_recommendations.json`
 
@@ -69,7 +96,7 @@ Patient 3 (Nalinee):
 
 ## Phase 2 — Terminology (“Pre-run” UI labels only)
 
-### Task 2 — Fix “Pre-runned” grammar in UI labels
+### Task 2 — Fix “Pre-runned” grammar in UI labels ✅ (completed)
 
 **Files (minimum set):**
 - `frontend/src/components/leads/ExecutiveLeadAssignmentScreen.tsx`
@@ -84,7 +111,7 @@ Patient 3 (Nalinee):
 
 ## Phase 3 — Shared Visual System (single source of truth)
 
-### Task 3 — Add shared lead visual maps + badge components
+### Task 3 — Add shared lead visual maps + badge components ✅ (completed)
 
 **Create:**
 - `frontend/src/components/leads/leadVisualMaps.ts`
@@ -105,7 +132,7 @@ Patient 3 (Nalinee):
 
 ## Phase 4 — ReadOnlyRecommendationView Improvements (completeness + hierarchy)
 
-### Task 4 — Add missing sections and visual improvements
+### Task 4 — Add missing sections and visual improvements ✅ (completed)
 
 **Modify:** `frontend/src/components/leads/ReadOnlyRecommendationView.tsx`
 
@@ -124,7 +151,7 @@ Patient 3 (Nalinee):
 
 ## Phase 5 — Executive Screen Redesign (Assignment + Tracker)
 
-### Task 5 — Split Executive screen into Assignment section + Tracker section
+### Task 5 — Split Executive screen into Assignment section + Tracker section ✅ (completed)
 
 **Modify:** `frontend/src/components/leads/ExecutiveLeadAssignmentScreen.tsx`
 
@@ -157,7 +184,7 @@ Patient 3 (Nalinee):
 
 ## Phase 6 — Sales Kanban Board (pipeline visualization)
 
-### Task 6 — Replace vertical list with Kanban + keep detail panel
+### Task 6 — Replace vertical list with Kanban + keep detail panel ✅ (completed)
 
 **Modify:** `frontend/src/components/leads/SalesLeadDevelopmentPanel.tsx`
 
@@ -184,7 +211,7 @@ Patient 3 (Nalinee):
 
 ## Phase 7 — “My Leads” count badge (sales dashboard)
 
-### Task 7 — Show count badge without extra fetch
+### Task 7 — Show count badge without extra fetch ✅ (completed)
 
 **Modify:** `frontend/src/app/page.tsx`
 
@@ -197,7 +224,7 @@ Patient 3 (Nalinee):
 
 ## Phase 8 — Tests & Verification
 
-### Task 8 — Update existing tests to match new UI + fixture strings
+### Task 8 — Update existing tests to match new UI + fixture strings ✅ (completed)
 
 **Modify:**
 - `frontend/src/components/leads/ReadOnlyRecommendationView.test.tsx`

@@ -24,7 +24,7 @@ describe("SalesLeadDevelopmentPanel", () => {
         assignment_id: "lead_001",
         patient_id: "id_24d93799",
         patient_token: "tok_hmac_24d93799",
-        patient_name: "Siriporn Chantarak (Senior Cancer Screening Gap)",
+        patient_name: "Siriporn Chantarak",
         scenario_label: "Senior Cancer Screening Gap",
         overall_risk_level: "High",
         ai_recommended_tier: "Premium",
@@ -42,7 +42,7 @@ describe("SalesLeadDevelopmentPanel", () => {
     mockLeadService.getPreRunnedRecommendation.mockResolvedValue({
       patient_id: "id_24d93799",
       patient_token: "tok_hmac_24d93799",
-      patient_name: "Siriporn Chantarak (Senior Cancer Screening Gap)",
+      patient_name: "Siriporn Chantarak",
       age: 68,
       gender: "Female",
       scenario_label: "Senior Cancer Screening Gap",
@@ -84,7 +84,7 @@ describe("SalesLeadDevelopmentPanel", () => {
         risk_summary: {
           source: "precomputed-fixture",
           is_fallback: false,
-          description: "High preventive risk with strong conversion value.",
+          description: "High preventive risk from accumulated screening gaps. Multiple overdue screenings warrant coordinated follow-up.",
         },
         patient_high_alert: {
           critical_signals: [],
@@ -100,7 +100,7 @@ describe("SalesLeadDevelopmentPanel", () => {
       assignment_id: "lead_001",
       patient_id: "id_24d93799",
       patient_token: "tok_hmac_24d93799",
-      patient_name: "Siriporn Chantarak (Senior Cancer Screening Gap)",
+      patient_name: "Siriporn Chantarak",
       scenario_label: "Senior Cancer Screening Gap",
       overall_risk_level: "High",
       ai_recommended_tier: "Premium",
@@ -118,8 +118,9 @@ describe("SalesLeadDevelopmentPanel", () => {
   it("renders assigned lead data and submits updates through the lead service", async () => {
     render(<SalesLeadDevelopmentPanel />);
 
-    expect(await screen.findByText("Siriporn Chantarak (Senior Cancer Screening Gap)")).toBeInTheDocument();
-    expect(screen.getByText("Navavej Premium Preventive Plus")).toBeInTheDocument();
+    expect(await screen.findByText("Siriporn Chantarak")).toBeInTheDocument();
+    expect(screen.getByText("Assigned")).toBeInTheDocument();
+    expect(await screen.findByText("Navavej Premium Preventive Plus")).toBeInTheDocument();
 
     await userEvent.selectOptions(screen.getByRole("combobox"), "scheduled");
     await userEvent.clear(screen.getByRole("textbox"));

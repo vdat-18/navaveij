@@ -6,7 +6,7 @@ import { PreRunnedRecommendation } from "@/types/leads";
 const recommendation: PreRunnedRecommendation = {
   patient_id: "id_lead_001",
   patient_token: "tok_hmac_lead_001",
-  patient_name: "Siriporn Chantarak (Senior Cancer Screening Gap)",
+  patient_name: "Siriporn Chantarak",
   age: 68,
   gender: "Female",
   scenario_label: "Senior Cancer Screening Gap",
@@ -31,7 +31,12 @@ const recommendation: PreRunnedRecommendation = {
     communication_script: {
       summary_headline: "Overdue screening profile supports premium follow-up",
       summary_headline_highlights: ["premium follow-up"],
-      top_findings: [],
+      top_findings: [
+        {
+          text: "Missed screening opportunities can be consolidated into one visit.",
+          highlight_terms: ["Missed screening opportunities", "one visit"],
+        },
+      ],
       program_justification: "A premium package helps close missed screenings efficiently.",
       program_justification_highlights: ["premium package", "missed screenings"],
       priority_add_ons: [
@@ -40,7 +45,12 @@ const recommendation: PreRunnedRecommendation = {
           severity: "critical",
         },
       ],
-      next_actions: [],
+      next_actions: [
+        {
+          text: "Offer a bundled screening visit with fast scheduling.",
+          highlight_terms: ["bundled screening visit", "fast scheduling"],
+        },
+      ],
     },
     rule_preliminary_tier: "Advanced",
     resolved_package: {
@@ -60,7 +70,7 @@ const recommendation: PreRunnedRecommendation = {
     risk_summary: {
       source: "precomputed-fixture",
       is_fallback: false,
-      description: "High preventive risk with strong conversion value.",
+      description: "High preventive risk from accumulated screening gaps. Multiple overdue screenings warrant coordinated follow-up.",
     },
     patient_high_alert: {
       critical_signals: [
@@ -83,11 +93,24 @@ describe("ReadOnlyRecommendationView", () => {
   it("renders core lead recommendation sections from precomputed data", () => {
     render(<ReadOnlyRecommendationView data={recommendation} />);
 
-    expect(screen.getByText("Pre-runned recommendation")).toBeInTheDocument();
-    expect(screen.getByText("Siriporn Chantarak (Senior Cancer Screening Gap)")).toBeInTheDocument();
+    expect(screen.getByText("Pre-run recommendation")).toBeInTheDocument();
+    expect(screen.getByText("Siriporn Chantarak")).toBeInTheDocument();
     expect(screen.getByText("Navavej Premium Preventive Plus")).toBeInTheDocument();
+    expect(screen.getByText("89% confidence")).toBeInTheDocument();
     expect(screen.getByText("Colonoscopy")).toBeInTheDocument();
-    expect(screen.getByText("High preventive risk with strong conversion value.")).toBeInTheDocument();
+    expect(screen.getByText("Key Findings")).toBeInTheDocument();
+    expect(screen.getByText("Suggested Next Steps")).toBeInTheDocument();
+    expect(
+      screen.getAllByText((_, node) =>
+        (node?.textContent ?? "").includes("Missed screening opportunities can be consolidated into one visit.")
+      ).length
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText((_, node) =>
+        (node?.textContent ?? "").includes("Offer a bundled screening visit with fast scheduling.")
+      ).length
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("High preventive risk from accumulated screening gaps. Multiple overdue screenings warrant coordinated follow-up.")).toBeInTheDocument();
     expect(screen.getByText("Multiple overdue cancer screenings")).toBeInTheDocument();
   });
 });

@@ -2,7 +2,7 @@
 
 **Workstream:** 13.4
 **Date:** 2026-04-03
-**Status:** Planning updated — awaiting implementation go-ahead
+**Status:** Implementation in progress (checkpoint-driven)
 **Scope:** Overhaul the lead assignment UI (executive + sales screens), fix pre-run recommendation content voice, and improve the read-only recommendation display component
 
 ---
@@ -14,6 +14,26 @@ Workstream 13.3 delivered the lead assignment feature: an executive assigns pre-
 The executive screen mixes assignment and tracking into a single flat view. The sales screen is a plain vertical list with no pipeline visualization. The pre-run recommendation text refers to sales in third person ("This helps sales position..."), which is awkward when sales are the audience. The `ReadOnlyRecommendationView` also omits data that exists in the payload (`top_findings`, `next_actions`, `confidence_score`).
 
 This workstream addresses all three concerns as a cohesive overhaul.
+
+---
+
+## Progress (Checkpoint 3)
+
+**Completed**
+- Updated lead fixtures (`assets/pre_runned_recommendations.json`): patient_name de-duplication, direct voice, clinical-only risk summaries
+- Updated UI labels “Pre-runned” → “Pre-run” (UI text only; API/type names unchanged)
+- Added shared status/risk styling helpers + reusable badges
+- Upgraded `ReadOnlyRecommendationView` (confidence, key findings, next steps, sentiment borders)
+- Refactored executive screen into Assignment + Tracker sections with unassigned-only selection rules
+- Refactored sales “My Leads” into a Kanban board + detail panel workflow
+- Added “My Leads” count badge wiring (callback-based; no extra fetch)
+- Updated tests and verified builds
+- Added “Focus mode” full-screen toggle for recommendation reading (Sales detail panel + Executive preview panel)
+- Added additional pre-run patients so the Executive unassigned pool is more lively
+- Added executive “Unassign” action (returns a lead back to the unassigned pool)
+
+**Next**
+- Awaiting any additional QA requests
 
 ---
 
@@ -61,7 +81,7 @@ Replace the vertical lead list with a Kanban board:
 
 - [`problem.md`](./problem.md) — detailed UI problems identified from review
 - [`_discover.md`](./_discover.md) — investigation findings from 13.3 review
-- [`plan.md`](./plan.md) — updated implementation plan with tracked tasks (do not implement until go-ahead)
+- [`plan.md`](./plan.md) — updated implementation plan with tracked tasks + progress checkmarks
 - [`_development_summary.md`](./_development_summary.md) — post-implementation decisions and file inventory
 - [`_latest_test_results.md`](./_latest_test_results.md) — test run results
 
