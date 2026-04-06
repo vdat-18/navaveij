@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { Pencil, RotateCcw, X } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { ChevronDown, ChevronRight, Pencil, RotateCcw } from "lucide-react";
 import { ClientPromptsResponse, HealthCheckResponse, SystemConfig } from "@/services/api";
 import { clinicalService, HEALTH_CHECK_UNAVAILABLE_MESSAGE } from "@/services/api";
 
@@ -23,6 +23,13 @@ const PROMPT_KEY_LABELS: Record<string, string> = {
   annotate_reasoning_lines: "Annotate Reasoning Lines",
 };
 
+const PROMPT_KEY_ORDER = [
+  "analyze_clinical_risks",
+  "match_policy",
+  "write_narrative",
+  "annotate_reasoning_lines",
+];
+
 export function AIConfigsTab({ config, onActiveClientChange }: AIConfigsTabProps) {
   const registryClients = config.all_clients.filter(
     (client) => client.name !== "ActiveModel" && client.status !== "fallback-chain"
@@ -31,41 +38,69 @@ export function AIConfigsTab({ config, onActiveClientChange }: AIConfigsTabProps
   const [settingActive, setSettingActive] = useState<string | null>(null);
   const [testingClient, setTestingClient] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, HealthCheckResponse>>({});
-  const [inspectData, setInspectData] = useState<ClientPromptsResponse | null>(null);
-  const [loadingInspect, setLoadingInspect] = useState<string | null>(null);
-  const [editMode, setEditMode] = useState(false);
-  const [editTemplates, setEditTemplates] = useState<Record<string, string>>({});
-  const [editVersion, setEditVersion] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [resetting, setResetting] = useState(false);
-  const [modalError, setModalError] = useState<string | null>(null);
   const [healthCheckAvailabilityError, setHealthCheckAvailabilityError] = useState<string | null>(null);
+  const [promptsClient, setPromptsClient] = useState(config.active_client);
+  const [promptsData, setPromptsData] = useState<ClientPromptsResponse | null>(null);
+  const [expandedPrompt, setExpandedPrompt] = useState<string | null>(null);
+  const [loadingPrompts, setLoadingPrompts] = useState(false);
+  const [promptsError, setPromptsError] = useState<string | null>(null);
+  const [inlineEditMode, setInlineEditMode] = useState(false);
+  const [inlineEditTemplates, setInlineEditTemplates] = useState<Record<string, string>>({});
+  const [inlineEditVersion, setInlineEditVersion] = useState("");
+  const [inlineSaving, setInlineSaving] = useState(false);
+  const [inlineResetting, setInlineResetting] = useState(false);
+  const [inlineError, setInlineError] = useState<string | null>(null);
 
-  function closeModal() {
-    setInspectData(null);
-    setEditMode(false);
-    setEditTemplates({});
-    setEditVersion("");
-    setSaving(false);
-    setResetting(false);
-    setModalError(null);
-  }
+  const orderedPromptEntries = promptsData
+    ? Object.entries(promptsData.templates).sort(([leftKey], [rightKey]) => {
+        const leftIndex = PROMPT_KEY_ORDER.indexOf(leftKey);
+        const rightIndex = PROMPT_KEY_ORDER.indexOf(rightKey);
+        const normalizedLeft = leftIndex === -1 ? Number.POSITIVE_INFINITY : leftIndex;
+        const normalizedRight = rightIndex === -1 ? Number.POSITIVE_INFINITY : rightIndex;
+        if (normalizedLeft !== normalizedRight) return normalizedLeft - normalizedRight;
+        return leftKey.localeCompare(rightKey);
+      })
+    : [];
 
-  function startEdit(data: ClientPromptsResponse) {
-    setEditMode(true);
-    setEditTemplates(data.templates);
-    setEditVersion(data.template_version);
-    setModalError(null);
-  }
+  useEffect(() => {
+    setPromptsClient(config.active_client);
+    setPromptsData(null);
+    setExpandedPrompt(null);
+    setPromptsError(null);
+    setInlineEditMode(false);
+    setInlineEditTemplates({});
+    setInlineEditVersion("");
+    setInlineError(null);
+  }, [config.active_client]);
 
-  function cancelEdit() {
-    setEditMode(false);
-    setModalError(null);
-    if (inspectData) {
-      setEditTemplates(inspectData.templates);
-      setEditVersion(inspectData.template_version);
-    }
-  }
+  useEffect(() => {
+    let isCancelled = false;
+
+    setLoadingPrompts(true);
+    setPromptsData(null);
+    setPromptsError(null);
+
+    clinicalService
+      .getClientPrompts(promptsClient)
+      .then((data) => {
+        if (isCancelled) return;
+        setPromptsData(data);
+        setInlineEditTemplates(data.templates);
+        setInlineEditVersion(data.template_version);
+      })
+      .catch((error) => {
+        if (isCancelled) return;
+        setPromptsError(error instanceof Error ? error.message : "Unable to load prompt templates.");
+      })
+      .finally(() => {
+        if (isCancelled) return;
+        setLoadingPrompts(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [promptsClient]);
 
   async function handleSetActive(clientName: string) {
     setSettingActive(clientName);
@@ -110,54 +145,68 @@ export function AIConfigsTab({ config, onActiveClientChange }: AIConfigsTabProps
     }
   }
 
-  async function handleInspect(clientName: string) {
-    setLoadingInspect(clientName);
-    try {
-      const data = await clinicalService.getClientPrompts(clientName);
-      setInspectData(data);
-      setEditMode(false);
-      setEditTemplates({});
-      setEditVersion("");
-      setModalError(null);
-    } finally {
-      setLoadingInspect(null);
+  function handlePromptsClientChange(event: React.ChangeEvent<HTMLSelectElement>) {
+    setExpandedPrompt(null);
+    setInlineEditMode(false);
+    setInlineEditTemplates({});
+    setInlineEditVersion("");
+    setInlineError(null);
+    setPromptsClient(event.target.value);
+  }
+
+  function handleStartInlineEdit() {
+    if (!promptsData) return;
+    setInlineEditMode(true);
+    setInlineEditTemplates(promptsData.templates);
+    setInlineEditVersion(promptsData.template_version);
+    setInlineError(null);
+  }
+
+  function handleCancelInlineEdit() {
+    setInlineEditMode(false);
+    setInlineError(null);
+    if (promptsData) {
+      setInlineEditTemplates(promptsData.templates);
+      setInlineEditVersion(promptsData.template_version);
     }
   }
 
-  async function handleSavePrompts() {
-    if (!inspectData) return;
-    setSaving(true);
-    setModalError(null);
+  async function handleSaveInlinePrompts() {
+    if (!promptsData) return;
+    setInlineSaving(true);
+    setInlineError(null);
     try {
-      const data = await clinicalService.updateClientPrompts(inspectData.client_name, {
-        version: editVersion,
-        templates: editTemplates,
+      const data = await clinicalService.updateClientPrompts(promptsData.client_name, {
+        version: inlineEditVersion,
+        templates: inlineEditTemplates,
       });
-      setInspectData(data);
-      setEditMode(false);
+      setPromptsData(data);
+      setInlineEditTemplates(data.templates);
+      setInlineEditVersion(data.template_version);
+      setInlineEditMode(false);
       await onActiveClientChange();
     } catch (error) {
-      setModalError(error instanceof Error ? error.message : "Unable to save prompt changes.");
+      setInlineError(error instanceof Error ? error.message : "Unable to save prompt changes.");
     } finally {
-      setSaving(false);
+      setInlineSaving(false);
     }
   }
 
-  async function handleResetPrompts() {
-    if (!inspectData || !window.confirm("Reset all prompts to YAML defaults?")) return;
-    setResetting(true);
-    setModalError(null);
+  async function handleResetInlinePrompts() {
+    if (!promptsData || !window.confirm("Reset all prompts to YAML defaults?")) return;
+    setInlineResetting(true);
+    setInlineError(null);
     try {
-      const data = await clinicalService.resetClientPrompts(inspectData.client_name);
-      setInspectData(data);
-      setEditMode(false);
-      setEditTemplates({});
-      setEditVersion(data.template_version);
+      const data = await clinicalService.resetClientPrompts(promptsData.client_name);
+      setPromptsData(data);
+      setInlineEditTemplates(data.templates);
+      setInlineEditVersion(data.template_version);
+      setInlineEditMode(false);
       await onActiveClientChange();
     } catch (error) {
-      setModalError(error instanceof Error ? error.message : "Unable to reset prompt changes.");
+      setInlineError(error instanceof Error ? error.message : "Unable to reset prompt changes.");
     } finally {
-      setResetting(false);
+      setInlineResetting(false);
     }
   }
 
@@ -208,7 +257,6 @@ export function AIConfigsTab({ config, onActiveClientChange }: AIConfigsTabProps
                 const isActive = client.name === config.active_client;
                 const isSetting = settingActive === client.name;
                 const isTesting = testingClient === client.name;
-                const isInspecting = loadingInspect === client.name;
                 const testResult = testResults[client.name];
                 const hasPassingTest = testResult?.status === "ok";
                 const hasFailedTest = testResult?.status === "error";
@@ -258,14 +306,6 @@ export function AIConfigsTab({ config, onActiveClientChange }: AIConfigsTabProps
                             </button>
                           </>
                         )}
-                        {/* Inspect Prompt button */}
-                        <button
-                          onClick={() => handleInspect(client.name)}
-                          disabled={isInspecting || isTesting || isSetting}
-                          className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-navavej-border text-navavej-gray-med hover:border-navavej-gray-dark hover:text-navavej-gray-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          {isInspecting ? "Loading…" : "Inspect"}
-                        </button>
                         {hasPassingTest && testResult?.latency_ms !== null && (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
                             {testResult.latency_ms}ms
@@ -289,129 +329,145 @@ export function AIConfigsTab({ config, onActiveClientChange }: AIConfigsTabProps
         </p>
       </div>
 
-      {/* Inspect Prompt Modal */}
-      {inspectData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-[24px] shadow-2xl border border-navavej-border w-full max-w-2xl mx-4 flex flex-col max-h-[85vh]">
-
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-8 py-6 border-b border-navavej-border shrink-0">
-              <div>
-                <h3 className="text-sm font-black text-navavej-gray-dark uppercase tracking-tight font-mono">
-                  {inspectData.client_name}
-                </h3>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] font-bold text-navavej-gray-med uppercase tracking-widest">Prompt Templates</span>
-                  {editMode ? (
-                    <input
-                      aria-label="Template Version"
-                      value={editVersion}
-                      onChange={(event) => setEditVersion(event.target.value)}
-                      className="px-2 py-1 rounded-full bg-white text-navavej-gray-dark text-[10px] font-bold border border-navavej-border uppercase tracking-widest min-w-[140px]"
-                    />
-                  ) : (
-                    <span className="px-2 py-0.5 rounded-full bg-navavej-gray-light text-navavej-gray-dark text-[10px] font-bold border border-navavej-border">
-                      {inspectData.template_version}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {!editMode && (
-                  <button
-                    onClick={() => startEdit(inspectData)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border border-navavej-border text-navavej-gray-dark hover:border-navavej-gray-dark transition-colors"
-                  >
-                    <Pencil className="w-3 h-3" />
-                    Edit Prompts
-                  </button>
-                )}
+      {/* Prompt Management */}
+      <div className="navavej-card bg-white border border-navavej-border rounded-lg p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+          <div className="space-y-2">
+            <p className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest">Prompts Mgnt</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-bold text-navavej-gray-med uppercase tracking-widest">Client</span>
+              <select
+                aria-label="Prompt client"
+                value={promptsClient}
+                onChange={handlePromptsClientChange}
+                className="px-3 py-2 border border-navavej-border rounded-lg text-xs font-bold outline-none bg-white focus:border-navavej-teal/50 cursor-pointer"
+              >
+                {registryClients.map((client) => (
+                  <option key={client.name} value={client.name}>
+                    {client.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {inlineEditMode ? (
+              <>
+                <input
+                  aria-label="Inline Template Version"
+                  value={inlineEditVersion}
+                  onChange={(event) => setInlineEditVersion(event.target.value)}
+                  className="px-3 py-1 rounded-full bg-white text-navavej-gray-dark text-xs font-bold border border-navavej-border min-w-[140px]"
+                />
                 <button
-                  onClick={closeModal}
-                  className="p-1.5 rounded-full hover:bg-navavej-gray-light text-navavej-gray-med transition-colors"
+                  type="button"
+                  onClick={handleCancelInlineEdit}
+                  disabled={inlineSaving || inlineResetting}
+                  className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-navavej-gray-light text-navavej-gray-dark border border-navavej-border hover:bg-navavej-border transition-colors disabled:opacity-40"
                 >
-                  <X className="w-4 h-4" />
+                  Cancel Inline Prompt Changes
                 </button>
-              </div>
-            </div>
-
-            {/* Modal Body */}
-            <div className="overflow-y-auto px-8 py-6 space-y-6">
-              {modalError && (
-                <div className="rounded-lg border border-navavej-red/30 bg-navavej-red/5 px-4 py-3 text-xs font-bold text-navavej-red">
-                  {modalError}
-                </div>
-              )}
-              {Object.entries(editMode ? editTemplates : inspectData.templates).map(([key, text]) => (
-                <div key={key}>
-                  <label className="block">
-                    <span className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest mb-2 font-mono block">
-                      {PROMPT_KEY_LABELS[key] ?? key}
-                    </span>
-                    {editMode ? (
-                      <textarea
-                        aria-label={PROMPT_KEY_LABELS[key] ?? key}
-                        value={text}
-                        onChange={(event) => setEditTemplates((current) => ({ ...current, [key]: event.target.value }))}
-                        className="w-full min-h-[200px] text-[11px] font-mono text-navavej-gray-dark bg-navavej-gray-light/60 border border-navavej-border rounded-lg p-4 leading-relaxed resize-y"
-                        style={{ whiteSpace: "pre" }}
-                      />
-                    ) : (
-                      <pre className="text-[11px] font-mono text-navavej-gray-dark bg-navavej-gray-light/60 border border-navavej-border rounded-lg p-4 whitespace-pre-wrap leading-relaxed">
-                        {text}
-                      </pre>
-                    )}
-                  </label>
-                </div>
-              ))}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="flex items-center justify-between px-8 py-5 border-t border-navavej-border shrink-0">
-              {editMode ? (
                 <button
-                  onClick={handleResetPrompts}
-                  disabled={saving || resetting}
-                  className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-wider text-navavej-gray-med hover:text-navavej-gray-dark disabled:opacity-40"
+                  type="button"
+                  onClick={handleSaveInlinePrompts}
+                  disabled={inlineSaving || inlineResetting}
+                  className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-navavej-teal text-white border border-navavej-teal hover:opacity-90 transition-colors disabled:opacity-40"
+                >
+                  {inlineSaving ? "Saving…" : "Save Inline Prompt Changes"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetInlinePrompts}
+                  disabled={inlineSaving || inlineResetting}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border border-navavej-border text-navavej-gray-dark hover:border-navavej-gray-dark transition-colors disabled:opacity-40"
                 >
                   <RotateCcw className="w-3 h-3" />
-                  {resetting ? "Resetting…" : "Reset to Default"}
+                  {inlineResetting ? "Resetting…" : "Reset Inline Prompts to Default"}
                 </button>
-              ) : (
-                <div />
-              )}
-              <div className="flex items-center gap-3">
-                {editMode ? (
-                  <>
-                    <button
-                      onClick={cancelEdit}
-                      disabled={saving || resetting}
-                      className="px-5 py-2 rounded-full text-xs font-black uppercase tracking-wider bg-navavej-gray-light text-navavej-gray-dark border border-navavej-border hover:bg-navavej-border transition-colors disabled:opacity-40"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSavePrompts}
-                      disabled={saving || resetting}
-                      className="px-5 py-2 rounded-full text-xs font-black uppercase tracking-wider bg-navavej-teal text-white border border-navavej-teal hover:opacity-90 transition-colors disabled:opacity-40"
-                    >
-                      {saving ? "Saving…" : "Save Changes"}
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={closeModal}
-                    className="px-5 py-2 rounded-full text-xs font-black uppercase tracking-wider bg-navavej-gray-light text-navavej-gray-dark border border-navavej-border hover:bg-navavej-border transition-colors"
-                  >
-                    Close
-                  </button>
-                )}
-              </div>
-            </div>
-
+              </>
+            ) : (
+              <>
+                <span className="px-3 py-1 rounded-full bg-navavej-gray-light text-navavej-gray-dark text-xs font-bold border border-navavej-border">
+                  {promptsData?.template_version ?? config.template_version}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleStartInlineEdit}
+                  disabled={!promptsData || loadingPrompts}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border border-navavej-border text-navavej-gray-dark hover:border-navavej-gray-dark transition-colors disabled:opacity-40"
+                >
+                  <Pencil className="w-3 h-3" />
+                  Edit Prompts
+                </button>
+              </>
+            )}
           </div>
         </div>
-      )}
+
+        {inlineError && (
+          <div className="rounded-lg border border-navavej-red/30 bg-navavej-red/5 px-4 py-3 mb-4">
+            <p className="text-xs font-bold text-navavej-red">{inlineError}</p>
+          </div>
+        )}
+
+        {loadingPrompts ? (
+          <div className="rounded-lg border border-navavej-border bg-navavej-gray-light/30 px-4 py-6">
+            <p className="text-xs font-bold text-navavej-gray-med">Loading prompt templates...</p>
+          </div>
+        ) : promptsError ? (
+          <div className="rounded-lg border border-navavej-red/30 bg-navavej-red/5 px-4 py-6">
+            <p className="text-xs font-bold text-navavej-red">{promptsError}</p>
+          </div>
+        ) : orderedPromptEntries.length === 0 ? (
+          <div className="rounded-lg border border-navavej-border bg-navavej-gray-light/30 px-4 py-6">
+            <p className="text-xs font-bold text-navavej-gray-med">No prompt templates available for this client.</p>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-navavej-border divide-y divide-navavej-border overflow-hidden">
+            {orderedPromptEntries.map(([key, text]) => {
+              const isExpanded = expandedPrompt === key;
+              return (
+                <div key={key} className="bg-white">
+                  <button
+                    type="button"
+                    aria-label={PROMPT_KEY_LABELS[key] ?? key}
+                    onClick={() => setExpandedPrompt(isExpanded ? null : key)}
+                    className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-navavej-gray-light/30 transition-colors"
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="w-4 h-4 text-navavej-teal flex-shrink-0" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-navavej-gray-med flex-shrink-0" />
+                    )}
+                    <span className="text-xs font-black text-navavej-gray-dark">
+                      {PROMPT_KEY_LABELS[key] ?? key}
+                    </span>
+                  </button>
+                  {isExpanded && (
+                    <div className="px-4 pb-4">
+                      {inlineEditMode ? (
+                        <textarea
+                          aria-label={PROMPT_KEY_LABELS[key] ?? key}
+                          value={inlineEditTemplates[key] ?? ""}
+                          onChange={(event) =>
+                            setInlineEditTemplates((current) => ({ ...current, [key]: event.target.value }))
+                          }
+                          className="w-full min-h-[220px] text-[11px] font-mono text-navavej-gray-dark bg-navavej-gray-light/60 border border-navavej-border rounded-lg p-4 leading-relaxed resize-y"
+                          style={{ whiteSpace: "pre" }}
+                        />
+                      ) : (
+                        <pre className="text-[11px] font-mono text-navavej-gray-dark bg-navavej-gray-light/60 border border-navavej-border rounded-lg p-4 whitespace-pre-wrap leading-relaxed max-h-[400px] overflow-y-auto">
+                          {text}
+                        </pre>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
     </div>
   );

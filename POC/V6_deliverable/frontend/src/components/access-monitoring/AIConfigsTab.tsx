@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { ChevronDown, ChevronRight, X } from "lucide-react";
 import { ClientPromptsResponse, SystemConfig } from "@/services/api";
 import { clinicalService } from "@/services/api";
 
@@ -32,6 +32,13 @@ const PROMPT_KEY_LABELS: Record<string, string> = {
   annotate_reasoning_lines: "Annotate Reasoning Lines",
 };
 
+const PROMPT_KEY_ORDER = [
+  "analyze_clinical_risks",
+  "match_policy",
+  "write_narrative",
+  "annotate_reasoning_lines",
+];
+
 export function AIConfigsTab({ config, role = "sysadmin", onActiveClientChange }: AIConfigsTabProps) {
   const registryClients = config.all_clients.filter(
     (client) => client.name !== "ActiveModel" && client.status !== "fallback-chain"
@@ -42,8 +49,23 @@ export function AIConfigsTab({ config, role = "sysadmin", onActiveClientChange }
   const [loadingInspect, setLoadingInspect] = useState<string | null>(null);
   const [serviceAvailable, setServiceAvailable] = useState<boolean | null>(null);
   const [clientValidation, setClientValidation] = useState<Record<string, ClientValidation>>({});
+  const [promptsClient, setPromptsClient] = useState<string>(config.active_client);
+  const [promptsData, setPromptsData] = useState<ClientPromptsResponse | null>(null);
+  const [expandedPrompt, setExpandedPrompt] = useState<string | null>(null);
+  const [loadingPrompts, setLoadingPrompts] = useState(false);
+  const [promptsError, setPromptsError] = useState<string | null>(null);
 
   const standbyClients = registryClients.filter((c) => c.name !== config.active_client);
+  const orderedPromptEntries = promptsData
+    ? Object.entries(promptsData.templates).sort(([leftKey], [rightKey]) => {
+        const leftIndex = PROMPT_KEY_ORDER.indexOf(leftKey);
+        const rightIndex = PROMPT_KEY_ORDER.indexOf(rightKey);
+        const normalizedLeft = leftIndex === -1 ? Number.POSITIVE_INFINITY : leftIndex;
+        const normalizedRight = rightIndex === -1 ? Number.POSITIVE_INFINITY : rightIndex;
+        if (normalizedLeft !== normalizedRight) return normalizedLeft - normalizedRight;
+        return leftKey.localeCompare(rightKey);
+      })
+    : [];
 
   async function runValidation(clientName: string) {
     setClientValidation((prev) => ({ ...prev, [clientName]: { status: "running" } }));
@@ -71,6 +93,41 @@ export function AIConfigsTab({ config, role = "sysadmin", onActiveClientChange }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.active_client]);
 
+  useEffect(() => {
+    setPromptsClient(config.active_client);
+    setExpandedPrompt(null);
+    setPromptsData(null);
+    setPromptsError(null);
+  }, [config.active_client]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    setLoadingPrompts(true);
+    setPromptsData(null);
+    setPromptsError(null);
+
+    clinicalService
+      .getClientPrompts(promptsClient)
+      .then((data) => {
+        if (isCancelled) return;
+        setPromptsData(data);
+      })
+      .catch((error) => {
+        if (isCancelled) return;
+        const message = error instanceof Error ? error.message : "Unable to load prompt templates.";
+        setPromptsError(message);
+      })
+      .finally(() => {
+        if (isCancelled) return;
+        setLoadingPrompts(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [promptsClient]);
+
   async function handleSetActive(clientName: string) {
     setSettingActive(clientName);
     try {
@@ -89,6 +146,11 @@ export function AIConfigsTab({ config, role = "sysadmin", onActiveClientChange }
     } finally {
       setLoadingInspect(null);
     }
+  }
+
+  function handlePromptsClientChange(event: React.ChangeEvent<HTMLSelectElement>) {
+    setExpandedPrompt(null);
+    setPromptsClient(event.target.value);
   }
 
   return (
@@ -218,6 +280,78 @@ export function AIConfigsTab({ config, role = "sysadmin", onActiveClientChange }
         <p className="mt-4 text-[10px] font-medium text-navavej-gray-med">
           Models are configured per client in <span className="font-mono">.env</span>. All configured clients initialize at startup; switching active inference still requires a successful validation check.
         </p>
+      </div>
+
+      {/* Prompts Management */}
+      <div className="navavej-card bg-white border border-navavej-teal/30 rounded-lg p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+          <div className="space-y-2">
+            <p className="text-[10px] font-black text-navavej-gray-med uppercase tracking-widest">Prompts Mgnt</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-bold text-navavej-gray-med uppercase tracking-widest">Client</span>
+              <select
+                value={promptsClient}
+                onChange={handlePromptsClientChange}
+                className="px-3 py-2 border border-navavej-border rounded-lg text-xs font-bold outline-none bg-white focus:border-navavej-teal/50 cursor-pointer"
+                aria-label="Prompt client"
+              >
+                {registryClients.map((client) => (
+                  <option key={client.name} value={client.name}>
+                    {client.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <span className="px-3 py-1 rounded-full bg-navavej-gray-light text-navavej-gray-dark text-xs font-bold border border-navavej-border">
+            {promptsData?.template_version ?? `Template ${config.template_version}`}
+          </span>
+        </div>
+
+        {loadingPrompts ? (
+          <div className="rounded-lg border border-navavej-border bg-navavej-gray-light/30 px-4 py-6">
+            <p className="text-xs font-bold text-navavej-gray-med">Loading prompt templates...</p>
+          </div>
+        ) : promptsError ? (
+          <div className="rounded-lg border border-navavej-red/30 bg-navavej-red/5 px-4 py-6">
+            <p className="text-xs font-bold text-navavej-red">{promptsError}</p>
+          </div>
+        ) : orderedPromptEntries.length === 0 ? (
+          <div className="rounded-lg border border-navavej-border bg-navavej-gray-light/30 px-4 py-6">
+            <p className="text-xs font-bold text-navavej-gray-med">No prompt templates available for this client.</p>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-navavej-border divide-y divide-navavej-border overflow-hidden">
+            {orderedPromptEntries.map(([key, text]) => {
+              const isExpanded = expandedPrompt === key;
+              return (
+                <div key={key} className="bg-white">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedPrompt(isExpanded ? null : key)}
+                    className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-navavej-gray-light/30 transition-colors"
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="w-4 h-4 text-navavej-teal flex-shrink-0" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-navavej-gray-med flex-shrink-0" />
+                    )}
+                    <span className="text-xs font-black text-navavej-gray-dark">
+                      {PROMPT_KEY_LABELS[key] ?? key}
+                    </span>
+                  </button>
+                  {isExpanded && (
+                    <div className="px-4 pb-4">
+                      <pre className="text-[11px] font-mono text-navavej-gray-dark bg-navavej-gray-light/60 border border-navavej-border rounded-lg p-4 whitespace-pre-wrap leading-relaxed max-h-[400px] overflow-y-auto">
+                        {text.trim()}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Inspect Prompt Modal */}
